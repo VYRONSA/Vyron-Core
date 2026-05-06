@@ -1,0 +1,27 @@
+<svg width="220" height="70" viewBox="0 0 220 70" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Icon background -->
+  <rect x="0" y="5" width="50" height="50" rx="14" fill="url(#grad)"/>
+
+  <!-- Left bar -->
+  <rect x="16" y="14" width="6" height="30" rx="2" transform="rotate(-28 16 14)" fill="white"/>
+
+  <!-- Right bar -->
+  <rect x="28" y="14" width="6" height="30" rx="2" transform="rotate(28 28 14)" fill="#0A0F1A"/>
+
+  <!-- Text -->
+  <text x="65" y="32" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="800" letter-spacing="6" fill="#0A0F1A">
+    VYRON
+  </text>
+
+  <text x="66" y="50" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" letter-spacing="5" fill="#00CFFF">
+    CORE
+  </text>
+
+  <!-- Gradient -->
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="50" y2="50" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+  </defs>
+</svg>
