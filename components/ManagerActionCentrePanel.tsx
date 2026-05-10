@@ -55,6 +55,28 @@ type PayrollClockCheck = {
   exception_reason: string | null;
 };
 
+
+type GeneratedDocument = {
+  id: string;
+  employee_id: string;
+  document_title: string;
+  document_type: string;
+  signature_status: string;
+  signed_at: string | null;
+  created_at: string;
+};
+
+type SigningLink = {
+  id: string;
+  employee_id: string;
+  document_id: string;
+  status: string;
+  expires_at: string | null;
+  opened_at: string | null;
+  signed_at: string | null;
+  created_at: string;
+};
+
 type LeaveBalanceLive = {
   id: string;
   employee_id: string;
@@ -169,7 +191,7 @@ function ActionCard({
   icon: React.ReactNode;
 }) {
   return (
-    <div className={`rounded-[28px] border p-5 ${tone}`}>
+    <div className={`rounded-[2rem] border p-5 shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-[0_28px_80px_rgba(37,99,235,0.20)] ${tone}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-xs font-black uppercase tracking-[0.2em] opacity-70">
@@ -186,7 +208,7 @@ function ActionCard({
 
 function InfoTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-white p-4">
+    <div className="rounded-2xl border border-white/80 bg-white/95 p-4 shadow-sm">
       <div className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
         {label}
       </div>
@@ -194,6 +216,27 @@ function InfoTile({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+
+function FileSignatureIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-6 w-6 text-cyan-700" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6" />
+      <path d="M8 17c1.5-2 3-2 4 0s2.5 2 4 0" />
+    </svg>
+  );
+}
+
+function LinkIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-6 w-6 text-emerald-700" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11.5 4.43" />
+      <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07l1.33-1.33" />
+    </svg>
+  );
+}
+
 
 export default function ManagerActionCentrePanel({
   onNavigate,
@@ -204,6 +247,8 @@ export default function ManagerActionCentrePanel({
   const [notifications, setNotifications] = useState<EmployeeNotification[]>([]);
   const [exceptions, setExceptions] = useState<ExceptionRow[]>([]);
   const [payrollChecks, setPayrollChecks] = useState<PayrollClockCheck[]>([]);
+  const [generatedDocuments, setGeneratedDocuments] = useState<GeneratedDocument[]>([]);
+  const [signingLinks, setSigningLinks] = useState<SigningLink[]>([]);
   const [selectedLeave, setSelectedLeave] = useState<LeaveRequest | null>(null);
   const [selectedLeaveBalance, setSelectedLeaveBalance] = useState<LeaveBalanceLive | null>(null);
   const [feedback, setFeedback] = useState("");
@@ -237,6 +282,16 @@ export default function ManagerActionCentrePanel({
     [payrollChecks]
   );
 
+  const unsignedDocuments = useMemo(
+    () => generatedDocuments.filter((item) => item.signature_status !== "signed"),
+    [generatedDocuments]
+  );
+
+  const openSigningLinks = useMemo(
+    () => signingLinks.filter((item) => item.status === "active" && (!item.expires_at || new Date(item.expires_at).getTime() > Date.now())),
+    [signingLinks]
+  );
+
   const selectedLeaveDays = selectedLeave
     ? leaveDays(selectedLeave.start_date, selectedLeave.end_date)
     : 0;
@@ -250,7 +305,7 @@ export default function ManagerActionCentrePanel({
     setLoading(true);
     setError(null);
 
-    const [leaveResult, notificationResult, exceptionsResult, payrollResult] =
+    const [leaveResult, notificationResult, exceptionsResult, payrollResult, documentsResult, signingLinksResult] =
       await Promise.all([
         supabase
           .from("leave_requests")
@@ -281,6 +336,16 @@ export default function ManagerActionCentrePanel({
           .select("*")
           .order("shift_date", { ascending: false })
           .limit(20),
+        supabase
+          .from("employee_generated_documents")
+          .select("id,employee_id,document_title,document_type,signature_status,signed_at,created_at")
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("document_signing_links")
+          .select("id,employee_id,document_id,status,expires_at,opened_at,signed_at,created_at")
+          .order("created_at", { ascending: false })
+          .limit(20),
       ]);
 
     if (leaveResult.error) {
@@ -301,6 +366,14 @@ export default function ManagerActionCentrePanel({
 
     if (payrollResult.data) {
       setPayrollChecks(payrollResult.data as PayrollClockCheck[]);
+    }
+
+    if (documentsResult.data) {
+      setGeneratedDocuments(documentsResult.data as GeneratedDocument[]);
+    }
+
+    if (signingLinksResult.data) {
+      setSigningLinks(signingLinksResult.data as SigningLink[]);
     }
 
     setLoading(false);
@@ -378,14 +451,17 @@ export default function ManagerActionCentrePanel({
 
   return (
     <div className="mt-8 space-y-8">
-      <section className="rounded-[34px] bg-gradient-to-r from-[#07101f] to-[#0b1a33] p-6 text-white shadow-2xl shadow-slate-300">
+      <section className="relative overflow-hidden rounded-[2.2rem] border border-white/70 bg-white/95 p-7 text-[#06101f] shadow-[0_22px_70px_rgba(15,23,42,0.16)] backdrop-blur-xl">
+        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cyan-300/30 blur-[80px]" />
+        <div className="pointer-events-none absolute bottom-[-120px] left-1/3 h-72 w-72 rounded-full bg-blue-400/20 blur-[90px]" />
+        <div className="relative z-10">
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">
+            <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-700">
               Manager Action Centre
             </div>
             <h2 className="mt-3 text-4xl font-bold">What needs attention now</h2>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300">
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">
               Pending leave, actionable employee notifications, open exceptions and blocked
               payroll checks are shown here so managers know what to action first.
             </p>
@@ -399,9 +475,10 @@ export default function ManagerActionCentrePanel({
             {loading ? "Loading..." : "Refresh"}
           </button>
         </div>
+      </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-6">
         <button onClick={() => go("Leave Approvals")} className="text-left">
           <ActionCard
             title="Pending Leave"
@@ -417,8 +494,8 @@ export default function ManagerActionCentrePanel({
             title="Notifications"
             value={String(pendingNotifications.length)}
             subtitle="Actionable only"
-            tone="border-blue-200 bg-blue-50 text-blue-900"
-            icon={<Bell className="h-6 w-6 text-blue-700" />}
+            tone="border-cyan-200 bg-cyan-50 text-cyan-900"
+            icon={<Bell className="h-6 w-6 text-cyan-700" />}
           />
         </button>
 
@@ -441,6 +518,26 @@ export default function ManagerActionCentrePanel({
             icon={<ShieldAlert className="h-6 w-6 text-slate-700" />}
           />
         </button>
+
+        <button onClick={() => go("HR Contract Centre")} className="text-left">
+          <ActionCard
+            title="Unsigned Docs"
+            value={String(unsignedDocuments.length)}
+            subtitle="Need signature"
+            tone="border-cyan-200 bg-cyan-50 text-cyan-900"
+            icon={<FileSignatureIcon />}
+          />
+        </button>
+
+        <button onClick={() => go("HR Contract Centre")} className="text-left">
+          <ActionCard
+            title="Signing Links"
+            value={String(openSigningLinks.length)}
+            subtitle="Active WhatsApp links"
+            tone="border-emerald-200 bg-emerald-50 text-emerald-900"
+            icon={<LinkIcon />}
+          />
+        </button>
       </section>
 
       {error && (
@@ -451,7 +548,7 @@ export default function ManagerActionCentrePanel({
       )}
 
       <section className="grid gap-8 xl:grid-cols-2">
-        <div className="rounded-[34px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
+        <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl">
           <div className="flex items-center justify-between gap-4">
             <div>
               <div className="text-xs font-bold uppercase tracking-[0.35em] text-amber-600">
@@ -464,7 +561,7 @@ export default function ManagerActionCentrePanel({
 
             <button
               onClick={() => go("Leave Approvals")}
-              className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-white"
+              className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-[#06101f]"
             >
               Open Leave Approvals
             </button>
@@ -484,7 +581,7 @@ export default function ManagerActionCentrePanel({
                   onClick={() => openLeaveDetails(leave)}
                   className={`w-full rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-lg ${
                     selectedLeave?.id === leave.id
-                      ? "border-blue-400 bg-blue-50"
+                      ? "border-cyan-400 bg-cyan-50"
                       : "border-slate-200 bg-slate-50"
                   }`}
                 >
@@ -498,7 +595,7 @@ export default function ManagerActionCentrePanel({
                     {formatDate(leave.start_date)} → {formatDate(leave.end_date)} ·{" "}
                     {leaveDays(leave.start_date, leave.end_date)} day(s)
                   </div>
-                  <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-xs font-bold text-blue-700">
+                  <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-xs font-bold text-cyan-700">
                     Click to open approval details
                   </div>
                 </button>
@@ -507,10 +604,10 @@ export default function ManagerActionCentrePanel({
           </div>
         </div>
 
-        <div className="rounded-[34px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
+        <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">
+              <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-600">
                 Leave Review
               </div>
               <h3 className="mt-2 text-2xl font-bold text-slate-950">
@@ -538,7 +635,7 @@ export default function ManagerActionCentrePanel({
 
           {!selectedLeave ? (
             <div className="mt-6 rounded-[26px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
-              <CalendarDays className="mx-auto h-10 w-10 text-slate-300" />
+              <CalendarDays className="mx-auto h-10 w-10 text-slate-600" />
               <div className="mt-3 text-lg font-bold text-slate-950">
                 No leave request selected
               </div>
@@ -548,7 +645,7 @@ export default function ManagerActionCentrePanel({
             </div>
           ) : (
             <>
-              <div className="mt-6 rounded-[26px] border border-slate-200 bg-slate-50 p-5">
+              <div className="mt-6 rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
                     <div className="text-2xl font-black text-slate-950">
@@ -571,7 +668,7 @@ export default function ManagerActionCentrePanel({
                   <InfoTile label="Requested Days" value={`${selectedLeaveDays} day(s)`} />
                 </div>
 
-                <div className="mt-4 rounded-2xl bg-white p-4">
+                <div className="mt-4 rounded-2xl border border-white/80 bg-white/95 p-4 shadow-sm">
                   <div className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
                     Reason
                   </div>
@@ -581,8 +678,8 @@ export default function ManagerActionCentrePanel({
                 </div>
               </div>
 
-              <div className="mt-5 rounded-[26px] border border-slate-200 bg-slate-50 p-5">
-                <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">
+              <div className="mt-5 rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl">
+                <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-600">
                   Leave Balance Check
                 </div>
 
@@ -629,7 +726,7 @@ export default function ManagerActionCentrePanel({
                   value={feedback}
                   onChange={(event) => setFeedback(event.target.value)}
                   rows={4}
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-blue-500"
+                  className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 text-sm font-semibold outline-none focus:border-cyan-400"
                   placeholder="Optional feedback to employee..."
                 />
               </label>
@@ -638,7 +735,7 @@ export default function ManagerActionCentrePanel({
                 <button
                   onClick={() => updateSelectedLeave("approved")}
                   disabled={actionSaving || !selectedLeaveHasEnoughBalance}
-                  className="rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300 disabled:text-slate-500"
+                  className="rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-black text-[#06101f] disabled:bg-slate-300 disabled:text-slate-500"
                 >
                   Approve
                 </button>
@@ -646,7 +743,7 @@ export default function ManagerActionCentrePanel({
                 <button
                   onClick={() => updateSelectedLeave("declined")}
                   disabled={actionSaving}
-                  className="rounded-2xl bg-rose-600 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300 disabled:text-slate-500"
+                  className="rounded-2xl bg-rose-600 px-5 py-4 text-sm font-black text-[#06101f] disabled:bg-slate-300 disabled:text-slate-500"
                 >
                   Decline
                 </button>
@@ -654,7 +751,7 @@ export default function ManagerActionCentrePanel({
                 <button
                   onClick={() => updateSelectedLeave("amended")}
                   disabled={actionSaving}
-                  className="rounded-2xl bg-blue-600 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300 disabled:text-slate-500"
+                  className="rounded-2xl bg-blue-600 px-5 py-4 text-sm font-black text-[#06101f] disabled:bg-slate-300 disabled:text-slate-500"
                 >
                   Amend
                 </button>
@@ -665,10 +762,10 @@ export default function ManagerActionCentrePanel({
       </section>
 
       <section className="grid gap-8 xl:grid-cols-2">
-        <div className="rounded-[34px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
+        <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">
+              <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-600">
                 Messages
               </div>
               <h3 className="mt-2 text-2xl font-bold text-slate-950">
@@ -678,7 +775,7 @@ export default function ManagerActionCentrePanel({
 
             <button
               onClick={() => go("Employee Notifications")}
-              className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-white"
+              className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-[#06101f]"
             >
               Open
             </button>
@@ -694,7 +791,7 @@ export default function ManagerActionCentrePanel({
               pendingNotifications.slice(0, 5).map((notification) => (
                 <div
                   key={notification.id}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                  className="rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl p-4"
                 >
                   <div className="font-bold text-slate-950">
                     {notification.employee_name}

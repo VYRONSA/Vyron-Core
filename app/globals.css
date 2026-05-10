@@ -1,26 +1,63 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --vyron-bg: #07101f;
+  --vyron-bg-2: #0b1a33;
+  --vyron-panel: rgba(255,255,255,0.94);
+  --vyron-border: rgba(255,255,255,0.10);
+  --vyron-cyan: #22d3ee;
+  --vyron-blue: #2563eb;
+  --vyron-text: #06101f;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  min-height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(circle at 18% 8%, rgba(34,211,238,0.18), transparent 30%),
+    radial-gradient(circle at 88% 18%, rgba(37,99,235,0.16), transparent 34%),
+    linear-gradient(135deg, #050914 0%, #07101f 34%, #eef7ff 34%, #f8fbff 100%);
+  color: var(--vyron-text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.vyron-shell {
+  min-height: 100vh;
+}
+
+.vyron-panel {
+  background: rgba(255,255,255,0.94);
+  border: 1px solid rgba(255,255,255,0.70);
+  box-shadow:
+    0 20px 60px rgba(15,23,42,0.12),
+    0 0 24px rgba(34,211,238,0.06);
+  backdrop-filter: blur(18px);
+}
+
+.vyron-dark-panel {
+  background:
+    radial-gradient(circle at 18% 8%, rgba(34,211,238,0.18), transparent 28%),
+    linear-gradient(135deg, #020617 0%, #07101f 58%, #0b1f3a 100%);
+  border: 1px solid rgba(125,211,252,0.16);
+  box-shadow:
+    0 26px 70px rgba(2,6,23,0.30),
+    0 0 34px rgba(34,211,238,0.12);
+}
+
+.vyron-card {
+  border-radius: 30px;
+  transition: all 180ms ease;
+}
+
+.vyron-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 26px 80px rgba(15,23,42,0.14),
+    0 0 30px rgba(34,211,238,0.10);
 }

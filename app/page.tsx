@@ -21,6 +21,20 @@ function GlobalWarningBanner({ exceptions, hrCases, payrollHours }: any) {
 
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Database,
+  Upload,
+  Rocket,
+  PlayCircle,
+  MonitorPlay,
+  Sparkles,
+  Server,
+  Building2,
+  LockKeyhole,
+  Crown,
+  HeartPulse,
+  Smartphone,
+  BarChart3,
+  Brain,
   AlertTriangle,
   Bell,
   CalendarDays,
@@ -35,7 +49,10 @@ import {
   WalletCards,
   X,
   Zap,
-  FileText
+  FileText,
+  Camera,
+  MapPin,
+  Image as ImageIcon
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import ManagerActionCentrePanel from "../components/ManagerActionCentrePanel";
@@ -47,6 +64,45 @@ import SmartDetectionEnginePanel from "../components/SmartDetectionEnginePanel";
 import ExceptionsActionPanel from "../components/ExceptionsActionPanel";
 import HRCasesActionPanel from "../components/HRCasesActionPanel";
 import HRWarningsDocumentPanel from "../components/HRWarningsDocumentPanel";
+import ClockReviewPanel from "../components/ClockReviewPanel";
+import WorkforceMovementPanel from "../components/WorkforceMovementPanel";
+import RosterIntelligencePanel from "../components/RosterIntelligencePanel";
+import ContractCentrePanel from "../components/ContractCentrePanel";
+import EmployeeDocumentVaultPanel from "../components/EmployeeDocumentVaultPanel";
+import LeaveControlCentrePanel from "../components/LeaveControlCentrePanel";
+import ProductionHardeningCentre from "../components/ProductionHardeningCentre";
+import AIIntelligenceLayerFinal from "../components/AIIntelligenceLayerFinal";
+import EnterpriseOnboardingWizard from "../components/EnterpriseOnboardingWizard";
+import MobileManagerExperience from "../components/MobileManagerExperience";
+import PayrollHardeningCentre from "../components/PayrollHardeningCentre";
+import ExecutiveCommandCentreFinal from "../components/ExecutiveCommandCentreFinal";
+import ClientPayrollExportCentre from "../components/ClientPayrollExportCentre";
+import ReportsIntelligenceCentre from "../components/ReportsIntelligenceCentre";
+import NotificationEscalationCentre from "../components/NotificationEscalationCentre";
+import MobileWorkforceCentre from "../components/MobileWorkforceCentre";
+import ClientOnboardingHub from "../components/ClientOnboardingHub";
+import SystemHealthCommandCentre from "../components/SystemHealthCommandCentre";
+import ExecutiveOperationsWall from "../components/ExecutiveOperationsWall";
+import LabourLeakageCommandCentre from "../components/LabourLeakageCommandCentre";
+import StorePerformanceIntelligence from "../components/StorePerformanceIntelligence";
+import WorkforceForecastCommandCentre from "../components/WorkforceForecastCommandCentre";
+import ComplianceScorecard from "../components/ComplianceScorecard";
+import RiskRegisterPanel from "../components/RiskRegisterPanel";
+import DocumentCompliancePanel from "../components/DocumentCompliancePanel";
+import SlaEscalationPanel from "../components/SlaEscalationPanel";
+import AIPolicyControlCentre from "../components/AIPolicyControlCentre";
+import ExceptionAutoTriage from "../components/ExceptionAutoTriage";
+import PayrollForecastEngine from "../components/PayrollForecastEngine";
+import ManagerCopilot from "../components/ManagerCopilot";
+import EnterprisePolishCommandCentre from "../components/EnterprisePolishCommandCentre";
+import PilotDemoReadinessCentre from "../components/PilotDemoReadinessCentre";
+import ClientDemoStoryCentre from "../components/ClientDemoStoryCentre";
+import ExecutiveLaunchCentre from "../components/ExecutiveLaunchCentre";
+import PayrollExportEngineFinal from "../components/PayrollExportEngineFinal";
+import ExceptionIntelligenceEngineFinal from "../components/ExceptionIntelligenceEngineFinal";
+import EnterpriseOnboardingSystemFinal from "../components/EnterpriseOnboardingSystemFinal";
+import RolesPermissionsEngineFinal from "../components/RolesPermissionsEngineFinal";
+import CommercialDemoEnvironmentFinal from "../components/CommercialDemoEnvironmentFinal";
 
 const DEMO_COMPANY_ID = "11111111-1111-1111-1111-111111111111";
 
@@ -183,6 +239,12 @@ type ClockEventRow = {
   source: string;
   latitude: number | null;
   longitude: number | null;
+  gps_accuracy?: number | null;
+  photo_url?: string | null;
+  photo_bucket?: string | null;
+  photo_path?: string | null;
+  device_info?: string | null;
+  clock_note?: string | null;
 };
 
 type PayrollBatchRow = {
@@ -293,22 +355,45 @@ function userInitials(email: string | null | undefined) {
 
 
 function NavIcon({ item }: { item: string }) {
+  if (item.includes("Payroll Export Engine")) return <WalletCards className="h-5 w-5" />;
+  if (item.includes("Exception Intelligence Engine")) return <Brain className="h-5 w-5" />;
+  if (item.includes("Enterprise Onboarding System")) return <Upload className="h-5 w-5" />;
+  if (item.includes("Roles & Permissions Engine")) return <ShieldCheck className="h-5 w-5" />;
+  if (item.includes("Commercial Demo Environment")) return <Rocket className="h-5 w-5" />;
+  if (item.includes("Executive Launch")) return <Rocket className="h-5 w-5" />;
+  if (item.includes("Client Demo")) return <PlayCircle className="h-5 w-5" />;
+  if (item.includes("Pilot Demo")) return <MonitorPlay className="h-5 w-5" />;
+  if (item.includes("Enterprise Polish")) return <Sparkles className="h-5 w-5" />;
+  if (item.includes("Production Hardening")) return <Server className="h-5 w-5" />;
+  if (item.includes("AI Intelligence")) return <Brain className="h-5 w-5" />;
+  if (item.includes("Enterprise Onboarding")) return <Building2 className="h-5 w-5" />;
+  if (item.includes("Mobile Manager")) return <Smartphone className="h-5 w-5" />;
+  if (item.includes("Payroll Hardening")) return <LockKeyhole className="h-5 w-5" />;
+  if (item.includes("Executive Command")) return <Crown className="h-5 w-5" />;
   if (item.includes("Action Centre")) return <Bell className="h-5 w-5" />;
   if (item.includes("Smart Detection")) return <Zap className="h-5 w-5" />;
+  if (item.includes("Workforce Intelligence")) return <BarChart3 className="h-5 w-5" />;
+  if (item.includes("Automation")) return <Brain className="h-5 w-5" />;
   if (item.includes("Stores & Rosters")) return <Store className="h-5 w-5" />;
   if (item.includes("Store")) return <Store className="h-5 w-5" />;
+  if (item.includes("Mobile Workforce")) return <Smartphone className="h-5 w-5" />;
   if (item.includes("Employee")) return <Users className="h-5 w-5" />;
   if (item.includes("Roster")) return <Clock3 className="h-5 w-5" />;
   if (item.includes("Clock")) return <Clock3 className="h-5 w-5" />;
   if (item.includes("Exception")) return <AlertTriangle className="h-5 w-5" />;
   if (item.includes("Balance")) return <CalendarDays className="h-5 w-5" />;
   if (item.includes("Leave")) return <Clock3 className="h-5 w-5" />;
+  if (item.includes("Notification Escalation")) return <Bell className="h-5 w-5" />;
   if (item.includes("Notification")) return <Bell className="h-5 w-5" />;
   if (item.includes("HR")) return <Gavel className="h-5 w-5" />;
+  if (item.includes("Payroll Export")) return <WalletCards className="h-5 w-5" />;
   if (item.includes("Payroll")) return <WalletCards className="h-5 w-5" />;
+  if (item.includes("Risk & Compliance")) return <ShieldCheck className="h-5 w-5" />;
+  if (item.includes("System Health")) return <HeartPulse className="h-5 w-5" />;
   if (item.includes("Compliance")) return <ShieldCheck className="h-5 w-5" />;
   if (item.includes("Decision Audit")) return <ShieldCheck className="h-5 w-5" />;
   if (item.includes("History")) return <Clock3 className="h-5 w-5" />;
+  if (item.includes("Reports Intelligence")) return <BarChart3 className="h-5 w-5" />;
   if (item.includes("Reports Centre")) return <FileText className="h-5 w-5" />;
   if (item.includes("Report")) return <Zap className="h-5 w-5" />;
   if (item.includes("Launch")) return <CheckCircle2 className="h-5 w-5" />;
@@ -497,7 +582,7 @@ function Panel({ children, dark = false }: { children: React.ReactNode; dark?: b
       className={
         dark
           ? "rounded-[34px] bg-gradient-to-r from-[#07101f] to-[#0b1a33] p-6 text-white shadow-2xl shadow-slate-300"
-          : "rounded-[34px] border border-slate-200/70 bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.08)]"
+          : "rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl"
       }
     >
       {children}
@@ -519,7 +604,7 @@ function StatusPill({ value }: { value: string }) {
       : value === "needs_review" || value === "blocked"
       ? "bg-amber-100 text-amber-700"
       : value === "scheduled" || value === "changed"
-      ? "bg-blue-100 text-blue-700"
+      ? "bg-blue-100 text-cyan-700"
       : "bg-slate-200 text-slate-700";
 
   return <span className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${cls}`}>{statusToClientText(value)}</span>;
@@ -531,7 +616,7 @@ function Severity({ value }: { value: string }) {
       ? "bg-rose-100 text-rose-700"
       : value === "medium"
       ? "bg-amber-100 text-amber-700"
-      : "bg-blue-100 text-blue-700";
+      : "bg-blue-100 text-cyan-700";
 
   return <span className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${cls}`}>{value}</span>;
 }
@@ -565,9 +650,9 @@ function StatCard({
   icon: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[28px] border border-slate-200/60 bg-white p-6 shadow-[0_20px_40px_rgba(0,0,0,0.08)]">
+    <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-[0_28px_80px_rgba(37,99,235,0.18)]">
       <div className="flex items-start justify-between">
-        <div className="rounded-2xl bg-slate-950 p-3 text-cyan-300">{icon}</div>
+        <div className="rounded-2xl bg-[#06101f] p-3 text-cyan-300 shadow-lg shadow-cyan-950/15">{icon}</div>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.25em] text-slate-500">
           Live
         </span>
@@ -581,7 +666,7 @@ function StatCard({
 
 function InfoBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-white p-4">
+    <div className="rounded-2xl border border-white/80 bg-white/95 p-4 shadow-sm">
       <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">{label}</div>
       <div className="mt-2 font-bold">{value}</div>
     </div>
@@ -592,7 +677,7 @@ function ModalHeader({ title, subtitle, onClose }: { title: string; subtitle: st
   return (
     <div className="flex items-start justify-between gap-4">
       <div>
-        <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">VYRON CORE</div>
+        <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-700">VYRON CORE</div>
         <h2 className="mt-2 text-3xl font-bold text-slate-950">{title}</h2>
         <p className="mt-2 text-sm text-slate-500">{subtitle}</p>
       </div>
@@ -623,7 +708,7 @@ function FormInput({
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
+        className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 outline-none focus:border-cyan-400"
         placeholder={placeholder}
       />
     </label>
@@ -649,7 +734,7 @@ function ModalActions({
       <button
         onClick={onSave}
         disabled={saving}
-        className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
+        className="rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15 disabled:opacity-60"
       >
         {saving ? "Saving..." : saveText}
       </button>
@@ -661,8 +746,24 @@ const navGroups = [
     label: "Command",
     items: [
       "Command Centre",
+      "Enterprise Polish",
+      "Pilot Demo Readiness",
+      "Client Demo Story",
+      "Executive Launch",
+      "Payroll Export Engine",
+      "Exception Intelligence Engine",
+      "Enterprise Onboarding System",
+      "Roles & Permissions Engine",
+      "Commercial Demo Environment",
+      "Payroll Hardening",
+      "Executive Command Centre",
       "Manager Action Centre",
+      "Client Onboarding Hub",
+      "Enterprise Onboarding",
       "Smart Detection",
+      "Automation Centre",
+      "AI Intelligence Layer",
+      "Workforce Intelligence",
       "Live Activity",
     ]
 },
@@ -672,16 +773,23 @@ const navGroups = [
       "Employees",
       "Employee HR File",
       "Employee Notifications",
+      "Notification Escalation",
     ]
 },
   {
     label: "Time & Shifts",
     items: [
       "Clocking",
+      "Clocking Review",
+      "Workforce Movement",
+      "Mobile Workforce",
+      "Mobile Manager",
+      "Roster Intelligence",
       "Payroll Clock Engine",
       "Exceptions",
       "Stores & Rosters",
       "Leave Management",
+      "Leave Control Centre",
     ]
 },
   {
@@ -690,13 +798,19 @@ const navGroups = [
       "HR Cases",
       "HR Warnings",
       "HR Documents",
+      "HR Contract Centre",
+      "Employee Document Vault",
       "Compliance",
+      "Risk & Compliance Centre",
+      "System Health",
+      "Production Hardening",
     ]
 },
   {
     label: "Reports",
     items: [
       "Reports Centre",
+      "Reports Intelligence",
     ]
 },
 ];
@@ -722,8 +836,8 @@ function Sidebar({
   }
 
   return (
-    <aside className="flex h-full flex-col bg-[#06101f] text-white">
-      <div className="border-b border-white/10 px-5 py-6">
+    <aside className="flex h-full flex-col bg-[#050b16] text-white shadow-[22px_0_80px_rgba(15,23,42,0.35)]">
+      <div className="border-b border-white/10 bg-white/[0.025] px-5 py-6">
         <div className="flex items-center gap-3">
           <div className="relative h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-400 shadow-lg shadow-blue-500/30">
             <div className="absolute left-[13px] top-[10px] h-8 w-3 rotate-[-28deg] rounded-sm bg-white" />
@@ -747,7 +861,7 @@ function Sidebar({
           );
 
           return (
-            <div key={group.label} className="rounded-2xl border border-white/10 bg-white/[0.03]">
+            <div key={group.label} className="rounded-[24px] border border-white/10 bg-white/[0.045] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
               <button
                 onClick={() => setOpenGroup(isOpen ? "" : group.label)}
                 className={`flex w-full items-center justify-between rounded-2xl px-4 py-4 text-left text-xs font-black uppercase tracking-[0.24em] transition ${
@@ -773,8 +887,8 @@ function Sidebar({
                       onClick={() => openItem(item)}
                       className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold transition ${
                         active === item
-                          ? "bg-blue-600 text-white shadow-lg shadow-blue-600/25"
-                          : "text-slate-300 hover:bg-white/10 hover:text-white"
+                          ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-cyan-500/30"
+                          : "text-slate-300 hover:bg-white/10 hover:text-white hover:shadow-[0_0_26px_rgba(34,211,238,0.12)]"
                       }`}
                     >
                       <span className={active === item ? "text-white" : "text-slate-400"}>
@@ -787,7 +901,7 @@ function Sidebar({
                         <span
                           className={`ml-auto rounded-full px-2.5 py-1 text-[11px] font-black leading-none ${
                             active === item
-                              ? "bg-white text-blue-700"
+                              ? "bg-white text-cyan-700"
                               : "bg-rose-500 text-white shadow-lg shadow-rose-500/30"
                           }`}
                         >
@@ -934,7 +1048,7 @@ function LoginScreen({ onAuthenticated }: { onAuthenticated: (email: string) => 
           </section>
 
           <section className="p-8 md:p-10">
-            <div className="text-xs font-bold uppercase tracking-[0.3em] text-blue-600">VYRON CORE</div>
+            <div className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-700">VYRON CORE</div>
             <h2 className="mt-3 text-3xl font-bold tracking-tight">{mode === "login" ? "Login" : "Create account"}</h2>
             <p className="mt-2 text-sm leading-6 text-slate-500">
               Use the email that was added under Settings / Roles → Company Users.
@@ -951,7 +1065,7 @@ function LoginScreen({ onAuthenticated }: { onAuthenticated: (email: string) => 
             <button
               onClick={handleAuth}
               disabled={loading}
-              className="mt-6 w-full rounded-2xl bg-slate-950 px-5 py-4 text-sm font-bold text-white disabled:opacity-60"
+              className="mt-6 w-full rounded-2xl bg-[#06101f] px-5 py-4 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15 disabled:opacity-60"
             >
               {loading ? "Please wait..." : mode === "login" ? "Login" : "Create Account"}
             </button>
@@ -1055,7 +1169,7 @@ function AddStoreModal({
           <textarea
             value={address}
             onChange={(event) => setAddress(event.target.value)}
-            className="mt-2 min-h-24 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
+            className="mt-2 min-h-24 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 outline-none focus:border-cyan-400"
             placeholder="Store address for GPS validation"
           />
         </label>
@@ -1155,7 +1269,7 @@ function AddEmployeeModal({
             <select
               value={defaultStoreId}
               onChange={(event) => setDefaultStoreId(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
+              className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 outline-none focus:border-cyan-400"
             >
               <option value="">No default store</option>
               {stores.map((store) => (
@@ -1171,7 +1285,7 @@ function AddEmployeeModal({
             <select
               value={employmentType}
               onChange={(event) => setEmploymentType(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
+              className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 outline-none focus:border-cyan-400"
             >
               <option value="permanent">Permanent</option>
               <option value="part_time">Part-time</option>
@@ -1267,7 +1381,7 @@ function CreateShiftModal({
             <select
               value={employeeId}
               onChange={(event) => setEmployeeId(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
+              className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 outline-none focus:border-cyan-400"
             >
               <option value="">Select employee</option>
               {activeEmployees.map((employee) => (
@@ -1283,7 +1397,7 @@ function CreateShiftModal({
             <select
               value={storeId}
               onChange={(event) => setStoreId(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
+              className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 outline-none focus:border-cyan-400"
             >
               <option value="">Select store</option>
               {stores.map((store) => (
@@ -1367,7 +1481,7 @@ function ManualClockEventModal({
       roster_shift_id: rosterShiftId || null,
       event_type: eventType,
       event_time: toShiftDateTime(eventDate, eventTime),
-      source,
+      source: "kiosk",
       latitude: latitude.trim() ? Number(latitude) : null,
       longitude: longitude.trim() ? Number(longitude) : null
 });
@@ -1403,7 +1517,7 @@ function ManualClockEventModal({
             <select
               value={employeeId}
               onChange={(event) => setEmployeeId(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
+              className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 outline-none focus:border-cyan-400"
             >
               <option value="">Select employee</option>
               {activeEmployees.map((employee) => (
@@ -1419,7 +1533,7 @@ function ManualClockEventModal({
             <select
               value={storeId}
               onChange={(event) => setStoreId(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
+              className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 outline-none focus:border-cyan-400"
             >
               <option value="">No store linked</option>
               {stores.map((store) => (
@@ -1435,7 +1549,7 @@ function ManualClockEventModal({
             <select
               value={rosterShiftId}
               onChange={(event) => setRosterShiftId(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
+              className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 outline-none focus:border-cyan-400"
             >
               <option value="">No linked shift</option>
               {filteredShifts.map((shift) => (
@@ -1451,7 +1565,7 @@ function ManualClockEventModal({
             <select
               value={eventType}
               onChange={(event) => setEventType(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
+              className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 outline-none focus:border-cyan-400"
             >
               <option value="clock_in">Clock in</option>
               <option value="clock_out">Clock out</option>
@@ -1468,7 +1582,7 @@ function ManualClockEventModal({
             <select
               value={source}
               onChange={(event) => setSource(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
+              className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 outline-none focus:border-cyan-400"
             >
               <option value="manual">Manual</option>
               <option value="mobile">Mobile</option>
@@ -1551,7 +1665,7 @@ function HrResponseModal({
           onClose={onClose}
         />
 
-        <div className="mt-6 rounded-2xl bg-slate-50 p-4">
+        <div className="mt-6 rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl p-4">
           <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Employee</div>
           <div className="mt-2 font-bold text-slate-950">{employeeName}</div>
 
@@ -1565,7 +1679,7 @@ function HrResponseModal({
           <textarea
             value={responseText}
             onChange={(event) => setResponseText(event.target.value)}
-            className="mt-2 min-h-36 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
+            className="mt-2 min-h-36 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 outline-none focus:border-cyan-400"
             placeholder="Type the employee's response here..."
           />
         </label>
@@ -1667,7 +1781,7 @@ function HrResponseModal({
             <select
               value={employeeId}
               onChange={(event) => setEmployeeId(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
+              className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 outline-none focus:border-cyan-400"
             >
               <option value="">Select employee</option>
               {activeEmployees.map((employee) => (
@@ -1683,7 +1797,7 @@ function HrResponseModal({
             <select
               value={caseType}
               onChange={(event) => setCaseType(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
+              className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 outline-none focus:border-cyan-400"
             >
               <option value="disciplinary">Disciplinary</option>
               <option value="warning">Warning</option>
@@ -1705,12 +1819,12 @@ function HrResponseModal({
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            className="mt-2 min-h-32 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
+            className="mt-2 min-h-32 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 outline-none focus:border-cyan-400"
             placeholder="Describe the issue, what happened, and what needs to be reviewed..."
           />
         </label>
 
-        <label className="mt-4 flex items-center gap-3 rounded-2xl bg-slate-50 p-4 text-sm font-bold">
+        <label className="mt-4 flex items-center gap-3 rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl p-4 text-sm font-bold">
           <input
             type="checkbox"
             checked={employeeResponseRequired}
@@ -1827,7 +1941,7 @@ function LeaveApprovalsScreen({
 
             <button
               onClick={onRefresh}
-              className="w-fit rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white"
+              className="w-fit rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15"
             >
               Refresh
             </button>
@@ -1865,7 +1979,7 @@ function LeaveApprovalsScreen({
               </div>
             ) : (
               filteredLeaveRequests.map((request) => (
-                <article key={request.id} className="rounded-[26px] border border-slate-200 bg-slate-50 p-5">
+                <article key={request.id} className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl">
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div>
                       <div className="text-xl font-bold text-slate-950">
@@ -1885,14 +1999,14 @@ function LeaveApprovalsScreen({
                     <InfoBox label="Days" value={String(leaveDays(request.start_date, request.end_date))} />
                   </div>
 
-                  <div className="mt-4 rounded-2xl bg-white p-4">
+                  <div className="mt-4 rounded-2xl border border-white/80 bg-white/95 p-4 shadow-sm">
                     <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Employee reason</div>
                     <p className="mt-2 text-sm leading-6 text-slate-600">{request.reason || "No reason supplied."}</p>
                   </div>
 
                   {request.manager_feedback && (
-                    <div className="mt-4 rounded-2xl bg-blue-50 p-4">
-                      <div className="text-xs font-bold uppercase tracking-[0.2em] text-blue-700">Manager feedback</div>
+                    <div className="mt-4 rounded-2xl bg-cyan-50 p-4">
+                      <div className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-700">Manager feedback</div>
                       <p className="mt-2 text-sm leading-6 text-blue-900">{request.manager_feedback}</p>
                     </div>
                   )}
@@ -1976,7 +2090,7 @@ function StoresScreen({
               <p className="mt-2 text-sm text-slate-500">Manage opening times, GPS rules, region grouping and clocking controls per store.</p>
             </div>
 
-            <button onClick={onAddStore} className="flex w-fit items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white">
+            <button onClick={onAddStore} className="flex w-fit items-center gap-2 rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15">
               <Plus className="h-4 w-4" />
               Add Store
             </button>
@@ -1987,7 +2101,7 @@ function StoresScreen({
               const storeExceptions = exceptions.filter((item) => item.store_id === store.id).length;
 
               return (
-                <div key={store.id} className="rounded-[26px] border border-slate-200 bg-slate-50 p-5">
+                <div key={store.id} className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="text-lg font-bold text-slate-950">{store.name}</div>
@@ -2234,7 +2348,7 @@ function EmployeesScreen({
                 <select
                   value={editDefaultStoreId}
                   onChange={(event) => setEditDefaultStoreId(event.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
+                  className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 outline-none focus:border-cyan-400"
                 >
                   <option value="">No default store</option>
                   {stores.map((store) => (
@@ -2250,7 +2364,7 @@ function EmployeesScreen({
                 <select
                   value={editEmploymentType}
                   onChange={(event) => setEditEmploymentType(event.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
+                  className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 outline-none focus:border-cyan-400"
                 >
                   <option value="permanent">Permanent</option>
                   <option value="part_time">Part-time</option>
@@ -2262,7 +2376,7 @@ function EmployeesScreen({
               </label>
             </div>
 
-            <div className="mt-6 rounded-[26px] border border-slate-200 bg-slate-50 p-5">
+            <div className="mt-6 rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl">
               <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">PIN / Kiosk Access</div>
 
               <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
@@ -2270,7 +2384,7 @@ function EmployeesScreen({
                   value={editPinCode}
                   onChange={(event) => setEditPinCode(event.target.value.replace(/\D/g, "").slice(0, 4))}
                   placeholder="4-digit PIN"
-                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-blue-500"
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-cyan-400"
                 />
 
                 <button onClick={generateEmployeePin} className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-bold text-white">
@@ -2301,7 +2415,7 @@ function EmployeesScreen({
             <button
               onClick={saveSelectedEmployee}
               disabled={savingEmployee}
-              className="mt-6 w-full rounded-2xl bg-slate-950 px-5 py-4 text-sm font-bold text-white disabled:opacity-60"
+              className="mt-6 w-full rounded-2xl bg-[#06101f] px-5 py-4 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15 disabled:opacity-60"
             >
               {savingEmployee ? "Saving Employee..." : "Save Employee Changes"}
             </button>
@@ -2339,7 +2453,7 @@ function EmployeesScreen({
               <p className="mt-2 text-sm text-slate-500">Search and open staff records. Designed for 100+ employees.</p>
             </div>
 
-            <button onClick={onAddEmployee} className="flex w-fit items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white">
+            <button onClick={onAddEmployee} className="flex w-fit items-center gap-2 rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15">
               <Plus className="h-4 w-4" />
               Add Employee
             </button>
@@ -2348,7 +2462,7 @@ function EmployeesScreen({
           <input
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
-            className="mt-6 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold outline-none focus:border-blue-500"
+            className="mt-6 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-4 text-sm font-semibold outline-none focus:border-cyan-400"
             placeholder="Search by code, name, job, store, phone or email..."
           />
 
@@ -2372,7 +2486,7 @@ function EmployeesScreen({
                       key={employee.id}
                       type="button"
                       onClick={() => setSelectedEmployeeId(employee.id)}
-                      className="grid w-full grid-cols-[1.2fr_1fr_1fr_90px] items-center gap-3 border-t border-slate-100 px-4 py-4 text-left transition hover:bg-blue-50"
+                      className="grid w-full grid-cols-[1.2fr_1fr_1fr_90px] items-center gap-3 border-t border-slate-100 px-4 py-4 text-left transition hover:bg-cyan-50"
                     >
                       <div>
                         <div className="font-bold text-slate-950">{employeeFullName(employee)}</div>
@@ -2447,14 +2561,14 @@ function RosterBuilderScreen({
             <p className="mt-2 text-sm text-slate-500">Create planned shifts, allocate staff and keep payroll clean before clocking starts.</p>
           </div>
 
-          <button onClick={onCreateShift} className="flex w-fit items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white">
+          <button onClick={onCreateShift} className="flex w-fit items-center gap-2 rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15">
             <Plus className="h-4 w-4" />
             Create Shift
           </button>
         </div>
 
         <div className="mt-6 space-y-5">
-          {groupedDates.length === 0 && <div className="rounded-[26px] border border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">No roster shifts found yet. Create shifts to start payroll planning.</div>}
+          {groupedDates.length === 0 && <div className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl text-sm text-slate-500">No roster shifts found yet. Create shifts to start payroll planning.</div>}
 
           {groupedDates.map((date) => (
             <div key={date} className="overflow-hidden rounded-[26px] border border-slate-200 bg-slate-50">
@@ -2530,17 +2644,17 @@ function ClockingLiveScreen({
             <p className="mt-2 text-sm text-slate-500">View clock-ins, clock-outs and lunch events across all stores.</p>
           </div>
 
-          <button onClick={onManualEvent} className="flex w-fit items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white">
+          <button onClick={onManualEvent} className="flex w-fit items-center gap-2 rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15">
             <Plus className="h-4 w-4" />
             Manual Event
           </button>
         </div>
 
         <div className="mt-6 space-y-4">
-          {clockEvents.length === 0 && <div className="rounded-[26px] border border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">No clock events yet. Clocking data will appear here.</div>}
+          {clockEvents.length === 0 && <div className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl text-sm text-slate-500">No clock events yet. Clocking data will appear here.</div>}
 
           {clockEvents.map((event) => (
-            <div key={event.id} className="rounded-[26px] border border-slate-200 bg-slate-50 p-5">
+            <div key={event.id} className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl">
               <div className="grid gap-4 md:grid-cols-[1fr_1fr_120px] md:items-center">
                 <div>
                   <div className="font-bold text-slate-950">{employeeName(event.employee_id)}</div>
@@ -2639,13 +2753,13 @@ function ExceptionsPanel({
       {actionError && <div className="mt-4 rounded-2xl bg-rose-50 p-4 text-sm font-semibold text-rose-700">{actionError}</div>}
 
       <div className="mt-6 space-y-4">
-        {exceptions.length === 0 && <div className="rounded-[26px] border border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">No open exceptions found.</div>}
+        {exceptions.length === 0 && <div className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl text-sm text-slate-500">No open exceptions found.</div>}
 
         {exceptions.map((item) => {
           const isClosed = item.status === "closed";
 
           return (
-            <div key={item.id} className="rounded-[26px] border border-slate-200 bg-slate-50 p-5">
+            <div key={item.id} className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl">
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div>
                   <div className="text-base font-bold">{employeeName(item.employee_id)}</div>
@@ -2761,7 +2875,7 @@ function HRCasesScreen({
 
             <button
               onClick={() => setManualCaseOpen(true)}
-              className="flex w-fit items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white"
+              className="flex w-fit items-center gap-2 rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15"
             >
               <Plus className="h-4 w-4" />
               New HR Case
@@ -2770,7 +2884,7 @@ function HRCasesScreen({
 
           <div className="mt-6 space-y-4">
             {hrCases.length === 0 && (
-              <div className="rounded-[26px] border border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
+              <div className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl text-sm text-slate-500">
                 No HR cases yet. Create a case only when action is required. Click <span className="font-bold">New HR Case</span> to capture one manually.
               </div>
             )}
@@ -2780,7 +2894,7 @@ function HRCasesScreen({
               const requireResponse = needsResponse(caseItem);
 
               return (
-                <div key={caseItem.id} className="rounded-[26px] border border-slate-200 bg-slate-50 p-5">
+                <div key={caseItem.id} className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl">
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div>
                       <div className="text-lg font-bold text-slate-950">{caseItem.title}</div>
@@ -3397,7 +3511,7 @@ function PayrollPrepScreen({
             <button
               onClick={generateHours}
               disabled={generating}
-              className="flex w-fit items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white disabled:bg-slate-300 disabled:text-slate-500"
+              className="flex w-fit items-center gap-2 rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15 disabled:bg-slate-300 disabled:text-slate-500"
             >
               <Clock3 className="h-4 w-4" />
               {generating ? "Scanning..." : "Generate Hours & Scan Exceptions"}
@@ -3416,7 +3530,7 @@ function PayrollPrepScreen({
 
         {generateError && <div className="mt-4 rounded-2xl bg-rose-50 p-4 text-sm font-semibold text-rose-700">{generateError}</div>}
 
-        <div className="mt-6 rounded-[26px] border border-slate-200 bg-slate-50 p-5">
+        <div className="mt-6 rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-lg font-bold text-slate-950">Current Payroll Run</div>
@@ -3480,7 +3594,7 @@ function PayrollPrepScreen({
 
         <div className="mt-6 space-y-4">
           {payrollHours.length === 0 && (
-            <div className="rounded-[26px] border border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
+            <div className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl text-sm text-slate-500">
               No generated payroll hours yet. Click <span className="font-bold">Generate Hours & Scan Exceptions</span> to calculate hours and detect payroll risk.
             </div>
           )}
@@ -3497,7 +3611,7 @@ function PayrollPrepScreen({
             const rowNeedsReview = Number(row.late_minutes || 0) > 0 || Number(row.missing_clock_events || 0) > 0 || Number(row.overtime_hours || 0) > 0 || (row.status !== "approved" && row.status !== "exported");
 
             return (
-              <div key={row.id} className="rounded-[26px] border border-slate-200 bg-slate-50 p-5">
+              <div key={row.id} className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl">
                 <div className="grid gap-4 xl:grid-cols-[1fr_110px_110px_110px_120px_130px_160px] xl:items-center">
                   <div>
                     <div className="font-bold text-slate-950">{employeeName(row.employee_id)}</div>
@@ -3610,7 +3724,7 @@ function ExecutiveReportsScreen({
         <Panel>
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">Executive View</div>
+              <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-700">Executive View</div>
               <h2 className="mt-2 text-2xl font-bold tracking-tight">Company Workforce Snapshot</h2>
               <p className="mt-2 text-sm text-slate-500">Boardroom-ready summary of staff, payroll readiness, clocking evidence and unresolved risk.</p>
             </div>
@@ -3626,7 +3740,7 @@ function ExecutiveReportsScreen({
             <InfoBox label="Problem Hours" value={String(problemHours)} />
           </div>
 
-          <div className="mt-6 rounded-2xl bg-slate-50 p-5">
+          <div className="mt-6 rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl p-5">
             <div className="text-sm font-black text-slate-950">Demo talking point</div>
             <p className="mt-2 text-sm leading-6 text-slate-600">
               VYRON CORE does not just record clocking. It turns clocking into payroll control, exception workflow, HR protection and management visibility.
@@ -3651,9 +3765,9 @@ function ExecutiveReportsScreen({
           <h2 className="text-2xl font-bold tracking-tight">Store Risk Ranking</h2>
           <p className="mt-2 text-sm text-slate-500">Shows where managers should focus first.</p>
           <div className="mt-5 space-y-3">
-            {storeExceptionMap.length === 0 && <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">No stores loaded yet.</div>}
+            {storeExceptionMap.length === 0 && <div className="rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl p-4 text-sm text-slate-500">No stores loaded yet.</div>}
             {storeExceptionMap.map(({ store, count }) => (
-              <div key={store.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div key={store.id} className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl p-4">
                 <div>
                   <div className="font-black text-slate-950">{store.name}</div>
                   <div className="mt-1 text-xs text-slate-500">{store.city || "No city"} · {store.region || "No region"}</div>
@@ -3670,7 +3784,7 @@ function ExecutiveReportsScreen({
           <div className="mt-5 space-y-3">
             {employeeRiskMap.length === 0 && <div className="rounded-2xl bg-emerald-50 p-4 text-sm font-bold text-emerald-700">No staff risk currently open.</div>}
             {employeeRiskMap.map(({ employee, exceptionCount, hrCount }) => (
-              <div key={employee.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div key={employee.id} className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl p-4">
                 <div>
                   <div className="font-black text-slate-950">{employee.first_name} {employee.last_name}</div>
                   <div className="mt-1 text-xs text-slate-500">{employee.employee_number || "No employee number"} · {employee.job_title || "No role"}</div>
@@ -3726,7 +3840,7 @@ function LaunchChecklistScreen({
       <Panel>
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">V1 Launch Control</div>
+            <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-700">V1 Launch Control</div>
             <h2 className="mt-2 text-2xl font-bold tracking-tight">Client Readiness Checklist</h2>
             <p className="mt-2 text-sm text-slate-500">Use this before demo calls or first pilot onboarding.</p>
           </div>
@@ -3739,7 +3853,7 @@ function LaunchChecklistScreen({
 
         <div className="mt-6 space-y-3">
           {checks.map((check) => (
-            <div key={check.label} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div key={check.label} className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl p-4">
               <div>
                 <div className="font-black text-slate-950">{check.label}</div>
                 <div className="mt-1 text-xs text-slate-500">{check.detail}</div>
@@ -3994,7 +4108,7 @@ function V1ControlScreen({
         <Panel>
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">V1 Control</div>
+              <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-700">V1 Control</div>
               <h2 className="mt-2 text-2xl font-bold tracking-tight">Market-Ready Control Panel</h2>
               <p className="mt-2 text-sm text-slate-500">One place to clear blockers, export pilot data and prepare the first client demo.</p>
             </div>
@@ -4007,7 +4121,7 @@ function V1ControlScreen({
 
           <div className="mt-6 grid gap-3 md:grid-cols-2">
             {checks.map((check) => (
-              <div key={check.name} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div key={check.name} className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl p-4">
                 <div>
                   <div className="font-black text-slate-950">{check.name}</div>
                   <div className="mt-1 text-xs text-slate-500">Current value: {check.value}</div>
@@ -4025,7 +4139,7 @@ function V1ControlScreen({
             <button disabled={busy === "approve-clean"} onClick={approveAllCleanHours} className="rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60">
               {busy === "approve-clean" ? "Approving..." : "Approve All Clean Hours"}
             </button>
-            <button disabled={busy === "close-exceptions"} onClick={closeApprovedExceptions} className="rounded-2xl bg-blue-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60">
+            <button disabled={busy === "close-exceptions"} onClick={closeApprovedExceptions} className="rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60">
               {busy === "close-exceptions" ? "Closing..." : "Close Approved Exceptions"}
             </button>
             <button onClick={downloadReadinessReport} className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950">
@@ -4204,7 +4318,7 @@ function ClientOnboardingScreen({
       <Panel>
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">Client Onboarding</div>
+            <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-700">Client Onboarding</div>
             <h2 className="mt-2 text-2xl font-bold tracking-tight">15-Minute Pilot Setup</h2>
             <p className="mt-2 text-sm text-slate-500">
               A guided setup screen to make first-client onboarding fast, controlled and demo-ready.
@@ -4219,7 +4333,7 @@ function ClientOnboardingScreen({
 
         <div className="mt-6 space-y-3">
           {onboardingSteps.map((step) => (
-            <div key={step.title} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div key={step.title} className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl p-4">
               <div>
                 <div className="font-black text-slate-950">{step.title}</div>
                 <div className="mt-1 text-xs text-slate-500">{step.detail}</div>
@@ -4234,7 +4348,7 @@ function ClientOnboardingScreen({
         <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Fast Setup Actions</div>
         <h2 className="mt-3 text-3xl font-bold">Get a pilot running</h2>
         <div className="mt-6 grid gap-3">
-          <button disabled={busy === "store"} onClick={addDemoStoreIfNeeded} className="rounded-2xl bg-blue-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60">
+          <button disabled={busy === "store"} onClick={addDemoStoreIfNeeded} className="rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60">
             {busy === "store" ? "Adding..." : "Add Demo Store"}
           </button>
           <button disabled={busy === "employee"} onClick={addDemoEmployeeIfNeeded} className="rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60">
@@ -4315,7 +4429,7 @@ function LiveActivityScreen({
       <Panel>
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">Live Ops Feed</div>
+            <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-700">Live Ops Feed</div>
             <h2 className="mt-2 text-2xl font-bold tracking-tight">Live Activity</h2>
             <p className="mt-2 text-sm text-slate-500">
               A command-centre feed showing clocking, exceptions and HR movement in one place.
@@ -4326,13 +4440,13 @@ function LiveActivityScreen({
 
         <div className="mt-6 space-y-3">
           {activities.length === 0 && (
-            <div className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">
+            <div className="rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl p-5 text-sm text-slate-500">
               No live activity yet. Create shifts and clock events to start the feed.
             </div>
           )}
 
           {activities.map((activity) => (
-            <div key={activity.id} className="flex items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div key={activity.id} className="flex items-start justify-between gap-4 rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl p-4">
               <div>
                 <div className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{activity.type}</div>
                 <div className="mt-1 font-black text-slate-950">{activity.title}</div>
@@ -4666,7 +4780,7 @@ function FinalV1ControlScreen({
         <Panel>
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">Final V1 Control</div>
+              <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-700">Final V1 Control</div>
               <h2 className="mt-2 text-2xl font-bold tracking-tight">Market-Ready Command Panel</h2>
               <p className="mt-2 text-sm text-slate-500">
                 Clear blockers, lock payroll, export client-ready files and run the final demo flow from one place.
@@ -4689,7 +4803,7 @@ function FinalV1ControlScreen({
 
           <div className="mt-6 grid gap-3 md:grid-cols-2">
             {readinessChecks.map((check) => (
-              <div key={check.label} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div key={check.label} className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl p-4">
                 <div>
                   <div className="font-black text-slate-950">{check.label}</div>
                   <div className="mt-1 text-xs text-slate-500">Current value: {String(check.value)}</div>
@@ -4709,7 +4823,7 @@ function FinalV1ControlScreen({
               {busy === "approve-clean" ? "Approving..." : "Approve All Clean Rows"}
             </button>
 
-            <button disabled={busy === "close-exceptions"} onClick={closeApprovedExceptions} className="rounded-2xl bg-blue-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60">
+            <button disabled={busy === "close-exceptions"} onClick={closeApprovedExceptions} className="rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60">
               {busy === "close-exceptions" ? "Closing..." : "Close Approved Exceptions"}
             </button>
 
@@ -4849,7 +4963,7 @@ function AddRoleModal({
             <select
               value={role}
               onChange={(event) => setRole(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
+              className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 outline-none focus:border-cyan-400"
             >
               <option value="admin">Admin</option>
               <option value="manager">Manager</option>
@@ -4899,17 +5013,17 @@ function RolesScreen({
               <p className="mt-2 text-sm text-slate-500">Control who can access VYRON CORE and prepare the app for proper multi-user login permissions.</p>
             </div>
 
-            <button onClick={() => setAddRoleOpen(true)} className="flex w-fit items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white">
+            <button onClick={() => setAddRoleOpen(true)} className="flex w-fit items-center gap-2 rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15">
               <Plus className="h-4 w-4" />
               Add User Role
             </button>
           </div>
 
           <div className="mt-6 space-y-4">
-            {userRoles.length === 0 && <div className="rounded-[26px] border border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">No user roles created yet.</div>}
+            {userRoles.length === 0 && <div className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl text-sm text-slate-500">No user roles created yet.</div>}
 
             {userRoles.map((item) => (
-              <div key={item.id} className="rounded-[26px] border border-slate-200 bg-slate-50 p-5">
+              <div key={item.id} className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl">
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div>
                     <div className="font-bold text-slate-950">{item.user_email}</div>
@@ -4953,2250 +5067,506 @@ function StaffClockingScreen({
   companyId: string;
   onRefresh: () => void;
 }) {
-  const activeEmployees = employees.filter((employee) => employee.active);
+  const activeEmployees = employees.filter((employee) => employee.active !== false);
   const [employeeId, setEmployeeId] = useState("");
   const [storeId, setStoreId] = useState("");
   const [rosterShiftId, setRosterShiftId] = useState("");
-  const [staffPin, setStaffPin] = useState("");
+  const [staffCode, setStaffCode] = useState("");
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [localClockEvents, setLocalClockEvents] = useState<ClockEventRow[]>(clockEvents);
   const [saving, setSaving] = useState(false);
   const [gpsMessage, setGpsMessage] = useState<string | null>(null);
   const [lastMessage, setLastMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const selectedEmployee = employees.find((employee) => employee.id === employeeId);
-  const selectedStore = stores.find((store) => store.id === storeId);
+  useEffect(() => {
+    setLocalClockEvents(clockEvents);
+  }, [clockEvents]);
+
+  const selectedEmployee = employees.find((employee) => employee.id === employeeId) || null;
+  const selectedStore = stores.find((store) => store.id === storeId) || null;
   const todayKey = new Date().toISOString().slice(0, 10);
 
-  const todayEvents = clockEvents.filter((event) => event.event_time?.slice(0, 10) === todayKey);
-  const selectedEmployeeTodayEvents = todayEvents.filter((event) => event.employee_id === employeeId);
+  const todayEvents = localClockEvents
+    .filter((event) => {
+      const dateKey = String(event.event_time || "").slice(0, 10);
+      return dateKey === todayKey;
+    })
+    .sort((a, b) => new Date(b.event_time).getTime() - new Date(a.event_time).getTime());
 
-  const lastEvent = selectedEmployeeTodayEvents[0];
-  const currentlyClockedIn =
-    selectedEmployeeTodayEvents.find((event) => event.event_type === "clock_in") &&
-    !selectedEmployeeTodayEvents.find((event) => event.event_type === "clock_out");
+  const selectedEmployeeTodayEvents = todayEvents.filter((event) => event.employee_id === employeeId);
+  const lastEvent = selectedEmployeeTodayEvents[0] || null;
+  const currentlyClockedIn = lastEvent ? isClockIn(lastEvent.event_type) : false;
+  const nextAction: "clock_in" | "clock_out" = currentlyClockedIn ? "clock_out" : "clock_in";
+
+  const firstClockInToday = [...selectedEmployeeTodayEvents]
+    .reverse()
+    .find((event) => isClockIn(event.event_type));
+
+  const lastClockOutToday = selectedEmployeeTodayEvents.find((event) => isClockOut(event.event_type));
+
+  const filteredEmployees = activeEmployees.filter((employee) => {
+    const term = employeeSearch.trim().toLowerCase();
+    if (!term) return true;
+
+    return [
+      employee.employee_number || "",
+      employee.first_name || "",
+      employee.last_name || "",
+      employee.job_title || "",
+      employee.phone || "",
+      employee.email || "",
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(term);
+  });
 
   const filteredShifts = rosterShifts.filter((shift) => {
     if (employeeId && shift.employee_id !== employeeId) return false;
     if (storeId && shift.store_id !== storeId) return false;
-    return true;
+    return shift.shift_date === todayKey || String(shift.planned_start || "").slice(0, 10) === todayKey;
   });
 
-  function chooseDefaultShift() {
-    if (rosterShiftId) return rosterShiftId;
-    const todayShift = filteredShifts.find((shift) => shift.shift_date === todayKey);
-    return todayShift?.id || null;
+  function selectEmployee(nextEmployeeId: string) {
+    setEmployeeId(nextEmployeeId);
+    const employee = employees.find((item) => item.id === nextEmployeeId) || null;
+    if (employee?.default_store_id) setStoreId(employee.default_store_id);
+    setRosterShiftId("");
+    setPhotoFile(null);
+    setError(null);
+    setLastMessage(null);
   }
 
-  async function getBrowserLocation(): Promise<{ latitude: number | null; longitude: number | null; message: string }> {
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      return { latitude: null, longitude: null, message: "GPS unavailable on this device/browser." };
+  function findEmployeeByCode() {
+    const code = staffCode.trim().toLowerCase();
+
+    if (!code) {
+      setError("Type your staff code, employee number or PIN first.");
+      return;
     }
 
-    return new Promise((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          resolve({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            message: "GPS captured."
-});
-        },
-        () => {
-          resolve({
-            latitude: null,
-            longitude: null,
-            message: "GPS permission not granted. Event will still be saved for manager review."
-});
-        },
-        { enableHighAccuracy: true, timeout: 7000, maximumAge: 30000 }
-      );
+    const matchedEmployee = activeEmployees.find((employee) => {
+      const pin = String(employee.pin_code || "").trim().toLowerCase();
+      const employeeNumber = String(employee.employee_number || "").trim().toLowerCase();
+      const phone = String(employee.phone || "").trim().toLowerCase();
+
+      return code === pin || code === employeeNumber || code === phone;
+    });
+
+    if (!matchedEmployee) {
+      setError("No employee found for that code/PIN.");
+      return;
+    }
+
+    selectEmployee(matchedEmployee.id);
+    setEmployeeSearch(employeeName(matchedEmployee));
+    setLastMessage(`${employeeName(matchedEmployee)} selected.`);
+  }
+
+  async function getCurrentPosition(): Promise<GeolocationPosition> {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("GPS is not available on this device."));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      });
     });
   }
 
-  async function createClockEvent(eventType: "clock_in" | "clock_out" | "break_start" | "break_end") {
+  async function uploadClockPhoto(employeeIdForUpload: string, eventType: string) {
+    if (!photoFile) return { photo_bucket: null, photo_path: null, photo_url: null };
+
+    const extension = photoFile.name.includes(".") ? photoFile.name.split(".").pop() : "jpg";
+    const filePath = `${employeeIdForUpload}/${todayKey}/${Date.now()}-${eventType}.${extension}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("clock-event-photos")
+      .upload(filePath, photoFile, {
+        contentType: photoFile.type || "image/jpeg",
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw new Error(uploadError.message);
+    }
+
+    return {
+      photo_bucket: "clock-event-photos",
+      photo_path: filePath,
+      photo_url: filePath,
+    };
+  }
+
+  async function openClockPhoto(event: ClockEventRow) {
+    const item = event as any;
+
+    if (!item.photo_bucket || !item.photo_path) {
+      setError("No photo saved for this clock event.");
+      return;
+    }
+
+    const { data, error: signedError } = await supabase.storage
+      .from(item.photo_bucket)
+      .createSignedUrl(item.photo_path, 60 * 10);
+
+    if (signedError || !data?.signedUrl) {
+      setError(signedError?.message || "Could not open clock photo.");
+      return;
+    }
+
+    window.open(data.signedUrl, "_blank");
+  }
+
+  async function saveClockEvent() {
     setSaving(true);
     setError(null);
     setLastMessage(null);
     setGpsMessage(null);
 
-    if (!employeeId) {
-      setError("Select an employee before clocking.");
-      setSaving(false);
-      return;
-    }
-
-    if (staffPin.trim() && staffPin.trim().length < 4) {
-      setError("Staff PIN must be at least 4 digits when used.");
-      setSaving(false);
-      return;
-    }
-
-    const gps = await getBrowserLocation();
-    setGpsMessage(gps.message);
-
-    const eventTime = new Date().toISOString();
-    const linkedShiftId = chooseDefaultShift();
-
-    const { error: insertError } = await supabase.from("clock_events").insert({
-      company_id: companyId,
-      employee_id: employeeId,
-      store_id: storeId || null,
-      roster_shift_id: linkedShiftId,
-      event_type: eventType,
-      event_time: eventTime,
-      source: staffPin.trim() ? "staff_pin_kiosk" : "staff_kiosk",
-      latitude: gps.latitude,
-      longitude: gps.longitude
-});
-
-    if (insertError) {
-      setError(insertError.message);
-      setSaving(false);
-      return;
-    }
-
-    setLastMessage(`${formatText(eventType)} captured for ${selectedEmployee ? `${selectedEmployee.first_name} ${selectedEmployee.last_name}` : "employee"}.`);
-    setStaffPin("");
-    setSaving(false);
-    onRefresh();
-  }
-
-  return (
-    <div className="mt-8 grid gap-8 xl:grid-cols-[1fr_0.7fr]">
-      <Panel>
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div>
-            <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">Staff Kiosk</div>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight">Staff Clocking</h2>
-            <p className="mt-2 text-sm text-slate-500">
-              One screen for staff to clock in, clock out and record breaks. Designed for a tablet at the counter or manager phone.
-            </p>
-          </div>
-          <StatusPill value={saving ? "saving" : currentlyClockedIn ? "active" : "ready"} />
-        </div>
-
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <label className="text-sm font-bold">
-            Employee
-            <select
-              value={employeeId}
-              onChange={(event) => setEmployeeId(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
-            >
-              <option value="">Select employee</option>
-              {activeEmployees.map((employee) => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.employee_number ? `${employee.employee_number} · ` : ""}
-                  {employee.first_name} {employee.last_name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="text-sm font-bold">
-            Staff PIN optional
-            <input
-              type="password"
-              value={staffPin}
-              onChange={(event) => setStaffPin(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
-              placeholder="PIN mode coming soon"
-            />
-          </label>
-
-          <label className="text-sm font-bold">
-            Store
-            <select
-              value={storeId}
-              onChange={(event) => setStoreId(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
-            >
-              <option value="">No store selected</option>
-              {stores.map((store) => (
-                <option key={store.id} value={store.id}>
-                  {store.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="text-sm font-bold">
-            Linked shift optional
-            <select
-              value={rosterShiftId}
-              onChange={(event) => setRosterShiftId(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
-            >
-              <option value="">Auto-detect today shift</option>
-              {filteredShifts.map((shift) => (
-                <option key={shift.id} value={shift.id}>
-                  {formatDate(shift.shift_date)} · {formatTime(shift.planned_start)}–{formatTime(shift.planned_end)}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="mt-6 grid gap-3 md:grid-cols-2">
-          <button
-            disabled={saving || !employeeId}
-            onClick={() => createClockEvent("clock_in")}
-            className="rounded-2xl bg-emerald-600 px-5 py-5 text-base font-black text-white disabled:bg-slate-300 disabled:text-slate-500"
-          >
-            Clock In
-          </button>
-
-          <button
-            disabled={saving || !employeeId}
-            onClick={() => createClockEvent("clock_out")}
-            className="rounded-2xl bg-slate-950 px-5 py-5 text-base font-black text-white disabled:bg-slate-300 disabled:text-slate-500"
-          >
-            Clock Out
-          </button>
-
-          <button
-            disabled={saving || !employeeId}
-            onClick={() => createClockEvent("break_start")}
-            className="rounded-2xl bg-amber-500 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300 disabled:text-slate-500"
-          >
-            Start Break
-          </button>
-
-          <button
-            disabled={saving || !employeeId}
-            onClick={() => createClockEvent("break_end")}
-            className="rounded-2xl bg-blue-600 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300 disabled:text-slate-500"
-          >
-            End Break
-          </button>
-        </div>
-
-        {error && <div className="mt-5 rounded-2xl bg-rose-50 p-4 text-sm font-semibold text-rose-700">{error}</div>}
-        {gpsMessage && <div className="mt-5 rounded-2xl bg-blue-50 p-4 text-sm font-semibold text-blue-700">{gpsMessage}</div>}
-        {lastMessage && <div className="mt-5 rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">{lastMessage}</div>}
-
-        <div className="mt-6 grid gap-3 md:grid-cols-4">
-          <InfoBox label="Date" value={currentDateLabel()} />
-          <InfoBox label="Selected Staff" value={selectedEmployee ? `${selectedEmployee.first_name} ${selectedEmployee.last_name}` : "None"} />
-          <InfoBox label="Today Events" value={String(selectedEmployeeTodayEvents.length)} />
-          <InfoBox label="Last Event" value={lastEvent ? formatText(lastEvent.event_type) : "None"} />
-        </div>
-      </Panel>
-
-      <Panel dark>
-        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Daily Use Screen</div>
-        <h2 className="mt-3 text-3xl font-bold">Fast enough for real staff</h2>
-        <div className="mt-6 space-y-3 text-sm text-slate-300">
-          <div className="rounded-2xl bg-white/10 p-4">Large buttons for daily clock-in/out use.</div>
-          <div className="rounded-2xl bg-white/10 p-4">GPS capture is attempted automatically.</div>
-          <div className="rounded-2xl bg-white/10 p-4">PIN mode foundation is ready for stricter staff verification.</div>
-          <div className="rounded-2xl bg-white/10 p-4">Events flow into Payroll Prep and exception scanning.</div>
-        </div>
-      </Panel>
-    </div>
-  );
-}
-
-
-function SuperDashboardScreen({
-  stores,
-  employees,
-  payrollHours,
-  exceptions
-}: {
-  stores: StoreRow[];
-  employees: EmployeeRow[];
-  payrollHours: PayrollHoursRow[];
-  exceptions: ExceptionRow[];
-}) {
-  const totalHours = payrollHours.reduce((s, r) => s + safeNumber(r.normal_hours), 0);
-  const totalOT = payrollHours.reduce((s, r) => s + safeNumber(r.overtime_hours), 0);
-  const openIssues = exceptions.filter(e => e.status !== "closed").length;
-
-  return (
-    <div className="mt-8 space-y-8">
-      <div className="grid gap-6 md:grid-cols-3">
-        <div className="rounded-3xl bg-gradient-to-br from-blue-600 to-cyan-400 p-6 text-white shadow-xl">
-          <div className="text-xs uppercase tracking-widest">Total Hours</div>
-          <div className="mt-2 text-4xl font-black">{totalHours.toFixed(1)}</div>
-        </div>
-        <div className="rounded-3xl bg-gradient-to-br from-amber-500 to-orange-500 p-6 text-white shadow-xl">
-          <div className="text-xs uppercase tracking-widest">Overtime</div>
-          <div className="mt-2 text-4xl font-black">{totalOT.toFixed(1)}</div>
-        </div>
-        <div className="rounded-3xl bg-gradient-to-br from-rose-500 to-pink-500 p-6 text-white shadow-xl">
-          <div className="text-xs uppercase tracking-widest">Open Issues</div>
-          <div className="mt-2 text-4xl font-black">{openIssues}</div>
-        </div>
-      </div>
-
-      <div className="rounded-3xl border border-slate-200 p-6 bg-white shadow-sm">
-        <h2 className="text-xl font-bold">Quick Insight</h2>
-        <p className="mt-2 text-sm text-slate-600">
-          This dashboard gives management a quick operational snapshot.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function CommandCentre({
-  stores,
-  employees,
-  exceptions,
-  hrCases,
-  onRefresh,
-  companyId
-}: {
-  stores: StoreRow[];
-  employees: EmployeeRow[];
-  exceptions: ExceptionRow[];
-  hrCases: HrCaseRow[];
-  onRefresh: () => void;
-  companyId: string;
-}) {
-  const activeEmployees = employees.filter((item) => item.active).length;
-  const openExceptions = exceptions.filter((item) => item.status !== "closed" && item.status !== "approved").length;
-  const openHrCases = hrCases.filter((item) => item.status !== "closed").length;
-  const payrollReady = openExceptions === 0 && openHrCases === 0;
-  const readiness = Math.max(0, 100 - openExceptions * 4 - openHrCases * 8);
-  const demoHours = Math.max(0, activeEmployees * 7.5);
-  const overtime = Math.max(0, Math.round(openExceptions * 1.5));
-
-  const topStores = stores.slice(0, 5).map((store, index) => {
-    const count = exceptions.filter((item) => item.store_id === store.id && item.status !== "closed" && item.status !== "approved").length;
-    return { store, count, index };
-  });
-
-  const recentActivity = [
-    ...exceptions.slice(0, 4).map((item) => ({
-      title: `${formatText(item.exception_type)} opened`,
-      detail: item.description,
-      tone: "danger"
-})),
-    ...hrCases.slice(0, 3).map((item) => ({
-      title: `HR case: ${item.title}`,
-      detail: `${formatText(item.validity_status)} · ${item.status}`,
-      tone: "purple"
-})),
-  ].slice(0, 6);
-
-  return (
-    <div className="mt-0 min-h-screen bg-[#07101f] p-6 text-white md:p-8">
-      <div className="flex flex-col gap-5 border-b border-white/10 pb-6 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-4">
-          <button onClick={onRefresh} className="rounded-2xl bg-white/10 p-3 text-white transition-all hover:scale-[1.03] hover:bg-white/15">
-            <Menu className="h-5 w-5" />
-          </button>
-          <div>
-            <h2 className="text-3xl font-black tracking-tight">Command Centre</h2>
-            <p className="mt-1 text-slate-400">Real-time overview of your operations</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <span className="hidden text-sm font-semibold text-slate-300 md:inline">Demo Mode</span>
-          <span className="flex h-7 w-12 items-center rounded-full bg-slate-700 p-1 shadow-inner">
-            <span className="block h-5 w-5 rounded-full bg-white shadow" />
-          </span>
-
-          <button className="relative rounded-2xl bg-white/10 p-3 text-slate-200 transition-all hover:scale-[1.04] hover:bg-white/15">
-            <Bell className="h-5 w-5" />
-            {(openExceptions + openHrCases) > 0 && (
-              <span className="absolute -right-1 -top-1 rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-black text-white">
-                {openExceptions + openHrCases}
-              </span>
-            )}
-          </button>
-
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-700 text-sm font-black text-white shadow-lg shadow-black/20">
-            AD
-          </div>
-        </div>
-      </div>
-
-      {(openExceptions > 0 || openHrCases > 0) && (
-        <div className="mt-7 flex items-center justify-between rounded-2xl border border-rose-500/40 bg-rose-500/15 p-5 shadow-[0_0_40px_rgba(244,63,94,0.12)]">
-          <div className="flex items-center gap-4">
-            <div className="rounded-2xl bg-rose-500/20 p-3 text-rose-300">
-              <AlertTriangle className="h-7 w-7" />
-            </div>
-            <div>
-              <div className="text-lg font-black text-rose-300">Attention Required</div>
-              <div className="mt-1 text-sm font-semibold text-white">
-                {openExceptions} Exceptions · {openHrCases} HR Cases · Payroll {payrollReady ? "Ready" : "Not Ready"}
-              </div>
-            </div>
-          </div>
-          <div className="text-3xl text-rose-300">›</div>
-        </div>
-      )}
-
-      <div className="mt-7 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-xl shadow-black/20 backdrop-blur transition-all hover:scale-[1.015] hover:border-cyan-300/25 hover:bg-white/[0.07]">
-          <div className="flex items-start justify-between">
-            <div className="text-sm text-slate-300">Total Hours<br />Today</div>
-            <div className="rounded-2xl bg-blue-600/20 p-3 text-blue-300"><Clock3 className="h-6 w-6" /></div>
-          </div>
-          <div className="mt-5 text-4xl font-black">{demoHours.toFixed(0)}</div>
-          <div className="mt-3 text-sm font-bold text-emerald-400">↑ live from workforce</div>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-xl shadow-black/20 backdrop-blur transition-all hover:scale-[1.015] hover:border-cyan-300/25 hover:bg-white/[0.07]">
-          <div className="flex items-start justify-between">
-            <div className="text-sm text-slate-300">Overtime<br />Hours</div>
-            <div className="rounded-2xl bg-purple-600/20 p-3 text-purple-300"><Clock3 className="h-6 w-6" /></div>
-          </div>
-          <div className="mt-5 text-4xl font-black">{overtime}</div>
-          <div className="mt-3 text-sm font-bold text-amber-400">↑ watch overtime</div>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-xl shadow-black/20 backdrop-blur transition-all hover:scale-[1.015] hover:border-cyan-300/25 hover:bg-white/[0.07]">
-          <div className="flex items-start justify-between">
-            <div className="text-sm text-slate-300">Open<br />Exceptions</div>
-            <div className="rounded-2xl bg-amber-500/20 p-3 text-amber-300"><AlertTriangle className="h-6 w-6" /></div>
-          </div>
-          <div className="mt-5 text-4xl font-black">{openExceptions}</div>
-          <div className="mt-3 text-sm font-bold text-rose-400">{openExceptions > 0 ? "Needs action" : "Clean"}</div>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-xl shadow-black/20 backdrop-blur transition-all hover:scale-[1.015] hover:border-cyan-300/25 hover:bg-white/[0.07]">
-          <div className="flex items-start justify-between">
-            <div className="text-sm text-slate-300">Payroll<br />Readiness</div>
-            <div className="rounded-2xl bg-emerald-500/20 p-3 text-emerald-300"><ShieldCheck className="h-6 w-6" /></div>
-          </div>
-          <div className="mt-5 text-4xl font-black">{readiness}%</div>
-          <div className={payrollReady ? "mt-3 text-sm font-bold text-emerald-400" : "mt-3 text-sm font-bold text-rose-400"}>
-            {payrollReady ? "Ready" : "Not Ready"}
-          </div>
-        </div>
-      </div>
-
-
-      <div className="mt-7 grid gap-6 xl:grid-cols-3">
-        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-6 shadow-xl shadow-rose-950/20 backdrop-blur">
-          <div className="text-sm font-black uppercase tracking-[0.2em] text-rose-300">Estimated Monthly Loss</div>
-          <div className="mt-4 text-4xl font-black text-white">
-            R {(openExceptions * 1200 + openHrCases * 2500 + overtime * 450).toLocaleString("en-ZA")}
-          </div>
-          <div className="mt-3 text-sm leading-6 text-rose-100">
-            Late clock-ins, overtime, missing records and HR risk are costing money before payroll even starts.
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-6 shadow-xl shadow-cyan-950/20 backdrop-blur">
-          <div className="text-sm font-black uppercase tracking-[0.2em] text-cyan-300">Smart Insights</div>
-          <div className="mt-4 space-y-3 text-sm text-white">
-            <div className="rounded-xl bg-white/10 p-3">
-              {openExceptions > 0 ? "Exceptions need manager review before payroll export." : "No open exceptions. Operations are stable."}
-            </div>
-            <div className="rounded-xl bg-white/10 p-3">
-              {openHrCases > 0 ? "HR cases are still open and may block payroll trust." : "No open HR cases currently blocking payroll."}
-            </div>
-            <div className="rounded-xl bg-white/10 p-3">
-              Overtime trend is {overtime > 0 ? "active — review labour cost." : "stable — no overtime pressure visible."}
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-6 shadow-xl shadow-black/20 backdrop-blur">
-          <div className="text-sm font-black uppercase tracking-[0.2em] text-slate-300">Payroll Export Preview</div>
-          <div className="mt-4 space-y-3 text-sm text-white">
-            <div className="flex justify-between border-b border-white/10 pb-2">
-              <span className="text-slate-400">Employees</span>
-              <b>{employees.length}</b>
-            </div>
-            <div className="flex justify-between border-b border-white/10 pb-2">
-              <span className="text-slate-400">Total Hours</span>
-              <b>{demoHours.toFixed(0)}</b>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Status</span>
-              <b className={payrollReady ? "text-emerald-300" : "text-rose-300"}>{payrollReady ? "READY" : "BLOCKED"}</b>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-7 grid gap-6 xl:grid-cols-2">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-6 shadow-xl shadow-black/20 backdrop-blur transition-all hover:border-cyan-300/20 hover:bg-white/[0.065]">
-          <h3 className="text-lg font-black">Hours Overview <span className="text-slate-400">(Last 7 Days)</span></h3>
-          <div className="mt-8 flex h-56 items-end gap-3 border-b border-l border-white/10 px-4 pb-4">
-            {[55, 50, 74, 66, 82, 78, 96].map((height, index) => (
-              <div key={index} className="flex flex-1 flex-col items-center gap-2">
-                <div className="w-full rounded-t-xl bg-gradient-to-t from-blue-700 to-blue-400 shadow-[0_0_25px_rgba(59,130,246,0.35)]" style={{ height: `${height}%` }} />
-                <span className="text-[10px] text-slate-500">{index === 6 ? "Today" : `${7 - index}`}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-6 shadow-xl shadow-black/20 backdrop-blur transition-all hover:border-cyan-300/20 hover:bg-white/[0.065]">
-          <h3 className="text-lg font-black">Exceptions by Type</h3>
-          <div className="mt-8 grid gap-8 md:grid-cols-[180px_1fr] md:items-center">
-            <div className="mx-auto h-44 w-44 rounded-full bg-[conic-gradient(#ef4444_0_38%,#f97316_38%_64%,#facc15_64%_82%,#14b8a6_82%_100%)] p-10">
-              <div className="h-full w-full rounded-full bg-[#07101f]" />
-            </div>
-            <div className="space-y-4 text-sm">
-              <div className="flex justify-between gap-4"><span className="text-slate-300">Late Clock In</span><b>{openExceptions}</b></div>
-              <div className="flex justify-between gap-4"><span className="text-slate-300">Early Clock Out</span><b>{Math.max(0, Math.floor(openExceptions / 2))}</b></div>
-              <div className="flex justify-between gap-4"><span className="text-slate-300">Missed Break</span><b>{Math.max(0, Math.floor(openExceptions / 3))}</b></div>
-              <div className="flex justify-between gap-4"><span className="text-slate-300">Unapproved OT</span><b>{overtime}</b></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-7 grid gap-6 xl:grid-cols-2">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-6 shadow-xl shadow-black/20 backdrop-blur transition-all hover:border-cyan-300/20 hover:bg-white/[0.065]">
-          <h3 className="text-lg font-black">Top Stores by Exception Count</h3>
-          <div className="mt-6 space-y-5">
-            {topStores.length === 0 && <div className="text-sm text-slate-400">No stores loaded yet.</div>}
-            {topStores.map(({ store, count, index }) => (
-              <div key={store.id} className="grid grid-cols-[24px_1fr_180px_32px] items-center gap-4 text-sm">
-                <span className="text-slate-400">{index + 1}</span>
-                <span className="font-semibold">{store.name}</span>
-                <div className="h-2 rounded-full bg-white/10">
-                  <div className="h-2 rounded-full bg-rose-500" style={{ width: `${Math.min(100, count * 14)}%` }} />
-                </div>
-                <span className="text-right font-black">{count}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-6 shadow-xl shadow-black/20 backdrop-blur transition-all hover:border-cyan-300/20 hover:bg-white/[0.065]">
-          <h3 className="text-lg font-black">Recent Activity</h3>
-          <div className="mt-6 space-y-4">
-            {recentActivity.length === 0 && <div className="rounded-2xl bg-emerald-500/10 p-4 text-sm text-emerald-300">No urgent activity. System operational.</div>}
-            {recentActivity.map((item, index) => (
-              <div key={index} className="flex items-start gap-4">
-                <span className={`mt-1 h-9 w-9 rounded-full ${item.tone === "danger" ? "bg-rose-500/20 text-rose-300" : "bg-purple-500/20 text-purple-300"} flex items-center justify-center`}>
-                  {item.tone === "danger" ? <AlertTriangle className="h-4 w-4" /> : <Users className="h-4 w-4" />}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="font-semibold">{item.title}</div>
-                  <div className="truncate text-sm text-slate-400">{item.detail}</div>
-                </div>
-                <span className="text-xs text-slate-500">{index + 2}m ago</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-7 grid gap-6 xl:grid-cols-[1.4fr_0.6fr]">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-6 shadow-xl shadow-black/20 backdrop-blur transition-all hover:border-cyan-300/20 hover:bg-white/[0.065]">
-          <h3 className="text-lg font-black">Payroll Workflow</h3>
-          <div className="mt-8 grid gap-4 md:grid-cols-4">
-            {[
-              ["Collect Hours", "Complete", "bg-emerald-500/20 text-emerald-300"],
-              ["Review Exceptions", `${openExceptions} Open`, "bg-amber-500/20 text-amber-300"],
-              ["Approve Hours", payrollReady ? "Ready" : "Pending", "bg-purple-500/20 text-purple-300"],
-              ["Export Payroll", payrollReady ? "Ready" : "Blocked", "bg-slate-500/20 text-slate-300"],
-            ].map(([label, status, cls]) => (
-              <div key={label} className="text-center">
-                <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl ${cls}`}>
-                  <CheckCircle2 className="h-6 w-6" />
-                </div>
-                <div className="mt-4 font-bold">{label}</div>
-                <div className="mt-2 text-sm text-slate-400">{status}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-6 shadow-xl shadow-black/20 backdrop-blur transition-all hover:border-cyan-300/20 hover:bg-white/[0.065]">
-          <h3 className="text-lg font-black">Quick Actions</h3>
-          <div className="mt-6 grid gap-3">
-            <button className="rounded-xl bg-gradient-to-r from-blue-600 to-cyan-400 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition-all hover:scale-[1.02]">Approve All Clean Hours</button>
-            <button className="rounded-xl bg-white/10 px-5 py-3 text-sm font-black text-white transition-all hover:scale-[1.02] hover:bg-white/15">Close Approved Exceptions</button>
-            <button className="rounded-xl bg-white/10 px-5 py-3 text-sm font-black text-white transition-all hover:scale-[1.02] hover:bg-white/15">Export Payroll Data</button>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-8 flex items-center justify-between border-t border-white/10 pt-6 text-xs text-slate-500">
-        <span>VYRON CORE v1.0.0</span>
-        <span>Last updated: {new Date().toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}</span>
-        <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-400" /> System Operational</span>
-      </div>
-    </div>
-  );
-}
-
-
-function EmployeeHRFileScreen({
-  employees,
-  hrCases,
-  hrWarnings,
-  hrDocuments,
-  hrNotes,
-  leaveRequests,
-  authUserEmail,
-  onRefresh
-}: {
-  employees: EmployeeRow[];
-  hrCases: HrCaseRow[];
-  hrWarnings: HrWarningRow[];
-  hrDocuments: HrDocumentRow[];
-  hrNotes: HrNoteRow[];
-  leaveRequests: LeaveRequestRow[];
-  authUserEmail: string | null;
-  onRefresh: () => void;
-}) {
-  const activeEmployees = employees.filter((employee) => employee.active);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState(activeEmployees[0]?.id || "");
-  const [noteType, setNoteType] = useState("general");
-  const [noteTitle, setNoteTitle] = useState("");
-  const [noteBody, setNoteBody] = useState("");
-  const [savingNote, setSavingNote] = useState(false);
-
-  useEffect(() => {
-    if (!selectedEmployeeId && activeEmployees[0]?.id) {
-      setSelectedEmployeeId(activeEmployees[0].id);
-    }
-  }, [selectedEmployeeId, activeEmployees]);
-
-  const selectedEmployee = employees.find((employee) => employee.id === selectedEmployeeId) || null;
-  const selectedCode = selectedEmployee?.employee_number || selectedEmployee?.id || "";
-  const selectedName = selectedEmployee ? `${selectedEmployee.first_name} ${selectedEmployee.last_name}` : "No employee selected";
-
-  const employeeHrCases = selectedEmployee
-    ? hrCases.filter((item) => item.employee_id === selectedEmployee.id)
-    : [];
-
-  const employeeWarnings = selectedEmployee
-    ? hrWarnings.filter((item) => item.employee_id === selectedEmployee.id || item.employee_id === selectedCode)
-    : [];
-
-  const employeeDocuments = selectedEmployee
-    ? hrDocuments.filter((item) => item.employee_id === selectedEmployee.id || item.employee_id === selectedCode)
-    : [];
-
-  const employeeNotes = selectedEmployee
-    ? hrNotes.filter((item) => item.employee_id === selectedEmployee.id || item.employee_id === selectedCode)
-    : [];
-
-  const employeeLeave = selectedEmployee
-    ? leaveRequests.filter((item) => item.employee_id === selectedEmployee.id || item.employee_id === selectedCode)
-    : [];
-
-  const totalRecords =
-    employeeHrCases.length +
-    employeeWarnings.length +
-    employeeDocuments.length +
-    employeeNotes.length +
-    employeeLeave.length;
-
-  async function saveNote() {
     if (!selectedEmployee) {
-      alert("Please select an employee first.");
+      setError("Select your name or type your staff code first.");
+      setSaving(false);
       return;
     }
 
-    if (!noteTitle.trim()) {
-      alert("Please enter a note title.");
+    if (!storeId) {
+      setError("Select the store/location first.");
+      setSaving(false);
       return;
     }
 
-    if (!noteBody.trim()) {
-      alert("Please enter the note detail.");
+    if (!photoFile) {
+      setError("A live photo is required before clocking.");
+      setSaving(false);
       return;
     }
 
-    setSavingNote(true);
+    const latestEventNow = localClockEvents
+      .filter((event) => event.employee_id === selectedEmployee.id && String(event.event_time || "").slice(0, 10) === todayKey)
+      .sort((a, b) => new Date(b.event_time).getTime() - new Date(a.event_time).getTime())[0] || null;
 
-    const { error } = await supabase.from("hr_notes").insert({
-      employee_id: selectedEmployee.id,
-      employee_name: selectedName,
-      note_type: noteType,
-      note_title: noteTitle.trim(),
-      note_body: noteBody.trim(),
-      visibility: "manager_only",
-      status: "active",
-      created_by: authUserEmail
-});
+    const latestIsClockedIn = latestEventNow ? isClockIn(latestEventNow.event_type) : false;
+    const lockedNextAction: "clock_in" | "clock_out" = latestIsClockedIn ? "clock_out" : "clock_in";
 
-    setSavingNote(false);
-
-    if (error) {
-      alert("Could not save note: " + error.message);
+    if (lockedNextAction !== nextAction) {
+      setError("Clocking status changed. Please refresh and try again.");
+      setSaving(false);
       return;
     }
 
-    setNoteType("general");
-    setNoteTitle("");
-    setNoteBody("");
-    onRefresh();
-  }
+    try {
+      const position = await getCurrentPosition();
+      const { latitude, longitude, accuracy } = position.coords;
 
-  function printEmployeeFile() {
-    if (!selectedEmployee) return;
+      setGpsMessage(`GPS captured: ${latitude.toFixed(5)}, ${longitude.toFixed(5)} · accuracy ${Math.round(accuracy)}m`);
 
-    const html = `
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Employee HR File - ${selectedName}</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 36px; color: #111827; line-height: 1.5; }
-    .brand { font-size: 24px; font-weight: 900; letter-spacing: 4px; }
-    .tag { color: #0369a1; font-size: 11px; font-weight: 800; letter-spacing: 3px; margin-top: 4px; }
-    h1 { margin-top: 28px; margin-bottom: 6px; }
-    h2 { margin-top: 28px; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 18px; }
-    .box { border: 1px solid #cbd5e1; border-radius: 12px; padding: 12px; }
-    .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: #64748b; font-weight: 800; }
-    .value { margin-top: 5px; font-weight: 800; }
-    .item { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin: 10px 0; }
-    .small { color: #64748b; font-size: 12px; }
-    @media print { body { margin: 24px; } }
-  </style>
-</head>
-<body>
-  <div class="brand">VYRON</div>
-  <div class="tag">CORE · EMPLOYEE HR FILE</div>
-  <h1>${selectedName}</h1>
-  <div class="small">Employee Code: ${selectedCode || "Not set"} · Generated: ${new Date().toLocaleString("en-ZA")}</div>
+      const photoEvidence = await uploadClockPhoto(selectedEmployee.id, lockedNextAction);
 
-  <div class="grid">
-    <div class="box"><div class="label">HR cases</div><div class="value">${employeeHrCases.length}</div></div>
-    <div class="box"><div class="label">Warnings</div><div class="value">${employeeWarnings.length}</div></div>
-    <div class="box"><div class="label">Documents</div><div class="value">${employeeDocuments.length}</div></div>
-    <div class="box"><div class="label">Leave records</div><div class="value">${employeeLeave.length}</div></div>
-    <div class="box"><div class="label">Notes</div><div class="value">${employeeNotes.length}</div></div>
-    <div class="box"><div class="label">Total records</div><div class="value">${totalRecords}</div></div>
-  </div>
-
-  <h2>Warnings</h2>
-  ${employeeWarnings.map((item) => `<div class="item"><b>${item.warning_type}</b> · ${item.status}<br/><span class="small">${item.incident_type} · Issued ${formatDate(item.issue_date)} · Expires ${formatDate(item.expiry_date)}</span><br/>${item.description}</div>`).join("") || "<p>No warnings.</p>"}
-
-  <h2>HR Cases</h2>
-  ${employeeHrCases.map((item) => `<div class="item"><b>${item.title}</b> · ${item.status}<br/><span class="small">${item.case_type} · ${item.validity_status}</span><br/>${item.description}</div>`).join("") || "<p>No HR cases.</p>"}
-
-  <h2>Leave Records</h2>
-  ${employeeLeave.map((item) => `<div class="item"><b>${item.leave_type || "Leave"}</b> · ${item.status}<br/><span class="small">${formatDate(item.start_date)} to ${formatDate(item.end_date)}</span><br/>${item.reason || ""}</div>`).join("") || "<p>No leave records.</p>"}
-
-  <h2>Documents</h2>
-  ${employeeDocuments.map((item) => `<div class="item"><b>${item.document_title}</b> · ${item.document_type}<br/><span class="small">${item.file_name || "No file name"}</span><br/>${item.document_notes || ""}</div>`).join("") || "<p>No documents.</p>"}
-
-  <h2>Manager Notes</h2>
-  ${employeeNotes.map((item) => `<div class="item"><b>${item.note_title}</b> · ${item.note_type}<br/><span class="small">${formatDate(item.created_at)}</span><br/>${item.note_body}</div>`).join("") || "<p>No notes.</p>"}
-
-  <script>window.print();</script>
-</body>
-</html>`;
-
-    const printWindow = window.open("", "_blank", "width=900,height=1100");
-
-    if (!printWindow) {
-      alert("Popup blocked. Please allow popups and try again.");
-      return;
-    }
-
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
-  }
-
-  return (
-    <div className="mt-8 space-y-8">
-      <Panel dark>
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Employee HR File</div>
-            <h2 className="mt-3 text-4xl font-black tracking-tight">One employee. Complete HR history.</h2>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
-              Manager-only view combining HR cases, warnings, leave records, uploaded documents and internal notes.
-            </p>
-          </div>
-
-          <button onClick={printEmployeeFile} className="w-fit rounded-2xl bg-white px-5 py-3 text-sm font-bold text-slate-950 shadow-xl">
-            Print Employee File
-          </button>
-        </div>
-      </Panel>
-
-      <div className="grid gap-8 xl:grid-cols-[420px_1fr]">
-        <Panel>
-          <h3 className="text-2xl font-bold tracking-tight">Select employee</h3>
-          <p className="mt-2 text-sm text-slate-500">Choose an employee to view their full HR file.</p>
-
-          <label className="mt-5 block text-sm font-bold">
-            Employee
-            <select
-              value={selectedEmployeeId}
-              onChange={(event) => setSelectedEmployeeId(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 outline-none focus:border-blue-500"
-            >
-              <option value="">Select employee</option>
-              {activeEmployees.map((employee) => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.first_name} {employee.last_name} · {employee.employee_number || "No code"}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {selectedEmployee && (
-            <div className="mt-5 rounded-[26px] bg-slate-50 p-5">
-              <div className="text-lg font-bold text-slate-950">{selectedName}</div>
-              <div className="mt-1 text-sm font-semibold text-slate-500">{selectedCode || "No employee code"} · {selectedEmployee.job_title || "No job title"}</div>
-
-              <div className="mt-5 grid gap-3">
-                <InfoBox label="HR cases" value={String(employeeHrCases.length)} />
-                <InfoBox label="Warnings" value={String(employeeWarnings.length)} />
-                <InfoBox label="Documents" value={String(employeeDocuments.length)} />
-                <InfoBox label="Leave records" value={String(employeeLeave.length)} />
-                <InfoBox label="Manager notes" value={String(employeeNotes.length)} />
-              </div>
-            </div>
-          )}
-
-          <div className="mt-6 rounded-[26px] border border-slate-200 bg-white p-5">
-            <h4 className="font-bold text-slate-950">Add manager note</h4>
-            <p className="mt-2 text-sm text-slate-500">Notes are stored against the employee HR file.</p>
-
-            <label className="mt-4 block text-sm font-bold">
-              Note type
-              <select
-                value={noteType}
-                onChange={(event) => setNoteType(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
-              >
-                <option value="general">General</option>
-                <option value="performance">Performance</option>
-                <option value="attendance">Attendance</option>
-                <option value="disciplinary">Disciplinary</option>
-                <option value="leave">Leave</option>
-                <option value="payroll">Payroll</option>
-                <option value="manager_observation">Manager observation</option>
-                <option value="other">Other</option>
-              </select>
-            </label>
-
-            <FormInput label="Note title" value={noteTitle} onChange={setNoteTitle} placeholder="Example: Attendance discussion" />
-
-            <label className="mt-4 block text-sm font-bold">
-              Note detail
-              <textarea
-                value={noteBody}
-                onChange={(event) => setNoteBody(event.target.value)}
-                className="mt-2 min-h-28 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
-                placeholder="Type the manager note..."
-              />
-            </label>
-
-            <button
-              onClick={saveNote}
-              disabled={savingNote}
-              className="mt-4 w-full rounded-2xl bg-slate-950 px-5 py-4 text-sm font-bold text-white disabled:opacity-60"
-            >
-              {savingNote ? "Saving..." : "Save Note"}
-            </button>
-          </div>
-        </Panel>
-
-        <div className="space-y-8">
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
-            <StatCard title="HR cases" value={String(employeeHrCases.length)} subtitle="Open and closed cases" icon={<Gavel className="h-6 w-6" />} />
-            <StatCard title="Warnings" value={String(employeeWarnings.length)} subtitle="Active and historic warnings" icon={<AlertTriangle className="h-6 w-6" />} />
-            <StatCard title="Documents" value={String(employeeDocuments.length)} subtitle="Uploaded HR files" icon={<ShieldCheck className="h-6 w-6" />} />
-            <StatCard title="Leave" value={String(employeeLeave.length)} subtitle="Leave request history" icon={<Clock3 className="h-6 w-6" />} />
-            <StatCard title="Notes" value={String(employeeNotes.length)} subtitle="Manager observations" icon={<Bell className="h-6 w-6" />} />
-          </div>
-
-          <Panel>
-            <h3 className="text-2xl font-bold tracking-tight">Warnings</h3>
-            <div className="mt-5 space-y-3">
-              {employeeWarnings.length === 0 && <div className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">No warnings found for this employee.</div>}
-              {employeeWarnings.map((item) => (
-                <div key={item.id} className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="font-bold text-slate-950">{formatText(item.warning_type)}</div>
-                    <StatusPill value={item.status} />
-                  </div>
-                  <div className="mt-2 text-sm text-slate-600">{formatText(item.incident_type)} · Issued {formatDate(item.issue_date)} · Expires {formatDate(item.expiry_date)}</div>
-                  <div className="mt-3 text-sm leading-6 text-slate-700">{item.description}</div>
-                </div>
-              ))}
-            </div>
-          </Panel>
-
-          <Panel>
-            <h3 className="text-2xl font-bold tracking-tight">Documents</h3>
-            <div className="mt-5 space-y-3">
-              {employeeDocuments.length === 0 && <div className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">No documents uploaded for this employee.</div>}
-              {employeeDocuments.map((item) => (
-                <div key={item.id} className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <div className="font-bold text-slate-950">{item.document_title}</div>
-                      <div className="mt-1 text-sm text-slate-500">{formatText(item.document_type)} · {item.file_name || "No file"}</div>
-                    </div>
-                    {item.file_url && (
-                      <a href={item.file_url} target="_blank" rel="noreferrer" className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-bold text-white">
-                        Open
-                      </a>
-                    )}
-                  </div>
-                  {item.document_notes && <div className="mt-3 text-sm leading-6 text-slate-700">{item.document_notes}</div>}
-                </div>
-              ))}
-            </div>
-          </Panel>
-
-          <Panel>
-            <h3 className="text-2xl font-bold tracking-tight">Leave records</h3>
-            <div className="mt-5 space-y-3">
-              {employeeLeave.length === 0 && <div className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">No leave records found for this employee.</div>}
-              {employeeLeave.map((item) => (
-                <div key={item.id} className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="font-bold text-slate-950">{item.leave_type || "Leave request"}</div>
-                    <StatusPill value={item.status} />
-                  </div>
-                  <div className="mt-2 text-sm text-slate-600">{formatDate(item.start_date)} → {formatDate(item.end_date)}</div>
-                  <div className="mt-3 text-sm leading-6 text-slate-700">{item.reason || "No reason captured."}</div>
-                  {item.manager_feedback && <div className="mt-3 rounded-2xl bg-cyan-50 p-4 text-sm font-semibold text-cyan-900">Manager feedback: {item.manager_feedback}</div>}
-                </div>
-              ))}
-            </div>
-          </Panel>
-
-          <Panel>
-            <h3 className="text-2xl font-bold tracking-tight">Manager notes</h3>
-            <div className="mt-5 space-y-3">
-              {employeeNotes.length === 0 && <div className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">No manager notes yet.</div>}
-              {employeeNotes.map((item) => (
-                <div key={item.id} className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="font-bold text-slate-950">{item.note_title}</div>
-                    <StatusPill value={item.note_type} />
-                  </div>
-                  <div className="mt-2 text-xs font-semibold text-slate-500">{formatDate(item.created_at)} · {formatText(item.visibility)}</div>
-                  <div className="mt-3 text-sm leading-6 text-slate-700">{item.note_body}</div>
-                </div>
-              ))}
-            </div>
-          </Panel>
-
-          <Panel>
-            <h3 className="text-2xl font-bold tracking-tight">HR cases</h3>
-            <div className="mt-5 space-y-3">
-              {employeeHrCases.length === 0 && <div className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">No HR cases for this employee.</div>}
-              {employeeHrCases.map((item) => (
-                <div key={item.id} className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="font-bold text-slate-950">{item.title}</div>
-                    <StatusPill value={item.status} />
-                  </div>
-                  <div className="mt-2 text-sm text-slate-600">{formatText(item.case_type)} · {statusToClientText(item.validity_status)}</div>
-                  <div className="mt-3 text-sm leading-6 text-slate-700">{item.description}</div>
-                  {item.employee_response && <div className="mt-3 rounded-2xl bg-white p-4 text-sm text-slate-700">Employee response: {item.employee_response}</div>}
-                </div>
-              ))}
-            </div>
-          </Panel>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-function minutesBetween(startValue: string | null, endValue: string | null) {
-  if (!startValue || !endValue) return 0;
-  const start = new Date(startValue).getTime();
-  const end = new Date(endValue).getTime();
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
-  return Math.round((end - start) / 60000);
-}
-
-function minutesLate(plannedStart: string | null, actualClockIn: string | null) {
-  if (!plannedStart || !actualClockIn) return 0;
-  const planned = new Date(plannedStart).getTime();
-  const actual = new Date(actualClockIn).getTime();
-  if (!Number.isFinite(planned) || !Number.isFinite(actual)) return 0;
-  return Math.max(0, Math.round((actual - planned) / 60000));
-}
-
-function minutesEarly(plannedEnd: string | null, actualClockOut: string | null) {
-  if (!plannedEnd || !actualClockOut) return 0;
-  const planned = new Date(plannedEnd).getTime();
-  const actual = new Date(actualClockOut).getTime();
-  if (!Number.isFinite(planned) || !Number.isFinite(actual)) return 0;
-  return Math.max(0, Math.round((planned - actual) / 60000));
-}
-
-function minutesOvertime(plannedEnd: string | null, actualClockOut: string | null) {
-  if (!plannedEnd || !actualClockOut) return 0;
-  const planned = new Date(plannedEnd).getTime();
-  const actual = new Date(actualClockOut).getTime();
-  if (!Number.isFinite(planned) || !Number.isFinite(actual)) return 0;
-  return Math.max(0, Math.round((actual - planned) / 60000));
-}
-
-function PayrollClockEngineScreen({
-  payrollClockChecks,
-  rosterShifts,
-  clockEvents,
-  employees,
-  stores,
-  companyId,
-  onRefresh
-}: {
-  payrollClockChecks: PayrollClockCheckRow[];
-  rosterShifts: RosterShiftRow[];
-  clockEvents: ClockEventRow[];
-  employees: EmployeeRow[];
-  stores: StoreRow[];
-  companyId: string;
-  onRefresh: () => void;
-}) {
-  const [generating, setGenerating] = React.useState(false);
-  const [savingId, setSavingId] = React.useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = React.useState(todayIsoDate());
-
-  const checksForDate = payrollClockChecks.filter((item) => item.shift_date === selectedDate);
-  const blockedCount = checksForDate.filter((item) => item.payroll_status === "blocked" || item.payroll_status === "needs_review").length;
-  const cleanCount = checksForDate.filter((item) => item.payroll_status === "clean" || item.payroll_status === "approved").length;
-  const missingCount = checksForDate.filter((item) => item.missing_clock_in || item.missing_clock_out).length;
-  const overtimeCount = checksForDate.filter((item) => safeNumber(item.overtime_minutes) > 0).length;
-
-  function employeeName(employeeId: string) {
-    const employee = employees.find((item) => item.id === employeeId);
-    return employee ? `${employee.first_name} ${employee.last_name}` : "Unknown employee";
-  }
-
-  function employeeNumber(employeeId: string) {
-    const employee = employees.find((item) => item.id === employeeId);
-    return employee?.employee_number || null;
-  }
-
-  function storeName(storeId: string | null) {
-    const store = stores.find((item) => item.id === storeId);
-    return store?.name || null;
-  }
-
-  function firstClockIn(employeeId: string, shiftDate: string) {
-    const events = clockEvents
-      .filter((event) => event.employee_id === employeeId && dayKeyFromIso(event.event_time) === shiftDate && isClockIn(event.event_type))
-      .sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime());
-    return events[0]?.event_time || null;
-  }
-
-  function lastClockOut(employeeId: string, shiftDate: string) {
-    const events = clockEvents
-      .filter((event) => event.employee_id === employeeId && dayKeyFromIso(event.event_time) === shiftDate && isClockOut(event.event_type))
-      .sort((a, b) => new Date(b.event_time).getTime() - new Date(a.event_time).getTime());
-    return events[0]?.event_time || null;
-  }
-
-  async function generateChecks() {
-    setGenerating(true);
-
-    const shifts = rosterShifts.filter((shift) => shift.shift_date === selectedDate);
-
-    if (shifts.length === 0) {
-      alert("No roster shifts found for this date.");
-      setGenerating(false);
-      return;
-    }
-
-    const rows = shifts.map((shift) => {
-      const actualIn = firstClockIn(shift.employee_id, shift.shift_date);
-      const actualOut = lastClockOut(shift.employee_id, shift.shift_date);
-      const late = minutesLate(shift.planned_start, actualIn);
-      const early = minutesEarly(shift.planned_end, actualOut);
-      const overtime = minutesOvertime(shift.planned_end, actualOut);
-      const normal = minutesBetween(actualIn, actualOut);
-      const missingIn = !actualIn;
-      const missingOut = !actualOut;
-      const needsReview = missingIn || missingOut || late > 0 || early > 0 || overtime > 0;
-      const reasons = [
-        missingIn ? "Missing clock in" : null,
-        missingOut ? "Missing clock out" : null,
-        late > 0 ? `${late} min late` : null,
-        early > 0 ? `${early} min early leave` : null,
-        overtime > 0 ? `${overtime} min overtime` : null,
-      ].filter(Boolean).join(" · ");
-
-      return {
+      const payload: any = {
         company_id: companyId,
-        employee_id: shift.employee_id,
-        employee_number: employeeNumber(shift.employee_id),
-        employee_name: employeeName(shift.employee_id),
-        store_id: shift.store_id,
-        store_name: storeName(shift.store_id),
-        roster_shift_id: shift.id,
-        shift_date: shift.shift_date,
-        planned_start: shift.planned_start,
-        planned_end: shift.planned_end,
-        actual_clock_in: actualIn,
-        actual_clock_out: actualOut,
-        missing_clock_in: missingIn,
-        missing_clock_out: missingOut,
-        late_minutes: late,
-        early_leave_minutes: early,
-        overtime_minutes: overtime,
-        normal_minutes: normal,
-        payable_minutes: normal,
-        payroll_status: needsReview ? "blocked" : "clean",
-        exception_required: needsReview,
-        exception_reason: reasons || null,
-        manager_review_status: needsReview ? "pending" : "not_required",
-        manager_note: null,
-        generated_from: "manager_clock_engine",
-        generated_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-};
-    });
+        employee_id: selectedEmployee.id,
+        store_id: storeId,
+        roster_shift_id: rosterShiftId || null,
+        event_type: lockedNextAction,
+        event_time: new Date().toISOString(),
+        source: "kiosk",
+        latitude,
+        longitude,
+        gps_accuracy: accuracy,
+        photo_bucket: photoEvidence.photo_bucket,
+        photo_path: photoEvidence.photo_path,
+        photo_url: photoEvidence.photo_url,
+        device_info: typeof window !== "undefined" ? window.navigator.userAgent : null,
+        clock_note: lockedNextAction === "clock_in" ? "Staff clocked in with photo and GPS." : "Staff clocked out with photo and GPS.",
+      };
 
-    const { error } = await supabase
-      .from("payroll_clock_checks")
-      .upsert(rows, { onConflict: "employee_id,shift_date,roster_shift_id" });
+      const { data, error: insertError } = await supabase
+        .from("clock_events")
+        .insert(payload)
+        .select("*")
+        .single();
 
-    if (error) {
-      alert(error.message);
-      setGenerating(false);
-      return;
+      if (insertError) {
+        setError(insertError.message);
+        setSaving(false);
+        return;
+      }
+
+      if (data) {
+        setLocalClockEvents((current) => [data as ClockEventRow, ...current]);
+      }
+
+      setPhotoFile(null);
+      setLastMessage(
+        `${employeeName(selectedEmployee)} ${lockedNextAction === "clock_in" ? "clocked in" : "clocked out"} successfully.`
+      );
+
+      await onRefresh();
+    } catch (clockError: any) {
+      setError(clockError?.message || "Clocking failed.");
     }
 
-    setGenerating(false);
-    onRefresh();
-  }
-
-  async function reviewCheck(check: PayrollClockCheckRow, status: "approved" | "declined" | "amended") {
-    const note = window.prompt("Manager note for this payroll check:");
-    if (note === null) return;
-
-    setSavingId(check.id);
-
-    const payrollStatus = status === "approved" ? "approved" : "blocked";
-
-    const { error } = await supabase
-      .from("payroll_clock_checks")
-      .update({
-        manager_review_status: status,
-        payroll_status: payrollStatus,
-        manager_note: note.trim() || null,
-        updated_at: new Date().toISOString()
-})
-      .eq("id", check.id);
-
-    if (error) {
-      alert(error.message);
-      setSavingId(null);
-      return;
-    }
-
-    setSavingId(null);
-    onRefresh();
+    setSaving(false);
   }
 
   return (
-    <div className="mt-8 space-y-8">
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Blocked checks" value={String(blockedCount)} subtitle="Must be reviewed before payroll" icon={<AlertTriangle className="h-6 w-6" />} />
-        <StatCard title="Clean checks" value={String(cleanCount)} subtitle="Ready or approved records" icon={<CheckCircle2 className="h-6 w-6" />} />
-        <StatCard title="Missing clocks" value={String(missingCount)} subtitle="Clock-in/out gaps found" icon={<Clock3 className="h-6 w-6" />} />
-        <StatCard title="Overtime flags" value={String(overtimeCount)} subtitle="Overtime minutes detected" icon={<WalletCards className="h-6 w-6" />} />
+    <section className="relative -m-6 overflow-hidden rounded-none bg-[#04100d] p-6 text-[#06101f] md:-m-8 md:p-8">
+      <div className="pointer-events-none absolute inset-0 z-0">
+        <div className="absolute left-[-180px] top-[-220px] h-[620px] w-[620px] rounded-full bg-cyan-400/18 blur-[140px]" />
+        <div className="absolute right-[-180px] top-[120px] h-[760px] w-[760px] rounded-full bg-cyan-500/20 blur-[160px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(8,47,73,0.98)_0%,rgba(14,116,144,0.9)_34%,rgba(238,246,255,0.94)_34%,rgba(238,246,255,0.94)_100%)]" />
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-[0.78fr_1.22fr]">
-        <Panel dark>
-          <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Payroll Gatekeeper</div>
-          <h2 className="mt-3 text-3xl font-bold">Clock Engine</h2>
-          <p className="mt-4 text-sm leading-7 text-slate-300">
-            Generate daily payroll checks from roster shifts and clock events. Missing clocks, late arrivals, early leaving and overtime are flagged before payroll can run.
+      <div className="relative z-10 space-y-6">
+        <header className="rounded-[2.2rem] border border-white/70 bg-white/95 p-7 shadow-[0_22px_70px_rgba(15,23,42,0.16)] backdrop-blur-xl">
+          <div className="inline-flex rounded-full bg-cyan-100 px-4 py-2 text-xs font-black uppercase tracking-[0.35em] text-cyan-700">
+            VYRON CORE CLOCKING
+          </div>
+          <h1 className="mt-5 text-5xl font-black tracking-tight text-[#06101f]">Staff Clocking</h1>
+          <p className="mt-4 max-w-4xl text-base leading-8 text-slate-600">
+            Search your name or type your staff code. The system only shows Clock In when you are out, and only Clock Out when you are already clocked in.
           </p>
+        </header>
 
-          <label className="mt-6 block text-sm font-bold text-white">
-            Shift date to check
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(event) => setSelectedDate(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-white outline-none focus:border-cyan-300"
-            />
-          </label>
-
-          <button
-            onClick={generateChecks}
-            disabled={generating}
-            className="mt-5 w-full rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-400 px-5 py-4 text-sm font-black text-white shadow-lg shadow-blue-600/20 disabled:opacity-60"
-          >
-            {generating ? "Generating checks..." : "Generate Payroll Clock Checks"}
-          </button>
-
-          <div className="mt-6 space-y-3 text-sm text-slate-300">
-            <div className="rounded-2xl bg-white/10 p-4">Clean day = payroll ready.</div>
-            <div className="rounded-2xl bg-white/10 p-4">Problem day = payroll blocked until manager review.</div>
-            <div className="rounded-2xl bg-white/10 p-4">Approved review = payroll can continue.</div>
-          </div>
-        </Panel>
-
-        <Panel>
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight">Payroll Clock Checks</h2>
-              <p className="mt-2 text-sm text-slate-500">Review generated checks and approve payroll exceptions.</p>
+        <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+          <div className="rounded-[2.2rem] bg-[#06101f] p-7 text-white shadow-[0_22px_70px_rgba(6,16,31,0.35)]">
+            <div className="inline-flex rounded-full bg-cyan-400/15 px-4 py-2 text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
+              EMPLOYEE IDENTIFICATION
             </div>
-            <button onClick={onRefresh} className="w-fit rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white">Refresh</button>
-          </div>
 
-          <div className="mt-6 space-y-4">
-            {checksForDate.length === 0 && (
-              <div className="rounded-[26px] border border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
-                No payroll clock checks generated for this date yet.
-              </div>
-            )}
-
-            {checksForDate.map((check) => (
-              <div key={check.id} className="rounded-[26px] border border-slate-200 bg-slate-50 p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <div className="text-lg font-bold text-slate-950">{check.employee_name}</div>
-                    <div className="mt-1 text-xs font-semibold text-slate-500">
-                      {check.employee_number || "No employee number"} · {check.store_name || "No store"} · {formatDate(check.shift_date)}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <StatusPill value={check.payroll_status} />
-                    <StatusPill value={check.manager_review_status} />
-                  </div>
+            <div className="mt-6 grid gap-4">
+              <label className="text-sm font-black text-slate-200">
+                Staff Code / Employee Number / PIN
+                <div className="mt-2 flex gap-2">
+                  <input
+                    value={staffCode}
+                    onChange={(event) => setStaffCode(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") findEmployeeByCode();
+                    }}
+                    placeholder="Type code..."
+                    className="w-full rounded-2xl border border-cyan-400/20 bg-white/10 px-4 py-4 text-sm font-bold text-white outline-none placeholder:text-slate-400 focus:border-cyan-300"
+                  />
+                  <button
+                    onClick={findEmployeeByCode}
+                    className="rounded-2xl bg-cyan-400 px-5 py-4 text-sm font-black text-[#06101f]"
+                  >
+                    Find
+                  </button>
                 </div>
+              </label>
 
-                <div className="mt-5 grid gap-3 md:grid-cols-5">
-                  <InfoBox label="Clock In" value={check.actual_clock_in ? formatTime(check.actual_clock_in) : "Missing"} />
-                  <InfoBox label="Clock Out" value={check.actual_clock_out ? formatTime(check.actual_clock_out) : "Missing"} />
-                  <InfoBox label="Late" value={`${safeNumber(check.late_minutes)} min`} />
-                  <InfoBox label="Early Leave" value={`${safeNumber(check.early_leave_minutes)} min`} />
-                  <InfoBox label="Overtime" value={`${safeNumber(check.overtime_minutes)} min`} />
-                </div>
+              <label className="text-sm font-black text-slate-200">
+                Or Search Employee
+                <input
+                  value={employeeSearch}
+                  onChange={(event) => setEmployeeSearch(event.target.value)}
+                  placeholder="Search by name, number, phone..."
+                  className="mt-2 w-full rounded-2xl border border-cyan-400/20 bg-white/10 px-4 py-4 text-sm font-bold text-white outline-none placeholder:text-slate-400 focus:border-cyan-300"
+                />
+              </label>
 
-                {check.exception_reason && (
-                  <div className="mt-4 rounded-2xl bg-amber-50 p-4 text-sm font-semibold text-amber-800">
-                    {check.exception_reason}
-                  </div>
-                )}
-
-                {check.manager_note && (
-                  <div className="mt-4 rounded-2xl bg-blue-50 p-4 text-sm font-semibold text-blue-800">
-                    Manager note: {check.manager_note}
-                  </div>
-                )}
-
-                {check.manager_review_status === "pending" && (
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      onClick={() => reviewCheck(check, "approved")}
-                      disabled={savingId === check.id}
-                      className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-60"
-                    >
-                      Approve for Payroll
-                    </button>
-                    <button
-                      onClick={() => reviewCheck(check, "amended")}
-                      disabled={savingId === check.id}
-                      className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-60"
-                    >
-                      Amend
-                    </button>
-                    <button
-                      onClick={() => reviewCheck(check, "declined")}
-                      disabled={savingId === check.id}
-                      className="rounded-2xl bg-rose-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-60"
-                    >
-                      Keep Blocked
-                    </button>
-                  </div>
-                )}
+              <div className="max-h-[320px] space-y-2 overflow-auto pr-1">
+                {filteredEmployees.slice(0, 20).map((employee) => (
+                  <button
+                    key={employee.id}
+                    onClick={() => selectEmployee(employee.id)}
+                    className={`w-full rounded-2xl px-4 py-3 text-left text-sm font-black transition ${
+                      employee.id === employeeId
+                        ? "bg-cyan-400 text-[#06101f]"
+                        : "border border-cyan-400/15 bg-white/5 text-slate-200 hover:bg-white/10"
+                    }`}
+                  >
+                    {employeeName(employee)}
+                    <span className="ml-2 text-xs opacity-70">
+                      {employee.employee_number || "No number"}
+                    </span>
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
-        </Panel>
-      </div>
-    </div>
-  );
-}
-
-
-
-function CommandCentreLogoutOnlyButton() {
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    window.location.reload();
-  }
-
-  return (
-    <div className="mb-4 flex justify-end">
-      <button
-        onClick={handleLogout}
-        className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-sm hover:bg-slate-800"
-      >
-        Logout
-      </button>
-    </div>
-  );
-}
-
-function CommandCentreQuickActions({ setActive }: { setActive: (value: string) => void }) {
-  const actions = [
-    { label: "Open Employees", target: "Employees", note: "Staff list, search and edit" },
-    { label: "Open Leave Approvals", target: "Leave Approvals", note: "Pending leave decisions" },
-    { label: "Open Clocking", target: "Clocking", note: "Clock events and kiosk control" },
-    { label: "Open Exceptions", target: "Exceptions", note: "Late, missing and payroll blockers" },
-    { label: "Open HR Cases", target: "HR Cases", note: "Warnings and disciplinary controls" },
-    { label: "Open Reports", target: "Reports Centre", note: "HR, time and shift reporting" },
-  ];
-
-  return (
-    <div className="mt-6 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-      {actions.map((action) => (
-        <button
-          key={action.label}
-          onClick={() => setActive(action.target)}
-          className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50 hover:shadow-lg"
-        >
-          <div className="text-sm font-black text-slate-950">{action.label}</div>
-          <div className="mt-1 text-xs font-semibold leading-5 text-slate-500">{action.note}</div>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-
-function StoresRostersHub({ setActive }: { setActive: (value: string) => void }) {
-  const options = [
-    {
-      title: "Stores",
-      description: "Manage store/location records, trading times and operational setup.",
-      target: "Stores"
-},
-    {
-      title: "Rosters",
-      description: "Build and review shifts, roster coverage and staff allocation.",
-      target: "Rosters"
-},
-  ];
-
-  return (
-    <section className="mt-8 space-y-8">
-      <div className="rounded-[34px] bg-gradient-to-r from-[#07101f] to-[#0b1a33] p-6 text-white shadow-2xl shadow-slate-300">
-        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">
-          Time & Shifts
-        </div>
-        <h2 className="mt-3 text-4xl font-bold">Stores & Rosters</h2>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300">
-          Store setup and roster planning are grouped together so the sidebar stays clean.
-        </p>
-      </div>
-
-      <div className="grid gap-5 md:grid-cols-2">
-        {options.map((option) => (
-          <button
-            key={option.title}
-            onClick={() => setActive(option.target)}
-            className="rounded-[30px] border border-slate-200 bg-white p-6 text-left shadow-[0_10px_30px_rgba(0,0,0,0.08)] transition hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50"
-          >
-            <div className="text-xs font-black uppercase tracking-[0.25em] text-blue-600">
-              Open
-            </div>
-            <h3 className="mt-3 text-2xl font-black text-slate-950">{option.title}</h3>
-            <p className="mt-3 text-sm leading-6 text-slate-500">{option.description}</p>
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function LeaveManagementHub({ setActive }: { setActive: (value: string) => void }) {
-  const options = [
-    {
-      title: "Leave Approvals",
-      description: "Review, approve, decline or amend employee leave requests.",
-      target: "Leave Approvals"
-},
-    {
-      title: "Leave Balance Control",
-      description: "Set opening balances, accrual rules, days taken and days due.",
-      target: "Leave Balance Control"
-},
-    {
-      title: "Leave Decision Audit",
-      description: "View leave approval audit trail and manager decision history.",
-      target: "Leave Decision Audit"
-},
-  ];
-
-  return (
-    <section className="mt-8 space-y-8">
-      <div className="rounded-[34px] bg-gradient-to-r from-[#07101f] to-[#0b1a33] p-6 text-white shadow-2xl shadow-slate-300">
-        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">
-          Leave Management
-        </div>
-        <h2 className="mt-3 text-4xl font-bold">Leave Control Centre</h2>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300">
-          Approvals, balances and audit history are grouped in one place.
-        </p>
-      </div>
-
-      <div className="grid gap-5 md:grid-cols-3">
-        {options.map((option) => (
-          <button
-            key={option.title}
-            onClick={() => setActive(option.target)}
-            className="rounded-[30px] border border-slate-200 bg-white p-6 text-left shadow-[0_10px_30px_rgba(0,0,0,0.08)] transition hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50"
-          >
-            <div className="text-xs font-black uppercase tracking-[0.25em] text-blue-600">
-              Open
-            </div>
-            <h3 className="mt-3 text-2xl font-black text-slate-950">{option.title}</h3>
-            <p className="mt-3 text-sm leading-6 text-slate-500">{option.description}</p>
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function EmptyWorkAreaScreen({ title, setActive }: { title: string; setActive: (value: string) => void }) {
-  return (
-    <section className="mt-8 rounded-[34px] border border-slate-200 bg-white p-8 text-center shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
-        <Zap className="h-7 w-7" />
-      </div>
-      <h2 className="mt-5 text-3xl font-black text-slate-950">{title}</h2>
-      <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-slate-500">
-        This section is in the sidebar because it belongs in the product structure, but the detailed
-        data screen still needs a proper VYRON CORE build-out. Use the main connected modules below.
-      </p>
-      <div className="mt-6 flex flex-wrap justify-center gap-3">
-        <button
-          onClick={() => setActive("Command Centre")}
-          className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white"
-        >
-          Command Centre
-        </button>
-        <button
-          onClick={() => setActive("Reports Centre")}
-          className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-black text-white"
-        >
-          Reports Centre
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function ReportsCentreScreen({ setActive }: { setActive: (value: string) => void }) {
-  const reportGroups = [
-    {
-      title: "HR Reports",
-      description: "Warnings, HR cases, employee documents and leave decision audit history.",
-      reports: [
-        { label: "HR History Reports", target: "History Reports" },
-        { label: "Leave Decision Audit", target: "Leave Decision Audit" },
-        { label: "HR Cases", target: "HR Cases" },
-        { label: "HR Warnings", target: "HR Warnings" },
-        { label: "HR Documents", target: "HR Documents" },
-      ]
-},
-    {
-      title: "Time Keeping Reports",
-      description: "Clock events, exceptions, payroll blockers and live activity.",
-      reports: [
-        { label: "Clocking History", target: "History Reports" },
-        { label: "Payroll Clock Engine", target: "Payroll Clock Engine" },
-        { label: "Exceptions", target: "Exceptions" },
-        { label: "Live Activity", target: "Live Activity" },
-      ]
-},
-    {
-      title: "Shift & Store Reports",
-      description: "Roster control, store visibility and operational readiness.",
-      reports: [
-        { label: "Rosters", target: "Rosters" },
-        { label: "Stores", target: "Stores" },
-        { label: "Executive Reports", target: "Executive Reports" },
-        { label: "Final V1 Control", target: "Final V1 Control" },
-      ]
-},
-  ];
-
-  return (
-    <section className="mt-8 space-y-8">
-      <div className="rounded-[34px] bg-gradient-to-r from-[#07101f] to-[#0b1a33] p-6 text-white shadow-2xl shadow-slate-300">
-        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">
-          Reports Centre
-        </div>
-        <h2 className="mt-3 text-4xl font-bold">Reports & Audit Library</h2>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300">
-          One place for HR, time keeping, shifts, leave, payroll readiness and management reports.
-          Choose a report category below to open the correct data screen.
-        </p>
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-3">
-        {reportGroups.map((group) => (
-          <div
-            key={group.title}
-            className="rounded-[34px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.08)]"
-          >
-            <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">
-              {group.title}
-            </div>
-            <p className="mt-3 min-h-[56px] text-sm leading-6 text-slate-500">
-              {group.description}
-            </p>
-
-            <div className="mt-5 space-y-3">
-              {group.reports.map((report) => (
-                <button
-                  key={report.label}
-                  onClick={() => setActive(report.target)}
-                  className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left text-sm font-bold text-slate-900 transition hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50"
-                >
-                  <span>{report.label}</span>
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-blue-700">
-                    Open
-                  </span>
-                </button>
-              ))}
             </div>
           </div>
-        ))}
-      </div>
-    </section>
-  );
-}
 
+          <div className="rounded-[2.2rem] border border-white/70 bg-white/95 p-7 shadow-[0_22px_70px_rgba(15,23,42,0.16)] backdrop-blur-xl">
+            <div className="grid gap-4">
+              <div className="rounded-[2rem] border border-white/80 bg-white p-5 shadow-[0_16px_45px_rgba(15,23,42,0.08)]">
+                <div className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">Selected Employee</div>
+                <div className="mt-2 text-2xl font-black text-[#06101f]">
+                  {selectedEmployee ? employeeName(selectedEmployee) : "No employee selected"}
+                </div>
+                <div className="mt-2 text-sm font-bold text-slate-500">
+                  {selectedEmployee?.employee_number || "Select by search or code"}
+                </div>
+              </div>
 
-function StoresManagementPanel({
-  stores,
-  exceptions,
-  onRefresh,
-  companyId,
-}: {
-  stores: StoreRow[];
-  exceptions: ExceptionRow[];
-  onRefresh: () => void;
-  companyId: string;
-}) {
-  const [selectedStore, setSelectedStore] = useState<StoreRow | null>(stores[0] || null);
-  const [name, setName] = useState(selectedStore?.name || "");
-  const [region, setRegion] = useState(selectedStore?.region || "");
-  const [city, setCity] = useState(selectedStore?.city || "");
-  const [address, setAddress] = useState(selectedStore?.address || "");
-  const [openingTime, setOpeningTime] = useState(formatTimeOnly(selectedStore?.opening_time || null));
-  const [closingTime, setClosingTime] = useState(formatTimeOnly(selectedStore?.closing_time || null));
-  const [gpsRadius, setGpsRadius] = useState(String(selectedStore?.gps_radius_meters || 150));
-  const [status, setStatus] = useState(selectedStore?.status || "active");
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="text-sm font-black text-slate-700">
+                  Store / Location
+                  <select
+                    value={storeId}
+                    onChange={(event) => setStoreId(event.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-white/80 bg-white px-4 py-4 font-bold shadow-sm outline-none focus:border-cyan-400"
+                  >
+                    <option value="">Select store</option>
+                    {stores.map((store) => (
+                      <option key={store.id} value={store.id}>
+                        {store.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-  useEffect(() => {
-    const fallback = stores[0] || null;
-    if (!selectedStore && fallback) setSelectedStore(fallback);
-  }, [stores, selectedStore]);
+                <label className="text-sm font-black text-slate-700">
+                  Roster Shift
+                  <select
+                    value={rosterShiftId}
+                    onChange={(event) => setRosterShiftId(event.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-white/80 bg-white px-4 py-4 font-bold shadow-sm outline-none focus:border-cyan-400"
+                  >
+                    <option value="">No linked shift</option>
+                    {filteredShifts.map((shift) => (
+                      <option key={shift.id} value={shift.id}>
+                        {formatDate(shift.shift_date)} · {formatTime(shift.planned_start)} - {formatTime(shift.planned_end)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
 
-  useEffect(() => {
-    setName(selectedStore?.name || "");
-    setRegion(selectedStore?.region || "");
-    setCity(selectedStore?.city || "");
-    setAddress(selectedStore?.address || "");
-    setOpeningTime(formatTimeOnly(selectedStore?.opening_time || null));
-    setClosingTime(formatTimeOnly(selectedStore?.closing_time || null));
-    setGpsRadius(String(selectedStore?.gps_radius_meters || 150));
-    setStatus(selectedStore?.status || "active");
-    setMessage(null);
-    setError(null);
-  }, [selectedStore]);
+              <label className="text-sm font-black text-slate-700">
+                Live Photo Required
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="user"
+                  onChange={(event) => setPhotoFile(event.target.files?.[0] || null)}
+                  className="mt-2 w-full rounded-2xl border border-white/80 bg-white px-4 py-4 font-bold shadow-sm outline-none focus:border-cyan-400"
+                />
+              </label>
 
-  async function saveStore() {
-    if (!selectedStore) return;
+              <div className={`rounded-[2rem] p-5 ${
+                currentlyClockedIn
+                  ? "border border-amber-200 bg-amber-50 text-amber-900"
+                  : "border border-emerald-200 bg-emerald-50 text-emerald-900"
+              }`}>
+                <div className="text-xs font-black uppercase tracking-[0.25em] opacity-70">
+                  Current Status
+                </div>
+                <div className="mt-2 text-3xl font-black">
+                  {selectedEmployee ? (currentlyClockedIn ? "Clocked In" : "Clocked Out") : "Waiting for Employee"}
+                </div>
+                <div className="mt-2 text-sm font-bold opacity-80">
+                  {selectedEmployee
+                    ? currentlyClockedIn
+                      ? "Only Clock Out is available now."
+                      : "Only Clock In is available now."
+                    : "Select employee to continue."}
+                </div>
+              </div>
 
-    setSaving(true);
-    setMessage(null);
-    setError(null);
+              {error && <div className="rounded-2xl bg-rose-50 p-4 text-sm font-black text-rose-700">{error}</div>}
+              {gpsMessage && <div className="rounded-2xl bg-cyan-50 p-4 text-sm font-black text-cyan-700">{gpsMessage}</div>}
+              {lastMessage && <div className="rounded-2xl bg-emerald-50 p-4 text-sm font-black text-emerald-700">{lastMessage}</div>}
 
-    if (!name.trim()) {
-      setError("Store name is required.");
-      setSaving(false);
-      return;
-    }
+              <button
+                onClick={saveClockEvent}
+                disabled={saving || !selectedEmployee}
+                className={`rounded-2xl px-5 py-5 text-sm font-black shadow-lg disabled:bg-slate-300 disabled:text-slate-500 ${
+                  nextAction === "clock_in"
+                    ? "bg-emerald-600 text-white"
+                    : "bg-amber-500 text-[#06101f]"
+                }`}
+              >
+                {saving ? "Saving..." : nextAction === "clock_in" ? "Clock In" : "Clock Out"}
+              </button>
+            </div>
+          </div>
+        </section>
 
-    const { error: updateError } = await supabase
-      .from("stores")
-      .update({
-        name: name.trim(),
-        region: region.trim() || null,
-        city: city.trim() || null,
-        address: address.trim() || null,
-        opening_time: openingTime || null,
-        closing_time: closingTime || null,
-        gps_radius_meters: Number(gpsRadius) || 150,
-        status,
-      })
-      .eq("id", selectedStore.id);
-
-    if (updateError) {
-      setError(updateError.message);
-      setSaving(false);
-      return;
-    }
-
-    setMessage("Store updated successfully.");
-    await onRefresh();
-    setSaving(false);
-  }
-
-  async function createStore() {
-    setSaving(true);
-    setMessage(null);
-    setError(null);
-
-    const newName = window.prompt("Store name:");
-    if (!newName || !newName.trim()) {
-      setSaving(false);
-      return;
-    }
-
-    const { error: insertError } = await supabase.from("stores").insert({
-      company_id: companyId,
-      name: newName.trim(),
-      region: "Western Cape",
-      city: "Cape Town",
-      address: null,
-      opening_time: "07:00",
-      closing_time: "20:00",
-      gps_radius_meters: 150,
-      status: "active",
-    });
-
-    if (insertError) {
-      setError(insertError.message);
-      setSaving(false);
-      return;
-    }
-
-    setMessage("Store created successfully.");
-    await onRefresh();
-    setSaving(false);
-  }
-
-  async function softDeleteStore() {
-    if (!selectedStore) return;
-    if (!window.confirm(`Mark ${selectedStore.name} as inactive?`)) return;
-
-    setSaving(true);
-    setMessage(null);
-    setError(null);
-
-    const { error: updateError } = await supabase
-      .from("stores")
-      .update({ status: "inactive" })
-      .eq("id", selectedStore.id);
-
-    if (updateError) {
-      setError(updateError.message);
-      setSaving(false);
-      return;
-    }
-
-    setMessage("Store marked as inactive.");
-    await onRefresh();
-    setSaving(false);
-  }
-
-  const activeStores = stores.filter((store) => store.status === "active").length;
-  const inactiveStores = stores.filter((store) => store.status !== "active").length;
-
-  return (
-    <section className="mt-8 space-y-8">
-      <div className="grid gap-5 md:grid-cols-3">
-        <StatCard title="Total stores" value={String(stores.length)} subtitle="All store records" icon={<Store className="h-6 w-6" />} />
-        <StatCard title="Active stores" value={String(activeStores)} subtitle="Available for roster and clocking" icon={<CheckCircle2 className="h-6 w-6" />} />
-        <StatCard title="Inactive stores" value={String(inactiveStores)} subtitle="Hidden from normal operations" icon={<AlertTriangle className="h-6 w-6" />} />
-      </div>
-
-      <div className="grid gap-8 xl:grid-cols-[0.8fr_1.2fr]">
-        <Panel>
-          <div className="flex items-center justify-between gap-4">
+        <section className="rounded-[2.2rem] border border-white/70 bg-white/95 p-7 shadow-[0_22px_70px_rgba(15,23,42,0.16)] backdrop-blur-xl">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
             <div>
-              <h2 className="text-2xl font-bold">Store List</h2>
-              <p className="mt-2 text-sm text-slate-500">Select a store to manage hours, GPS radius and status.</p>
+              <div className="text-xs font-black uppercase tracking-[0.35em] text-cyan-700">Today’s Clocking History</div>
+              <h2 className="mt-2 text-3xl font-black text-[#06101f]">
+                {selectedEmployee ? employeeName(selectedEmployee) : "Select an employee"}
+              </h2>
             </div>
-            <button onClick={createStore} className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-white">
-              + Add Store
-            </button>
+
+            <div className="text-sm font-bold text-slate-500">
+              In: {firstClockInToday ? formatTime(firstClockInToday.event_time) : "--:--"} · Out: {lastClockOutToday ? formatTime(lastClockOutToday.event_time) : "--:--"}
+            </div>
           </div>
 
           <div className="mt-6 space-y-3">
-            {stores.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
-                No stores found. Add your first store.
+            {!selectedEmployee ? (
+              <div className="rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl p-5 text-sm font-bold text-slate-500">
+                Search or enter a staff code to view today’s clocking history.
+              </div>
+            ) : selectedEmployeeTodayEvents.length === 0 ? (
+              <div className="rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl p-5 text-sm font-bold text-slate-500">
+                No clocking events for today yet.
               </div>
             ) : (
-              stores.map((store) => {
-                const storeExceptions = exceptions.filter((item) => item.store_id === store.id && exceptionIsOpen(item)).length;
-                const selected = selectedStore?.id === store.id;
-
+              selectedEmployeeTodayEvents.map((event) => {
+                const item = event as any;
                 return (
-                  <button
-                    key={store.id}
-                    onClick={() => setSelectedStore(store)}
-                    className={`w-full rounded-2xl border p-4 text-left transition ${
-                      selected ? "border-blue-400 bg-blue-50" : "border-slate-200 bg-slate-50 hover:bg-white"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
+                  <div key={event.id} className="rounded-[2rem] border border-white/80 bg-white p-5 shadow-[0_16px_45px_rgba(15,23,42,0.08)]">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                       <div>
-                        <div className="font-black text-slate-950">{store.name}</div>
-                        <div className="mt-1 text-xs font-semibold text-slate-500">
-                          {store.region || "No region"} · {store.city || "No city"}
+                        <div className="text-xl font-black text-[#06101f]">
+                          {isClockIn(event.event_type) ? "Clock In" : "Clock Out"} · {formatTime(event.event_time)}
+                        </div>
+                        <div className="mt-1 text-sm font-bold text-slate-500">
+                          {selectedStore?.name || stores.find((store) => store.id === event.store_id)?.name || "No store"} · Source: {formatText(event.source)}
                         </div>
                       </div>
-                      <StatusPill value={store.status || "active"} />
+
+                      <div className="flex flex-wrap gap-2">
+                        {event.latitude && event.longitude && (
+                          <a
+                            href={`https://www.google.com/maps?q=${event.latitude},${event.longitude}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-full bg-cyan-50 px-4 py-2 text-xs font-black text-cyan-700"
+                          >
+                            GPS
+                          </a>
+                        )}
+
+                        {item.photo_path && (
+                          <button
+                            onClick={() => openClockPhoto(event)}
+                            className="rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-cyan-300"
+                          >
+                            Photo
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="mt-3 grid grid-cols-3 gap-2 text-xs font-semibold text-slate-600">
-                      <div className="rounded-xl bg-white p-2">Open {formatTimeOnly(store.opening_time)}</div>
-                      <div className="rounded-xl bg-white p-2">Close {formatTimeOnly(store.closing_time)}</div>
-                      <div className="rounded-xl bg-white p-2">{storeExceptions} issues</div>
+
+                    <div className="mt-3 grid gap-3 md:grid-cols-3">
+                      <InfoBox label="Latitude" value={event.latitude ? String(event.latitude) : "Not saved"} />
+                      <InfoBox label="Longitude" value={event.longitude ? String(event.longitude) : "Not saved"} />
+                      <InfoBox label="Photo" value={item.photo_path ? "Saved" : "Not saved"} />
                     </div>
-                  </button>
+                  </div>
                 );
               })
             )}
           </div>
-        </Panel>
-
-        <Panel>
-          {!selectedStore ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
-              <h2 className="text-2xl font-bold">No store selected</h2>
-              <p className="mt-2 text-sm text-slate-500">Select a store to edit its setup.</p>
-            </div>
-          ) : (
-            <>
-              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">Store Control</div>
-                  <h2 className="mt-2 text-3xl font-bold">{selectedStore.name}</h2>
-                  <p className="mt-2 text-sm text-slate-500">Edit operating hours, location details and active status.</p>
-                </div>
-                <button onClick={softDeleteStore} className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
-                  Mark Inactive
-                </button>
-              </div>
-
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <FormInput label="Store name" value={name} onChange={setName} />
-                <FormInput label="City" value={city} onChange={setCity} />
-                <FormInput label="Region" value={region} onChange={setRegion} />
-                <FormInput label="GPS radius meters" value={gpsRadius} onChange={setGpsRadius} />
-                <FormInput label="Opening time" value={openingTime} onChange={setOpeningTime} type="time" />
-                <FormInput label="Closing time" value={closingTime} onChange={setClosingTime} type="time" />
-              </div>
-
-              <label className="mt-4 block text-sm font-bold">
-                Status
-                <select
-                  value={status}
-                  onChange={(event) => setStatus(event.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="closed">Closed</option>
-                </select>
-              </label>
-
-              <label className="mt-4 block text-sm font-bold">
-                Address
-                <textarea
-                  value={address}
-                  onChange={(event) => setAddress(event.target.value)}
-                  className="mt-2 min-h-28 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
-                  placeholder="Store address..."
-                />
-              </label>
-
-              {message && <div className="mt-4 rounded-2xl bg-emerald-50 p-4 text-sm font-bold text-emerald-700">{message}</div>}
-              {error && <div className="mt-4 rounded-2xl bg-rose-50 p-4 text-sm font-bold text-rose-700">{error}</div>}
-
-              <ModalActions onCancel={onRefresh} onSave={saveStore} saving={saving} saveText="Save Store Changes" />
-            </>
-          )}
-        </Panel>
+        </section>
       </div>
     </section>
   );
 }
 
-function RosterManagementPanel({
-  rosterShifts,
-  employees,
-  stores,
-  onOpenCreateShift,
-  onRefresh,
-}: {
-  rosterShifts: RosterShiftRow[];
-  employees: EmployeeRow[];
-  stores: StoreRow[];
-  onOpenCreateShift: () => void;
-  onRefresh: () => void;
-}) {
-  const [dateFilter, setDateFilter] = useState(todayIsoDate());
-  const [storeFilter, setStoreFilter] = useState("all");
-
-  const filtered = rosterShifts.filter((shift) => {
-    if (dateFilter && shift.shift_date !== dateFilter) return false;
-    if (storeFilter !== "all" && shift.store_id !== storeFilter) return false;
-    return true;
-  });
-
-  function employeeName(id: string) {
-    const found = employees.find((item) => item.id === id);
-    return found ? `${found.first_name} ${found.last_name}` : "Unknown employee";
-  }
-
-  function storeName(id: string) {
-    return stores.find((item) => item.id === id)?.name || "Unknown store";
-  }
-
-  async function updateShiftStatus(shift: RosterShiftRow, status: string) {
-    const { error } = await supabase.from("roster_shifts").update({ status }).eq("id", shift.id);
-    if (error) {
-      alert(error.message);
-      return;
-    }
-    onRefresh();
-  }
-
-  return (
-    <section className="mt-8 space-y-8">
-      <div className="grid gap-5 md:grid-cols-3">
-        <StatCard title="Shifts loaded" value={String(rosterShifts.length)} subtitle="Total roster records" icon={<Clock3 className="h-6 w-6" />} />
-        <StatCard title="Filtered shifts" value={String(filtered.length)} subtitle="Based on date/store filters" icon={<CalendarDays className="h-6 w-6" />} />
-        <StatCard title="Active employees" value={String(employees.filter((e) => e.active).length)} subtitle="Available for roster" icon={<Users className="h-6 w-6" />} />
-      </div>
-
-      <Panel>
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">Roster Builder</div>
-            <h2 className="mt-2 text-3xl font-bold">Shift Planning</h2>
-            <p className="mt-2 text-sm text-slate-500">Create shifts, filter by date/store and manage shift status.</p>
-          </div>
-          <button onClick={onOpenCreateShift} className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white">
-            + Create Shift
-          </button>
-        </div>
-
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
-          <FormInput label="Shift date" value={dateFilter} onChange={setDateFilter} type="date" />
-          <label className="text-sm font-bold">
-            Store
-            <select
-              value={storeFilter}
-              onChange={(event) => setStoreFilter(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
-            >
-              <option value="all">All stores</option>
-              {stores.map((store) => (
-                <option key={store.id} value={store.id}>{store.name}</option>
-              ))}
-            </select>
-          </label>
-          <div className="flex items-end">
-            <button onClick={onRefresh} className="w-full rounded-2xl bg-slate-100 px-5 py-3 text-sm font-bold text-slate-700">
-              Refresh
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-6 space-y-3">
-          {filtered.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
-              <div className="text-lg font-bold">No shifts found</div>
-              <p className="mt-2 text-sm text-slate-500">Create a shift or change your filters.</p>
-            </div>
-          ) : (
-            filtered.map((shift) => (
-              <article key={shift.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <div className="text-lg font-black text-slate-950">{employeeName(shift.employee_id)}</div>
-                    <div className="mt-1 text-sm font-semibold text-slate-500">
-                      {storeName(shift.store_id)} · {formatDate(shift.shift_date)} · {formatTime(shift.planned_start)}–{formatTime(shift.planned_end)}
-                    </div>
-                    <div className="mt-2 text-xs font-semibold text-slate-500">{shift.role || "No role set"}</div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <StatusPill value={shift.status} />
-                    <button onClick={() => updateShiftStatus(shift, "scheduled")} className="rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">Scheduled</button>
-                    <button onClick={() => updateShiftStatus(shift, "completed")} className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">Completed</button>
-                    <button onClick={() => updateShiftStatus(shift, "cancelled")} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Cancel</button>
-                  </div>
-                </div>
-              </article>
-            ))
-          )}
-        </div>
-      </Panel>
-    </section>
-  );
-}
-
-function HrWarningsManagementPanel({
-  hrWarnings,
-  employees,
-  onRefresh,
-}: {
-  hrWarnings: HrWarningRow[];
-  employees: EmployeeRow[];
-  onRefresh: () => void;
-}) {
-  const [employeeId, setEmployeeId] = useState("");
-  const [warningType, setWarningType] = useState("written_warning");
-  const [incidentType, setIncidentType] = useState("attendance");
-  const [incidentDate, setIncidentDate] = useState(todayIsoDate());
-  const [description, setDescription] = useState("");
-  const [managerNotes, setManagerNotes] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const activeEmployees = employees.filter((employee) => employee.active);
-
-  async function createWarning() {
-    setSaving(true);
-    setError(null);
-
-    const employee = employees.find((item) => item.id === employeeId);
-    if (!employee) {
-      setError("Select an employee.");
-      setSaving(false);
-      return;
-    }
-
-    if (!description.trim()) {
-      setError("Warning description is required.");
-      setSaving(false);
-      return;
-    }
-
-    const issueDate = todayIsoDate();
-    const expiryDate = new Date();
-    expiryDate.setMonth(expiryDate.getMonth() + (warningType === "final_written_warning" ? 12 : 6));
-
-    const { error: insertError } = await supabase.from("hr_warnings").insert({
-      employee_id: employee.id,
-      employee_name: `${employee.first_name} ${employee.last_name}`,
-      warning_type: warningType,
-      incident_type: incidentType,
-      incident_date: incidentDate,
-      issue_date: issueDate,
-      expiry_date: expiryDate.toISOString().slice(0, 10),
-      severity: warningType === "final_written_warning" ? "high" : "medium",
-      description: description.trim(),
-      manager_notes: managerNotes.trim() || null,
-      status: "active",
-    });
-
-    if (insertError) {
-      setError(insertError.message);
-      setSaving(false);
-      return;
-    }
-
-    setEmployeeId("");
-    setDescription("");
-    setManagerNotes("");
-    setSaving(false);
-    onRefresh();
-  }
-
-  return (
-    <section className="mt-8 grid gap-8 xl:grid-cols-[0.8fr_1.2fr]">
-      <Panel>
-        <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">HR Warnings</div>
-        <h2 className="mt-2 text-3xl font-bold">Create Warning</h2>
-        <p className="mt-2 text-sm text-slate-500">Capture verbal, written and final warnings with expiry dates.</p>
-
-        <div className="mt-6 space-y-4">
-          <label className="text-sm font-bold">
-            Employee
-            <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <option value="">Select employee</option>
-              {activeEmployees.map((employee) => (
-                <option key={employee.id} value={employee.id}>{employee.first_name} {employee.last_name}</option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm font-bold">
-            Warning type
-            <select value={warningType} onChange={(e) => setWarningType(e.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <option value="verbal_warning">Verbal warning</option>
-              <option value="written_warning">Written warning</option>
-              <option value="final_written_warning">Final written warning</option>
-            </select>
-          </label>
-          <label className="text-sm font-bold">
-            Incident type
-            <select value={incidentType} onChange={(e) => setIncidentType(e.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <option value="attendance">Attendance</option>
-              <option value="late_coming">Late coming</option>
-              <option value="misconduct">Misconduct</option>
-              <option value="performance">Performance</option>
-              <option value="clocking">Clocking</option>
-            </select>
-          </label>
-          <FormInput label="Incident date" value={incidentDate} onChange={setIncidentDate} type="date" />
-          <label className="block text-sm font-bold">
-            Description
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="mt-2 min-h-28 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3" />
-          </label>
-          <label className="block text-sm font-bold">
-            Manager notes
-            <textarea value={managerNotes} onChange={(e) => setManagerNotes(e.target.value)} className="mt-2 min-h-20 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3" />
-          </label>
-        </div>
-
-        {error && <div className="mt-4 rounded-2xl bg-rose-50 p-4 text-sm font-bold text-rose-700">{error}</div>}
-        <ModalActions onCancel={onRefresh} onSave={createWarning} saving={saving} saveText="Save Warning" />
-      </Panel>
-
-      <Panel>
-        <h2 className="text-2xl font-bold">Warning Register</h2>
-        <p className="mt-2 text-sm text-slate-500">View current and expired warnings.</p>
-        <div className="mt-6 space-y-3">
-          {hrWarnings.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">No warnings captured yet.</div>
-          ) : (
-            hrWarnings.map((warning) => (
-              <article key={warning.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="font-black text-slate-950">{warning.employee_name}</div>
-                    <div className="mt-1 text-sm text-slate-500">{formatText(warning.warning_type)} · {formatText(warning.incident_type)}</div>
-                  </div>
-                  <StatusPill value={warning.status} />
-                </div>
-                <div className="mt-4 grid gap-3 md:grid-cols-3">
-                  <InfoBox label="Incident" value={formatDate(warning.incident_date)} />
-                  <InfoBox label="Issued" value={formatDate(warning.issue_date)} />
-                  <InfoBox label="Expires" value={formatDate(warning.expiry_date)} />
-                </div>
-                <p className="mt-4 text-sm leading-6 text-slate-600">{warning.description}</p>
-              </article>
-            ))
-          )}
-        </div>
-      </Panel>
-    </section>
-  );
-}
-
-function HrDocumentsManagementPanel({
-  hrDocuments,
-  employees,
-  onRefresh,
-  userEmail,
-}: {
-  hrDocuments: HrDocumentRow[];
-  employees: EmployeeRow[];
-  onRefresh: () => void;
-  userEmail: string | null;
-}) {
-  const [employeeId, setEmployeeId] = useState("");
-  const [documentType, setDocumentType] = useState("contract");
-  const [documentTitle, setDocumentTitle] = useState("");
-  const [documentNotes, setDocumentNotes] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function createDocumentRecord() {
-    setSaving(true);
-    setError(null);
-
-    const employee = employees.find((item) => item.id === employeeId);
-    if (!employee) {
-      setError("Select an employee.");
-      setSaving(false);
-      return;
-    }
-
-    if (!documentTitle.trim()) {
-      setError("Document title is required.");
-      setSaving(false);
-      return;
-    }
-
-    const { error: insertError } = await supabase.from("hr_documents").insert({
-      employee_id: employee.id,
-      employee_name: `${employee.first_name} ${employee.last_name}`,
-      document_type: documentType,
-      document_title: documentTitle.trim(),
-      document_notes: documentNotes.trim() || null,
-      file_name: null,
-      file_url: null,
-      file_bucket: null,
-      file_path: null,
-      status: "active",
-      uploaded_by: userEmail || "system",
-    });
-
-    if (insertError) {
-      setError(insertError.message);
-      setSaving(false);
-      return;
-    }
-
-    setEmployeeId("");
-    setDocumentTitle("");
-    setDocumentNotes("");
-    setSaving(false);
-    onRefresh();
-  }
-
-  return (
-    <section className="mt-8 grid gap-8 xl:grid-cols-[0.8fr_1.2fr]">
-      <Panel>
-        <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">HR Documents</div>
-        <h2 className="mt-2 text-3xl font-bold">Create Document Record</h2>
-        <p className="mt-2 text-sm text-slate-500">Capture HR document records. File upload can be added after storage rules are final.</p>
-
-        <div className="mt-6 space-y-4">
-          <label className="text-sm font-bold">
-            Employee
-            <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <option value="">Select employee</option>
-              {employees.filter((e) => e.active).map((employee) => (
-                <option key={employee.id} value={employee.id}>{employee.first_name} {employee.last_name}</option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm font-bold">
-            Document type
-            <select value={documentType} onChange={(e) => setDocumentType(e.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <option value="contract">Contract</option>
-              <option value="id_document">ID document</option>
-              <option value="warning">Warning</option>
-              <option value="leave">Leave document</option>
-              <option value="medical">Medical / sick note</option>
-              <option value="other">Other</option>
-            </select>
-          </label>
-          <FormInput label="Document title" value={documentTitle} onChange={setDocumentTitle} placeholder="Employment contract" />
-          <label className="block text-sm font-bold">
-            Notes
-            <textarea value={documentNotes} onChange={(e) => setDocumentNotes(e.target.value)} className="mt-2 min-h-28 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3" />
-          </label>
-        </div>
-
-        {error && <div className="mt-4 rounded-2xl bg-rose-50 p-4 text-sm font-bold text-rose-700">{error}</div>}
-        <ModalActions onCancel={onRefresh} onSave={createDocumentRecord} saving={saving} saveText="Save Document Record" />
-      </Panel>
-
-      <Panel>
-        <h2 className="text-2xl font-bold">Document Register</h2>
-        <p className="mt-2 text-sm text-slate-500">Employee-linked HR documents and notes.</p>
-        <div className="mt-6 space-y-3">
-          {hrDocuments.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">No HR documents captured yet.</div>
-          ) : (
-            hrDocuments.map((doc) => (
-              <article key={doc.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="font-black text-slate-950">{doc.document_title}</div>
-                    <div className="mt-1 text-sm text-slate-500">{doc.employee_name} · {formatText(doc.document_type)}</div>
-                  </div>
-                  <StatusPill value={doc.status} />
-                </div>
-                {doc.document_notes && <p className="mt-4 text-sm leading-6 text-slate-600">{doc.document_notes}</p>}
-                {doc.file_url && (
-                  <a className="mt-4 inline-flex rounded-xl bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700" href={doc.file_url} target="_blank">
-                    Open file
-                  </a>
-                )}
-              </article>
-            ))
-          )}
-        </div>
-      </Panel>
-    </section>
-  );
-}
-
-function ComplianceManagementPanel({
-  rosterShifts,
-  clockEvents,
-  exceptions,
-  hrCases,
-  payrollClockChecks,
-}: {
-  rosterShifts: RosterShiftRow[];
-  clockEvents: ClockEventRow[];
-  exceptions: ExceptionRow[];
-  hrCases: HrCaseRow[];
-  payrollClockChecks: PayrollClockCheckRow[];
-}) {
-  const openExceptions = exceptions.filter(exceptionIsOpen).length;
-  const openHrCases = hrCases.filter(hrCaseIsOpen).length;
-  const blockedPayroll = payrollClockChecks.filter((item) => item.payroll_status === "blocked" || item.exception_required).length;
-  const complianceScore = Math.max(0, 100 - openExceptions * 8 - openHrCases * 10 - blockedPayroll * 5);
-
-  return (
-    <section className="mt-8 space-y-8">
-      <div className="grid gap-5 md:grid-cols-4">
-        <StatCard title="Compliance score" value={`${complianceScore}%`} subtitle="Based on current risk items" icon={<ShieldCheck className="h-6 w-6" />} />
-        <StatCard title="Open exceptions" value={String(openExceptions)} subtitle="Must be resolved" icon={<AlertTriangle className="h-6 w-6" />} />
-        <StatCard title="Open HR cases" value={String(openHrCases)} subtitle="Manager action required" icon={<Gavel className="h-6 w-6" />} />
-        <StatCard title="Payroll blockers" value={String(blockedPayroll)} subtitle="Blocks clean payroll" icon={<WalletCards className="h-6 w-6" />} />
-      </div>
-
-      <Panel dark>
-        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Compliance Guardrails</div>
-        <h2 className="mt-3 text-3xl font-bold">Payroll must stay clean</h2>
-        <div className="mt-6 grid gap-3 md:grid-cols-2">
-          <div className="rounded-2xl bg-white/10 p-4 text-sm text-slate-300">Uncertain time data must be flagged, not hidden.</div>
-          <div className="rounded-2xl bg-white/10 p-4 text-sm text-slate-300">Raw clocking records must never be overwritten.</div>
-          <div className="rounded-2xl bg-white/10 p-4 text-sm text-slate-300">Employee responses must be captured for HR fairness.</div>
-          <div className="rounded-2xl bg-white/10 p-4 text-sm text-slate-300">Payroll export should use approved data only.</div>
-        </div>
-      </Panel>
-
-      <Panel>
-        <h2 className="text-2xl font-bold">Compliance Checklist</h2>
-        <div className="mt-5 space-y-3">
-          {[
-            ["Clock events captured", clockEvents.length > 0],
-            ["Roster records exist", rosterShifts.length > 0],
-            ["No open exceptions", openExceptions === 0],
-            ["No open HR cases", openHrCases === 0],
-            ["No blocked payroll items", blockedPayroll === 0],
-          ].map(([label, ok]) => (
-            <div key={String(label)} className="flex items-center justify-between rounded-2xl bg-slate-50 p-4">
-              <span className="font-bold text-slate-950">{label}</span>
-              <span className={`rounded-full px-3 py-1 text-xs font-black ${ok ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                {ok ? "Passed" : "Needs Review"}
-              </span>
-            </div>
-          ))}
-        </div>
-      </Panel>
-    </section>
-  );
-}
 
 
 function ClockingManagementPanel({
@@ -7289,14 +5659,14 @@ function ClockingManagementPanel({
         <Panel>
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">Clocking Control</div>
+              <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-700">Clocking Control</div>
               <h2 className="mt-2 text-3xl font-bold">Clock Event Register</h2>
               <p className="mt-2 text-sm text-slate-500">
                 Review clock-ins, clock-outs and manual corrections. This gives movement on the Clocking page.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button onClick={onManualEvent} className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white">
+              <button onClick={onManualEvent} className="rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15">
                 + Manual Event
               </button>
               <button onClick={onRefresh} className="rounded-2xl bg-slate-100 px-5 py-3 text-sm font-bold text-slate-700">
@@ -7309,14 +5679,14 @@ function ClockingManagementPanel({
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-blue-500"
+              className="rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 text-sm font-semibold outline-none focus:border-cyan-400"
               placeholder="Search employee, code, store, source..."
             />
 
             <select
               value={storeFilter}
               onChange={(event) => setStoreFilter(event.target.value)}
-              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none focus:border-blue-500"
+              className="rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 text-sm font-bold outline-none focus:border-cyan-400"
             >
               <option value="all">All stores</option>
               {stores.map((store) => (
@@ -7327,7 +5697,7 @@ function ClockingManagementPanel({
             <select
               value={eventFilter}
               onChange={(event) => setEventFilter(event.target.value)}
-              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none focus:border-blue-500"
+              className="rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 text-sm font-bold outline-none focus:border-cyan-400"
             >
               <option value="all">All events</option>
               <option value="clock_in">Clock in</option>
@@ -7345,15 +5715,48 @@ function ClockingManagementPanel({
               </div>
             ) : (
               filteredEvents.map((event) => (
-                <article key={event.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <article key={event.id} className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div>
                       <div className="font-black text-slate-950">{employeeName(event.employee_id)}</div>
                       <div className="mt-1 text-xs font-semibold text-slate-500">
                         {employeeCode(event.employee_id)} · {storeName(event.store_id)} · {formatTime(event.event_time)} · {event.source}
                       </div>
+
+                      <div className="mt-3 grid gap-2 text-xs font-semibold text-slate-600 md:grid-cols-2">
+                        <div className="rounded-2xl bg-white p-3">
+                          <MapPin className="mr-2 inline h-4 w-4 text-cyan-700" />
+                          {event.latitude && event.longitude
+                            ? `${Number(event.latitude).toFixed(5)}, ${Number(event.longitude).toFixed(5)}`
+                            : "No GPS saved"}
+                        </div>
+
+                        <div className="rounded-2xl bg-white p-3">
+                          <Camera className="mr-2 inline h-4 w-4 text-cyan-700" />
+                          {event.photo_path ? "Photo saved" : "No photo saved"}
+                        </div>
+                      </div>
                     </div>
-                    <EventPill value={event.event_type} />
+
+                    <div className="flex flex-col items-start gap-2 md:items-end">
+                      <EventPill value={event.event_type} />
+                      {event.photo_bucket && event.photo_path && (
+                        <button
+                          onClick={async () => {
+                            const { data, error } = await supabase.storage
+                              .from(event.photo_bucket || "clock-event-photos")
+                              .createSignedUrl(event.photo_path || "", 60 * 10);
+
+                            if (!error && data?.signedUrl) {
+                              window.open(data.signedUrl, "_blank");
+                            }
+                          }}
+                          className="rounded-full bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-700"
+                        >
+                          Open Photo
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </article>
               ))
@@ -7388,6 +5791,1322 @@ function ClockingManagementPanel({
     </section>
   );
 }
+
+
+
+function VyronCoreCostStyleCommandCentre({
+  stores,
+  employees,
+  exceptions,
+  hrCases,
+  onRefresh,
+}: {
+  stores: StoreRow[];
+  employees: EmployeeRow[];
+  exceptions: ExceptionRow[];
+  hrCases: HrCaseRow[];
+  onRefresh: () => void;
+  companyId: string;
+}) {
+  const activeEmployees = employees.filter((employee) => employee.active !== false).length;
+  const openExceptions = exceptions.filter(exceptionIsOpen).length;
+  const openHrCases = hrCases.filter(hrCaseIsOpen).length;
+  const estimatedLoss = openExceptions * 1200 + openHrCases * 2500;
+  const payrollReadiness = openExceptions === 0 && openHrCases === 0 ? "Ready" : "Blocked";
+
+  return (
+    <section className="relative -m-6 overflow-hidden rounded-none bg-[#04100d] p-6 text-[#06101f] md:-m-8 md:p-8">
+      <div className="pointer-events-none absolute inset-0 z-0">
+        <div className="absolute left-[-180px] top-[-220px] h-[620px] w-[620px] rounded-full bg-cyan-400/18 blur-[140px]" />
+        <div className="absolute right-[-180px] top-[120px] h-[760px] w-[760px] rounded-full bg-cyan-500/20 blur-[160px]" />
+        <div className="absolute bottom-[-260px] left-[36%] h-[680px] w-[680px] rounded-full bg-sky-300/18 blur-[170px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(8,47,73,0.98)_0%,rgba(14,116,144,0.9)_31%,rgba(238,246,255,0.94)_31%,rgba(238,246,255,0.94)_100%)]" />
+      </div>
+
+      <div className="relative z-10 space-y-6">
+        <header className="rounded-[2.2rem] border border-white/70 bg-white/95 p-7 shadow-[0_22px_70px_rgba(15,23,42,0.16)] backdrop-blur-xl">
+          <div className="inline-flex rounded-full bg-cyan-100 px-4 py-2 text-xs font-black uppercase tracking-[0.35em] text-cyan-700">
+            VYRON CORE COMMAND CENTRE
+          </div>
+
+          <div className="mt-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <h1 className="text-5xl font-black tracking-tight text-[#06101f]">
+                Workforce Command Centre
+              </h1>
+              <p className="mt-4 max-w-5xl text-base leading-8 text-slate-600">
+                Enterprise workforce control, clocking, HR risk, roster movement and payroll readiness in one connected system.
+              </p>
+            </div>
+
+            <button
+              onClick={onRefresh}
+              className="w-fit rounded-full bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/20 transition hover:-translate-y-0.5 hover:bg-[#0b1a33]"
+            >
+              Refresh Live Data
+            </button>
+          </div>
+        </header>
+
+        <section className="rounded-[2.2rem] bg-[#06101f] p-7 text-white shadow-[0_22px_70px_rgba(6,16,31,0.35)]">
+          <div className="grid gap-7 xl:grid-cols-[1.25fr_0.75fr]">
+            <div>
+              <div className="inline-flex rounded-full bg-cyan-400/15 px-4 py-2 text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
+                LIVE OPERATIONS CONTROL
+              </div>
+
+              <h2 className="mt-5 max-w-4xl text-4xl font-black tracking-tight md:text-5xl">
+                See payroll blockers before they cost money.
+              </h2>
+
+              <p className="mt-5 max-w-3xl text-base leading-8 text-slate-300">
+                Monitor workforce activity, exceptions, HR risks and payroll readiness from one premium VYRON control room.
+              </p>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <span className="rounded-full bg-cyan-400 px-5 py-3 text-sm font-black text-[#06101f]">
+                  {openExceptions} Exceptions
+                </span>
+                <span className="rounded-full border border-cyan-400/30 px-5 py-3 text-sm font-black text-cyan-300">
+                  {openHrCases} HR Cases
+                </span>
+                <span className="rounded-full border border-cyan-400/30 px-5 py-3 text-sm font-black text-cyan-300">
+                  Payroll {payrollReadiness}
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-cyan-400/15 bg-white/5 p-6">
+              <div className="text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
+                ESTIMATED MONTHLY LOSS
+              </div>
+              <div className="mt-4 text-5xl font-black">
+                R {estimatedLoss.toLocaleString("en-ZA")}
+              </div>
+              <div className="mt-3 text-sm leading-7 text-slate-300">
+                Based on open exceptions and HR risk currently visible in the system.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.14)] backdrop-blur-xl">
+            <div className="w-fit rounded-2xl bg-cyan-50 p-3 text-cyan-700">
+              <Users className="h-6 w-6" />
+            </div>
+            <div className="mt-6 text-sm font-bold text-slate-500">Active Employees</div>
+            <div className="mt-2 text-4xl font-black text-[#06101f]">{activeEmployees}</div>
+            <div className="mt-2 text-sm font-black text-cyan-700">Live workforce</div>
+          </div>
+
+          <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.14)] backdrop-blur-xl">
+            <div className="w-fit rounded-2xl bg-cyan-50 p-3 text-cyan-700">
+              <Store className="h-6 w-6" />
+            </div>
+            <div className="mt-6 text-sm font-bold text-slate-500">Stores</div>
+            <div className="mt-2 text-4xl font-black text-[#06101f]">{stores.length}</div>
+            <div className="mt-2 text-sm font-black text-cyan-700">Controlled locations</div>
+          </div>
+
+          <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.14)] backdrop-blur-xl">
+            <div className="w-fit rounded-2xl bg-amber-50 p-3 text-amber-700">
+              <AlertTriangle className="h-6 w-6" />
+            </div>
+            <div className="mt-6 text-sm font-bold text-slate-500">Open Exceptions</div>
+            <div className="mt-2 text-4xl font-black text-[#06101f]">{openExceptions}</div>
+            <div className="mt-2 text-sm font-black text-amber-700">{openExceptions === 0 ? "Clean" : "Needs review"}</div>
+          </div>
+
+          <div className="rounded-[2rem] bg-[#06101f] p-6 text-white shadow-[0_18px_55px_rgba(15,23,42,0.16)]">
+            <div className="w-fit rounded-2xl bg-cyan-400/15 p-3 text-cyan-300">
+              <WalletCards className="h-6 w-6" />
+            </div>
+            <div className="mt-6 text-sm font-bold text-slate-300">Payroll Readiness</div>
+            <div className="mt-2 text-4xl font-black">{payrollReadiness}</div>
+            <div className="mt-2 text-sm font-black text-cyan-300">Command status</div>
+          </div>
+        </section>
+      </div>
+    </section>
+  );
+}
+
+
+
+function VyronCoreVisualSystem() {
+  return (
+    <style>{`
+      :root {
+        --vyron-core-bg: #020617;
+        --vyron-core-ink: #06101f;
+        --vyron-core-panel: rgba(255,255,255,0.92);
+        --vyron-core-line: rgba(148,163,184,0.28);
+        --vyron-core-cyan: #22d3ee;
+        --vyron-core-blue: #2563eb;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        background:
+          radial-gradient(circle at 14% 8%, rgba(34,211,238,0.34), transparent 24%),
+          radial-gradient(circle at 78% 0%, rgba(37,99,235,0.28), transparent 30%),
+          radial-gradient(circle at 66% 58%, rgba(34,211,238,0.12), transparent 34%),
+          linear-gradient(135deg, #020617 0%, #07101f 29%, #eaf4ff 29%, #f8fbff 100%) !important;
+      }
+
+      body {
+        color: var(--vyron-core-ink) !important;
+      }
+
+      main {
+        position: relative !important;
+        overflow-x: hidden !important;
+        background:
+          radial-gradient(circle at 22% 10%, rgba(34,211,238,0.26), transparent 25%),
+          radial-gradient(circle at 88% 8%, rgba(37,99,235,0.22), transparent 32%),
+          linear-gradient(135deg, #020617 0%, #07101f 30%, #eaf4ff 30%, #f8fbff 100%) !important;
+      }
+
+      main::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        background:
+          radial-gradient(circle at 44% 24%, rgba(34,211,238,0.18), transparent 28%),
+          radial-gradient(circle at 68% 42%, rgba(37,99,235,0.14), transparent 34%),
+          radial-gradient(circle at 88% 84%, rgba(14,165,233,0.16), transparent 32%);
+        filter: blur(1px);
+      }
+
+      main > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      aside {
+        background:
+          radial-gradient(circle at 16% 4%, rgba(34,211,238,0.28), transparent 24%),
+          radial-gradient(circle at 92% 50%, rgba(37,99,235,0.22), transparent 40%),
+          linear-gradient(180deg, #020617 0%, #07101f 42%, #030712 100%) !important;
+        border-right: 1px solid rgba(125,211,252,0.18) !important;
+        box-shadow: 28px 0 90px rgba(2,6,23,0.46), inset -1px 0 0 rgba(255,255,255,0.06) !important;
+      }
+
+      aside > div:first-child {
+        background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(34,211,238,0.04)) !important;
+        border-bottom: 1px solid rgba(125,211,252,0.20) !important;
+      }
+
+      aside nav > div {
+        background: linear-gradient(145deg, rgba(255,255,255,0.072), rgba(255,255,255,0.028)) !important;
+        border: 1px solid rgba(148,163,184,0.18) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 18px 42px rgba(2,6,23,0.22) !important;
+      }
+
+      aside button:hover {
+        transform: translateX(4px) !important;
+        box-shadow: 0 0 30px rgba(34,211,238,0.16) !important;
+      }
+
+      header {
+        position: relative !important;
+        overflow: hidden !important;
+        border: 1px solid rgba(125,211,252,0.18) !important;
+        background:
+          radial-gradient(circle at 18% 10%, rgba(34,211,238,0.18), transparent 28%),
+          radial-gradient(circle at 88% 18%, rgba(37,99,235,0.18), transparent 34%),
+          linear-gradient(135deg, #020617 0%, #07101f 54%, #0b1f3a 100%) !important;
+        box-shadow: 0 34px 100px rgba(2,6,23,0.28), 0 0 52px rgba(34,211,238,0.14) !important;
+      }
+
+      header::after {
+        content: "";
+        position: absolute;
+        right: -90px;
+        top: -130px;
+        width: 340px;
+        height: 340px;
+        border-radius: 999px;
+        background: rgba(34,211,238,0.20);
+        filter: blur(70px);
+        pointer-events: none;
+      }
+
+      header h1 {
+        text-shadow: 0 0 32px rgba(34,211,238,0.22), 0 18px 52px rgba(0,0,0,0.22) !important;
+      }
+
+      section,
+      [class*="rounded-"][class*="bg-white"],
+      [class*="rounded-"][class*="border"],
+      [class*="shadow-"][class*="bg-white"] {
+        backdrop-filter: blur(22px) !important;
+        -webkit-backdrop-filter: blur(22px) !important;
+      }
+
+      section[class*="bg-white"],
+      div[class*="bg-white"][class*="rounded"],
+      article[class*="bg-white"],
+      [class*="bg-white/95"],
+      [class*="bg-white/90"] {
+        background:
+          linear-gradient(145deg, rgba(255,255,255,0.98), rgba(240,249,255,0.90)) !important;
+        border: 1px solid rgba(255,255,255,0.78) !important;
+        box-shadow: 0 24px 72px rgba(15,23,42,0.13), 0 0 34px rgba(34,211,238,0.08) !important;
+      }
+
+      [class*="bg-[#06101f]"],
+      [class*="bg-[#07101f]"],
+      [class*="from-[#07101f]"],
+      [class*="to-[#0b1a33]"] {
+        background:
+          radial-gradient(circle at 18% 8%, rgba(34,211,238,0.17), transparent 26%),
+          linear-gradient(135deg, #020617 0%, #07101f 58%, #0b1f3a 100%) !important;
+        border-color: rgba(125,211,252,0.18) !important;
+        box-shadow: 0 24px 72px rgba(2,6,23,0.30), 0 0 36px rgba(34,211,238,0.13) !important;
+      }
+
+      button,
+      a {
+        transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background-color 180ms ease, filter 180ms ease !important;
+      }
+
+      button:hover,
+      a:hover {
+        transform: translateY(-1px) !important;
+        filter: saturate(1.08) !important;
+      }
+
+      button[class*="bg-[#06101f]"],
+      button[class*="from-blue"],
+      button[class*="bg-blue"],
+      a[class*="bg-[#06101f]"],
+      a[class*="from-blue"],
+      a[class*="bg-blue"] {
+        box-shadow: 0 16px 42px rgba(37,99,235,0.28), 0 0 36px rgba(34,211,238,0.26) !important;
+      }
+
+      input,
+      select,
+      textarea {
+        background: rgba(255,255,255,0.92) !important;
+        border: 1px solid rgba(148,163,184,0.34) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.80), 0 10px 26px rgba(15,23,42,0.06) !important;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: rgba(34,211,238,0.82) !important;
+        box-shadow: 0 0 0 4px rgba(34,211,238,0.16), 0 14px 36px rgba(15,23,42,0.08) !important;
+      }
+
+      table {
+        border-collapse: separate !important;
+        border-spacing: 0 10px !important;
+      }
+
+      tbody tr,
+      [class*="space-y"] > div[class*="border"] {
+        transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease !important;
+      }
+
+      tbody tr:hover,
+      [class*="space-y"] > div[class*="border"]:hover {
+        transform: translateY(-1px) !important;
+        border-color: rgba(34,211,238,0.36) !important;
+        box-shadow: 0 18px 44px rgba(15,23,42,0.12), 0 0 34px rgba(34,211,238,0.11) !important;
+      }
+    `}</style>
+  );
+}
+
+
+function AutomationCentreScreen() {
+  return (
+    <div className="space-y-8">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Automation Centre</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">AI policy, exception and payroll automation</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          Client-facing automation for manager guidance, exception triage, payroll forecasting and future VYRON CORE co-pilot workflows.
+        </p>
+      </Panel>
+
+      <AIPolicyControlCentre />
+      <ExceptionAutoTriage />
+      <PayrollForecastEngine />
+      <ManagerCopilot />
+    </div>
+  );
+}
+
+
+function RiskComplianceCentreScreen({
+  exceptions,
+  hrCases,
+  payrollClockChecks,
+  hrDocuments,
+}: {
+  exceptions: ExceptionRow[];
+  hrCases: HrCaseRow[];
+  payrollClockChecks: PayrollClockCheckRow[];
+  hrDocuments: HrDocumentRow[];
+}) {
+  const openExceptions = exceptions.filter(exceptionIsOpen).length;
+  const openHrCases = hrCases.filter(hrCaseIsOpen).length;
+  const payrollBlockers = payrollClockChecks.filter((item) => item.manager_review_status !== "approved").length;
+  const missingDocuments = Math.max(0, 12 - hrDocuments.length);
+
+  return (
+    <div className="space-y-8">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Risk & Compliance Centre</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">Executive compliance and risk control</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          A client-facing risk layer for payroll blockers, HR exposure, document readiness, compliance scoring and manager escalation.
+        </p>
+      </Panel>
+
+      <ComplianceScorecard
+        openExceptions={openExceptions}
+        openHrCases={openHrCases}
+        payrollBlockers={payrollBlockers}
+        missingDocuments={missingDocuments}
+      />
+      <RiskRegisterPanel />
+      <DocumentCompliancePanel />
+      <SlaEscalationPanel />
+    </div>
+  );
+}
+
+
+function WorkforceIntelligenceScreen() {
+  return (
+    <div className="space-y-8">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Workforce Intelligence</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">Executive workforce intelligence</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          Client-facing labour visibility, workforce forecasting, leakage detection, store performance scoring and executive operations intelligence.
+        </p>
+      </Panel>
+
+      <ExecutiveOperationsWall />
+      <LabourLeakageCommandCentre />
+      <StorePerformanceIntelligence />
+      <WorkforceForecastCommandCentre />
+    </div>
+  );
+}
+
+
+function PayrollExportCentreScreen() {
+  return (
+    <div className="space-y-8">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Payroll Export Centre</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">Clean payroll export control</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          Payroll export readiness, blocker status, CSV export and payroll risk control in one client-facing workspace.
+        </p>
+      </Panel>
+      <ClientPayrollExportCentre />
+    </div>
+  );
+}
+
+function ReportsIntelligenceScreen() {
+  return (
+    <div className="space-y-8">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Reports Intelligence</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">Executive reports intelligence</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          Board-level workforce, payroll, HR, compliance and labour leakage reporting centre.
+        </p>
+      </Panel>
+      <ReportsIntelligenceCentre />
+    </div>
+  );
+}
+
+function NotificationEscalationScreen() {
+  return (
+    <div className="space-y-8">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Notification Escalation</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">Manager notification and escalation control</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          Escalate payroll blockers, clocking issues, leave approvals and HR actions before they become operational risk.
+        </p>
+      </Panel>
+      <NotificationEscalationCentre />
+    </div>
+  );
+}
+
+function MobileWorkforceScreen() {
+  return (
+    <div className="space-y-8">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Mobile Workforce</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">Mobile workforce control</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          Mobile employee and manager workflows for clocking, approvals, notifications and HR acknowledgements.
+        </p>
+      </Panel>
+      <MobileWorkforceCentre />
+    </div>
+  );
+}
+
+function ClientOnboardingHubScreen() {
+  return (
+    <div className="space-y-8">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Client Onboarding</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">Guided client setup hub</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          Setup stores, employees, rosters, payroll rules and document requirements with a clear rollout checklist.
+        </p>
+      </Panel>
+      <ClientOnboardingHub />
+    </div>
+  );
+}
+
+function SystemHealthScreen() {
+  return (
+    <div className="space-y-8">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">System Health</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">System health and data confidence</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          Live confidence layer for data status, authentication, exports, sync and production readiness.
+        </p>
+      </Panel>
+      <SystemHealthCommandCentre />
+    </div>
+  );
+}
+
+
+function ExecutiveCommandCentreScreen() {
+  return (
+    <div className="space-y-8">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Executive Command Centre</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">Executive Command Centre</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          Final executive layer with board-level workforce, payroll, compliance and operational command-centre visibility.
+        </p>
+      </Panel>
+
+      <ExecutiveCommandCentreFinal />
+    </div>
+  );
+}
+
+
+function PayrollHardeningScreen() {
+  return (
+    <div className="space-y-8">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Payroll Hardening</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">Payroll Hardening</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          Final payroll lock, export history, approval chain and payroll period hardening.
+        </p>
+      </Panel>
+
+      <PayrollHardeningCentre />
+    </div>
+  );
+}
+
+
+function MobileManagerScreen() {
+  return (
+    <div className="space-y-8">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Mobile Manager</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">Mobile Manager</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          Manager mobile approvals, alerts, clock review, HR action cards and offline-first workflows.
+        </p>
+      </Panel>
+
+      <MobileManagerExperience />
+    </div>
+  );
+}
+
+
+function EnterpriseOnboardingScreen() {
+  return (
+    <div className="space-y-8">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Enterprise Onboarding</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">Enterprise Onboarding</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          Guided enterprise onboarding, bulk imports, setup checklist and go-live readiness controls.
+        </p>
+      </Panel>
+
+      <EnterpriseOnboardingWizard />
+    </div>
+  );
+}
+
+
+function AIIntelligenceLayerScreen() {
+  return (
+    <div className="space-y-8">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">AI Intelligence Layer</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">AI Intelligence Layer</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          Final AI-style recommendations, anomaly detection, predictive alerts and manager decision support.
+        </p>
+      </Panel>
+
+      <AIIntelligenceLayerFinal />
+    </div>
+  );
+}
+
+
+function ProductionHardeningScreen() {
+  return (
+    <div className="space-y-8">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Production Hardening</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">Production Hardening</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          Final production readiness, error handling, loading states, monitoring and release control.
+        </p>
+      </Panel>
+
+      <ProductionHardeningCentre />
+    </div>
+  );
+}
+
+
+function EmployeeHRFileScreen({
+  employees,
+  hrCases,
+  hrWarnings,
+  hrDocuments,
+  hrNotes,
+  leaveRequests,
+  onRefresh,
+}: {
+  employees: EmployeeRow[];
+  hrCases: HrCaseRow[];
+  hrWarnings: HrWarningRow[];
+  hrDocuments: HrDocumentRow[];
+  hrNotes: HrNoteRow[];
+  leaveRequests: LeaveRequestRow[];
+  authUserEmail?: string | null;
+  onRefresh: () => void;
+}) {
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredEmployees = employees.filter((employee) => {
+    const search = searchTerm.trim().toLowerCase();
+    if (!search) return true;
+
+    return [
+      employee.employee_number || "",
+      employee.first_name || "",
+      employee.last_name || "",
+      employee.job_title || "",
+      employee.email || "",
+      employee.phone || "",
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(search);
+  });
+
+  function employeeName(employee: EmployeeRow) {
+    return `${employee.first_name || ""} ${employee.last_name || ""}`.trim() || "Unknown employee";
+  }
+
+  return (
+    <div className="space-y-6">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Employee HR File</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">Employee HR records</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          View employee-linked HR cases, warnings, documents, notes and leave history.
+        </p>
+      </Panel>
+
+      <Panel>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="text-2xl font-black tracking-tight text-slate-950">Employee Register</h3>
+            <p className="mt-2 text-sm text-slate-500">Open each employee record to review HR activity.</p>
+          </div>
+
+          <div className="flex flex-col gap-3 md:flex-row">
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search employees..."
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-cyan-400"
+            />
+            <button
+              onClick={onRefresh}
+              className="rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-4 xl:grid-cols-2">
+          {filteredEmployees.length === 0 ? (
+            <div className="rounded-[28px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center xl:col-span-2">
+              <div className="text-lg font-black text-slate-950">No employees found</div>
+              <p className="mt-2 text-sm text-slate-500">Employee HR files will appear here once employees are loaded.</p>
+            </div>
+          ) : (
+            filteredEmployees.map((employee) => {
+              const employeeKeys = [employee.id, employee.employee_number].filter(Boolean);
+              const caseCount = hrCases.filter((item) => employeeKeys.includes(item.employee_id)).length;
+              const warningCount = hrWarnings.filter((item) => employeeKeys.includes(item.employee_id)).length;
+              const documentCount = hrDocuments.filter((item) => employeeKeys.includes(item.employee_id)).length;
+              const noteCount = hrNotes.filter((item) => employeeKeys.includes(item.employee_id)).length;
+              const leaveCount = leaveRequests.filter((item) => item.employee_id && employeeKeys.includes(item.employee_id)).length;
+
+              return (
+                <article
+                  key={employee.id}
+                  className="rounded-[28px] border border-white/80 bg-white/95 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h4 className="text-xl font-black text-slate-950">{employeeName(employee)}</h4>
+                      <p className="mt-1 text-sm font-semibold text-slate-500">
+                        {employee.employee_number || "No employee number"} · {employee.job_title || "No job title"}
+                      </p>
+                    </div>
+                    <StatusPill value={employee.active ? "active" : "inactive"} />
+                  </div>
+
+                  <div className="mt-5 grid gap-3 md:grid-cols-5">
+                    <InfoBox label="Cases" value={String(caseCount)} />
+                    <InfoBox label="Warnings" value={String(warningCount)} />
+                    <InfoBox label="Docs" value={String(documentCount)} />
+                    <InfoBox label="Notes" value={String(noteCount)} />
+                    <InfoBox label="Leave" value={String(leaveCount)} />
+                  </div>
+                </article>
+              );
+            })
+          )}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function StoresRostersHub({ setActive }: { setActive: (value: string) => void }) {
+  const items = [
+    { title: "Stores", subtitle: "Manage store setup, GPS radius and operating times.", target: "Stores", icon: <Store className="h-6 w-6" /> },
+    { title: "Rosters", subtitle: "Build and review planned employee shifts.", target: "Rosters", icon: <Clock3 className="h-6 w-6" /> },
+    { title: "Roster Intelligence", subtitle: "Review overtime, coverage and shift risk.", target: "Roster Intelligence", icon: <Zap className="h-6 w-6" /> },
+    { title: "Workforce Movement", subtitle: "Track transfers and workforce movement.", target: "Workforce Movement", icon: <Users className="h-6 w-6" /> },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Stores & Rosters</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">Store and roster command hub</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          Control store setup, roster planning, workforce movement and schedule intelligence from one place.
+        </p>
+      </Panel>
+
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        {items.map((item) => (
+          <button
+            key={item.title}
+            onClick={() => setActive(item.target)}
+            className="rounded-[2rem] border border-white/80 bg-white/95 p-6 text-left shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-[0_28px_80px_rgba(37,99,235,0.18)]"
+          >
+            <div className="w-fit rounded-2xl bg-[#06101f] p-3 text-cyan-300 shadow-lg shadow-cyan-950/15">
+              {item.icon}
+            </div>
+            <div className="mt-5 text-xl font-black text-slate-950">{item.title}</div>
+            <div className="mt-2 text-sm leading-6 text-slate-500">{item.subtitle}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StoresManagementPanel({
+  stores,
+  exceptions,
+  onRefresh,
+}: {
+  stores: StoreRow[];
+  exceptions: ExceptionRow[];
+  onRefresh: () => void;
+  companyId?: string;
+}) {
+  const activeStores = stores.filter((store) => store.status === "active").length;
+  const storeRiskCount = stores.filter((store) =>
+    exceptions.some((exception) => exception.store_id === store.id && exceptionIsOpen(exception))
+  ).length;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-5 md:grid-cols-3">
+        <StatCard title="Total Stores" value={String(stores.length)} subtitle="Stores loaded from Supabase" icon={<Store className="h-6 w-6" />} />
+        <StatCard title="Active Stores" value={String(activeStores)} subtitle="Ready for rostering and clocking" icon={<CheckCircle2 className="h-6 w-6" />} />
+        <StatCard title="Risk Stores" value={String(storeRiskCount)} subtitle="Stores with open exceptions" icon={<AlertTriangle className="h-6 w-6" />} />
+      </div>
+
+      <Panel>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-2xl font-black tracking-tight text-slate-950">Stores</h2>
+            <p className="mt-2 text-sm text-slate-500">View store status, operating times and GPS radius rules.</p>
+          </div>
+          <button onClick={onRefresh} className="w-fit rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15">
+            Refresh
+          </button>
+        </div>
+
+        <div className="mt-6 grid gap-4 xl:grid-cols-2">
+          {stores.length === 0 ? (
+            <div className="rounded-[28px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center xl:col-span-2">
+              <div className="text-lg font-black text-slate-950">No stores found</div>
+              <p className="mt-2 text-sm text-slate-500">Add stores from the command centre to begin rostering.</p>
+            </div>
+          ) : (
+            stores.map((store) => {
+              const openStoreExceptions = exceptions.filter(
+                (exception) => exception.store_id === store.id && exceptionIsOpen(exception)
+              ).length;
+
+              return (
+                <article key={store.id} className="rounded-[28px] border border-white/80 bg-white/95 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-xl font-black text-slate-950">{store.name}</h3>
+                      <p className="mt-1 text-sm font-semibold text-slate-500">
+                        {[store.city, store.region].filter(Boolean).join(" · ") || "Location not set"}
+                      </p>
+                    </div>
+                    <StatusPill value={store.status || "active"} />
+                  </div>
+
+                  <div className="mt-5 grid gap-3 md:grid-cols-3">
+                    <InfoBox label="Opening" value={formatTimeOnly(store.opening_time)} />
+                    <InfoBox label="Closing" value={formatTimeOnly(store.closing_time)} />
+                    <InfoBox label="GPS Radius" value={`${store.gps_radius_meters || 0}m`} />
+                  </div>
+
+                  <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-600">
+                    {openStoreExceptions > 0 ? `${openStoreExceptions} open exceptions linked to this store.` : "No open exceptions linked to this store."}
+                  </div>
+                </article>
+              );
+            })
+          )}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function RosterManagementPanel({
+  rosterShifts,
+  employees,
+  stores,
+  onOpenCreateShift,
+  onRefresh,
+}: {
+  rosterShifts: RosterShiftRow[];
+  employees: EmployeeRow[];
+  stores: StoreRow[];
+  onOpenCreateShift: () => void;
+  onRefresh: () => void;
+}) {
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-5 md:grid-cols-3">
+        <StatCard title="Roster Shifts" value={String(rosterShifts.length)} subtitle="Loaded planned shifts" icon={<Clock3 className="h-6 w-6" />} />
+        <StatCard title="Employees" value={String(employees.filter((employee) => employee.active).length)} subtitle="Available staff" icon={<Users className="h-6 w-6" />} />
+        <StatCard title="Stores" value={String(stores.length)} subtitle="Roster locations" icon={<Store className="h-6 w-6" />} />
+      </div>
+
+      <Panel>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-2xl font-black tracking-tight text-slate-950">Rosters</h2>
+            <p className="mt-2 text-sm text-slate-500">Create, review and control planned employee shifts.</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button onClick={onRefresh} className="rounded-2xl bg-slate-100 px-5 py-3 text-sm font-bold text-slate-700">Refresh</button>
+            <button onClick={onOpenCreateShift} className="rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15">Create Shift</button>
+          </div>
+        </div>
+
+        <div className="mt-6 space-y-4">
+          {rosterShifts.length === 0 ? (
+            <div className="rounded-[28px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
+              <div className="text-lg font-black text-slate-950">No roster shifts found</div>
+              <p className="mt-2 text-sm text-slate-500">Create shifts to begin payroll and clocking validation.</p>
+            </div>
+          ) : (
+            rosterShifts.slice(0, 80).map((shift) => {
+              const employee = employees.find((item) => item.id === shift.employee_id);
+              const store = stores.find((item) => item.id === shift.store_id);
+
+              return (
+                <article key={shift.id} className="rounded-[26px] border border-white/80 bg-white/95 p-5 shadow-[0_14px_40px_rgba(15,23,42,0.09)] backdrop-blur-xl">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <div className="text-lg font-black text-slate-950">{employee ? `${employee.first_name} ${employee.last_name}` : "Unassigned employee"}</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-500">{store?.name || "No store"} · {shift.role || "No role"}</div>
+                    </div>
+                    <StatusPill value={shift.status || "scheduled"} />
+                  </div>
+
+                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    <InfoBox label="Date" value={formatDate(shift.shift_date)} />
+                    <InfoBox label="Start" value={formatTime(shift.planned_start)} />
+                    <InfoBox label="End" value={formatTime(shift.planned_end)} />
+                  </div>
+                </article>
+              );
+            })
+          )}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function PayrollClockEngineScreen({
+  payrollClockChecks,
+  onRefresh,
+}: {
+  payrollClockChecks: PayrollClockCheckRow[];
+  rosterShifts: RosterShiftRow[];
+  clockEvents: ClockEventRow[];
+  employees: EmployeeRow[];
+  stores: StoreRow[];
+  companyId?: string;
+  onRefresh: () => void;
+}) {
+  const missingClockIn = payrollClockChecks.filter((item) => item.missing_clock_in).length;
+  const missingClockOut = payrollClockChecks.filter((item) => item.missing_clock_out).length;
+  const reviewRequired = payrollClockChecks.filter((item) => item.manager_review_status !== "approved").length;
+  const payableHours = payrollClockChecks.reduce((sum, item) => sum + safeNumber(item.payable_minutes), 0) / 60;
+
+  return (
+    <div className="space-y-6">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Payroll Clock Engine</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">Clock-to-payroll validation</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">Compare rostered shifts, clock events and payroll review status before export.</p>
+      </Panel>
+
+      <div className="grid gap-5 md:grid-cols-4">
+        <StatCard title="Clock Checks" value={String(payrollClockChecks.length)} subtitle="Generated validations" icon={<Clock3 className="h-6 w-6" />} />
+        <StatCard title="Missing In" value={String(missingClockIn)} subtitle="Missing clock-in events" icon={<AlertTriangle className="h-6 w-6" />} />
+        <StatCard title="Missing Out" value={String(missingClockOut)} subtitle="Missing clock-out events" icon={<AlertTriangle className="h-6 w-6" />} />
+        <StatCard title="Payable Hours" value={formatHours(payableHours)} subtitle={`${reviewRequired} checks need review`} icon={<WalletCards className="h-6 w-6" />} />
+      </div>
+
+      <Panel>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="text-2xl font-black tracking-tight text-slate-950">Payroll Clock Checks</h3>
+            <p className="mt-2 text-sm text-slate-500">Review missing clocks, late minutes, early leave and payable minutes.</p>
+          </div>
+
+          <button onClick={onRefresh} className="w-fit rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15">Refresh Engine</button>
+        </div>
+
+        <div className="mt-6 space-y-4">
+          {payrollClockChecks.length === 0 ? (
+            <div className="rounded-[28px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
+              <div className="text-lg font-black text-slate-950">No payroll clock checks found</div>
+              <p className="mt-2 text-sm text-slate-500">Generate payroll prep checks to populate this engine.</p>
+            </div>
+          ) : (
+            payrollClockChecks.slice(0, 100).map((item) => (
+              <article key={item.id} className="rounded-[26px] border border-white/80 bg-white/95 p-5 shadow-[0_14px_40px_rgba(15,23,42,0.09)] backdrop-blur-xl">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <h4 className="text-lg font-black text-slate-950">{item.employee_name}</h4>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">{item.store_name || "No store"} · {formatDate(item.shift_date)}</p>
+                  </div>
+                  <StatusPill value={item.manager_review_status || item.payroll_status || "review_required"} />
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-4">
+                  <InfoBox label="Clock In" value={item.actual_clock_in ? formatTime(item.actual_clock_in) : "Missing"} />
+                  <InfoBox label="Clock Out" value={item.actual_clock_out ? formatTime(item.actual_clock_out) : "Missing"} />
+                  <InfoBox label="Late" value={`${safeNumber(item.late_minutes)} min`} />
+                  <InfoBox label="Payable" value={`${formatHours(safeNumber(item.payable_minutes) / 60)} hrs`} />
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function LeaveManagementHub({ setActive }: { setActive: (value: string) => void }) {
+  const items = [
+    { title: "Leave Approvals", target: "Leave Approvals", subtitle: "Approve, decline or amend employee leave requests.", icon: <CheckCircle2 className="h-6 w-6" /> },
+    { title: "Leave Balance Control", target: "Leave Balance Control", subtitle: "Review and update employee leave balances.", icon: <CalendarDays className="h-6 w-6" /> },
+    { title: "Leave Decision Audit", target: "Leave Decision Audit", subtitle: "Audit leave decisions and manager actions.", icon: <ShieldCheck className="h-6 w-6" /> },
+    { title: "Leave Control Centre", target: "Leave Control Centre", subtitle: "Central leave management and control dashboard.", icon: <Clock3 className="h-6 w-6" /> },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Leave Management</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">Leave command hub</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">Manage leave approvals, balances, decision history and workforce availability.</p>
+      </Panel>
+
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        {items.map((item) => (
+          <button key={item.title} onClick={() => setActive(item.target)} className="rounded-[2rem] border border-white/80 bg-white/95 p-6 text-left shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-[0_28px_80px_rgba(37,99,235,0.18)]">
+            <div className="w-fit rounded-2xl bg-[#06101f] p-3 text-cyan-300 shadow-lg shadow-cyan-950/15">{item.icon}</div>
+            <div className="mt-5 text-xl font-black text-slate-950">{item.title}</div>
+            <div className="mt-2 text-sm leading-6 text-slate-500">{item.subtitle}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HrDocumentsManagementPanel({
+  hrDocuments,
+  employees,
+  onRefresh,
+  userEmail,
+}: {
+  hrDocuments: HrDocumentRow[];
+  employees: EmployeeRow[];
+  onRefresh: () => void;
+  userEmail: string | null;
+}) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+
+  function employeeName(employeeId: string | null | undefined) {
+    if (!employeeId) return "No employee linked";
+    const employee = employees.find((item) => item.id === employeeId || item.employee_number === employeeId);
+    if (!employee) return "Unknown employee";
+    return `${employee.first_name || ""} ${employee.last_name || ""}`.trim() || "Unknown employee";
+  }
+
+  function formatDocumentType(value: string | null | undefined) {
+    if (!value) return "Document";
+    return value.replaceAll("_", " ");
+  }
+
+  const documentTypes = Array.from(
+    new Set(hrDocuments.map((document) => document.document_type).filter((value): value is string => Boolean(value)))
+  ).sort();
+
+  const filteredDocuments = hrDocuments.filter((document) => {
+    const search = searchTerm.trim().toLowerCase();
+    const matchesSearch =
+      !search ||
+      [
+        document.employee_name || "",
+        employeeName(document.employee_id),
+        document.document_type || "",
+        document.document_title || "",
+        document.document_notes || "",
+        document.file_name || "",
+        document.status || "",
+        document.uploaded_by || "",
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(search);
+
+    const matchesType = typeFilter === "all" || document.document_type === typeFilter;
+    return matchesSearch && matchesType;
+  });
+
+  const activeCount = hrDocuments.filter((document) => document.status !== "archived").length;
+  const archivedCount = hrDocuments.filter((document) => document.status === "archived").length;
+  const uploadedCount = hrDocuments.filter((document) => document.file_path || document.file_url).length;
+
+  return (
+    <div className="space-y-6">
+      <Panel dark>
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">VYRON CORE</div>
+            <h2 className="mt-3 text-3xl font-black tracking-tight">HR Documents</h2>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+              View uploaded HR documents, warnings, forms, signed records and employee document evidence in one management view.
+            </p>
+            <div className="mt-4 text-xs font-semibold text-slate-400">Logged in as {userEmail || "admin user"}</div>
+          </div>
+
+          <button onClick={onRefresh} className="w-fit rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 shadow-xl">
+            Refresh Documents
+          </button>
+        </div>
+      </Panel>
+
+      <section className="grid gap-5 md:grid-cols-3">
+        <StatCard title="Active Documents" value={String(activeCount)} subtitle="Current employee HR records" icon={<FileText className="h-6 w-6" />} />
+        <StatCard title="Uploaded Files" value={String(uploadedCount)} subtitle="Documents with stored files" icon={<ImageIcon className="h-6 w-6" />} />
+        <StatCard title="Archived" value={String(archivedCount)} subtitle="Closed or archived records" icon={<ShieldCheck className="h-6 w-6" />} />
+      </section>
+
+      <Panel>
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <h3 className="text-2xl font-black tracking-tight text-slate-950">Document Register</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-500">Uses your existing HR document records and keeps uploads/signatures/document-vault logic untouched.</p>
+          </div>
+
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search documents..." className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-cyan-400 md:w-72" />
+            <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-cyan-400">
+              <option value="all">All document types</option>
+              {documentTypes.map((type) => (
+                <option key={type} value={type}>{formatDocumentType(type)}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="mt-6 space-y-4">
+          {filteredDocuments.length === 0 ? (
+            <div className="rounded-[28px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
+              <div className="text-lg font-black text-slate-950">No HR documents found</div>
+              <p className="mt-2 text-sm text-slate-500">Uploaded HR documents will appear here once they are saved against employees.</p>
+            </div>
+          ) : (
+            filteredDocuments.map((document) => (
+              <article key={document.id} className="rounded-[28px] border border-white/80 bg-white/95 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-cyan-700">{formatDocumentType(document.document_type)}</span>
+                      <StatusPill value={document.status || "active"} />
+                    </div>
+                    <h4 className="mt-3 text-xl font-black text-slate-950">{document.document_title || document.file_name || "Untitled HR document"}</h4>
+                    <p className="mt-2 text-sm font-semibold text-slate-600">{document.employee_name || employeeName(document.employee_id)}</p>
+                    {document.document_notes && <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-500">{document.document_notes}</p>}
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-3 md:grid-cols-3">
+                  <InfoBox label="Employee" value={document.employee_name || employeeName(document.employee_id)} />
+                  <InfoBox label="File Name" value={document.file_name || "No file name"} />
+                  <InfoBox label="Storage" value={document.file_bucket || document.file_path ? "File linked" : "No file linked"} />
+                </div>
+
+                {(document.file_url || document.file_path) && (
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    {document.file_url && (
+                      <a href={document.file_url} target="_blank" rel="noreferrer" className="rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15">
+                        Open File
+                      </a>
+                    )}
+                    {!document.file_url && document.file_path && (
+                      <div className="rounded-2xl bg-slate-100 px-5 py-3 text-sm font-bold text-slate-600">Stored path: {document.file_path}</div>
+                    )}
+                  </div>
+                )}
+              </article>
+            ))
+          )}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function ComplianceManagementPanel({
+  rosterShifts,
+  clockEvents,
+  exceptions,
+  hrCases,
+  payrollClockChecks,
+}: {
+  rosterShifts: RosterShiftRow[];
+  clockEvents: ClockEventRow[];
+  exceptions: ExceptionRow[];
+  hrCases: HrCaseRow[];
+  payrollClockChecks: PayrollClockCheckRow[];
+}) {
+  const openExceptions = exceptions.filter(exceptionIsOpen).length;
+  const openHrCases = hrCases.filter(hrCaseIsOpen).length;
+  const payrollReviews = payrollClockChecks.filter((item) => item.manager_review_status !== "approved").length;
+  const complianceRisk = openExceptions + openHrCases + payrollReviews;
+  const complianceScore = Math.max(0, Math.min(100, 100 - complianceRisk * 4));
+
+  return (
+    <div className="space-y-6">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Compliance</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">Compliance command centre</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          Track workforce compliance pressure across rosters, clock events, HR cases and payroll review items.
+        </p>
+      </Panel>
+
+      <div className="grid gap-5 md:grid-cols-4">
+        <StatCard title="Compliance Score" value={`${complianceScore}%`} subtitle="Live risk-adjusted score" icon={<ShieldCheck className="h-6 w-6" />} />
+        <StatCard title="Open Exceptions" value={String(openExceptions)} subtitle="Clocking and roster issues" icon={<AlertTriangle className="h-6 w-6" />} />
+        <StatCard title="Open HR Cases" value={String(openHrCases)} subtitle="Unresolved HR matters" icon={<Gavel className="h-6 w-6" />} />
+        <StatCard title="Payroll Reviews" value={String(payrollReviews)} subtitle="Clock checks needing attention" icon={<WalletCards className="h-6 w-6" />} />
+      </div>
+
+      <ComplianceScreen exceptions={exceptions} hrCases={hrCases} rosterShifts={rosterShifts} clockEvents={clockEvents} />
+    </div>
+  );
+}
+
+function ReportsCentreScreen({ setActive }: { setActive: (value: string) => void }) {
+  const reports = [
+    { title: "Executive Reports", target: "Executive Reports", subtitle: "High-level payroll, HR, workforce and compliance reporting.", icon: <FileText className="h-6 w-6" /> },
+    { title: "History Reports", target: "History Reports", subtitle: "Historical leave, HR, payroll and workforce movement records.", icon: <Clock3 className="h-6 w-6" /> },
+    { title: "Payroll Prep", target: "Payroll Prep", subtitle: "Payroll readiness, blocker control and export preparation.", icon: <WalletCards className="h-6 w-6" /> },
+    { title: "Compliance", target: "Compliance", subtitle: "Compliance risk scoring and unresolved action tracking.", icon: <ShieldCheck className="h-6 w-6" /> },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Reports Centre</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">Executive reporting hub</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">Open payroll, compliance, workforce and executive reporting screens.</p>
+      </Panel>
+
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        {reports.map((item) => (
+          <button key={item.title} onClick={() => setActive(item.target)} className="rounded-[2rem] border border-white/80 bg-white/95 p-6 text-left shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-[0_28px_80px_rgba(37,99,235,0.18)]">
+            <div className="w-fit rounded-2xl bg-[#06101f] p-3 text-cyan-300 shadow-lg shadow-cyan-950/15">{item.icon}</div>
+            <div className="mt-5 text-xl font-black text-slate-950">{item.title}</div>
+            <div className="mt-2 text-sm leading-6 text-slate-500">{item.subtitle}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+function EnterprisePolishScreen() {
+  return (
+    <div className="space-y-8">
+      <EnterprisePolishCommandCentre />
+      <PilotDemoReadinessCentre />
+    </div>
+  );
+}
+
+function PilotDemoReadinessScreen() {
+  return (
+    <div className="space-y-8">
+      <Panel dark>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Pilot Demo Readiness</div>
+        <h2 className="mt-3 text-3xl font-black tracking-tight">Client demo preparation</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          Prepare demo data, demo scripts and the strongest client-facing story for VYRON CORE.
+        </p>
+      </Panel>
+      <PilotDemoReadinessCentre />
+    </div>
+  );
+}
+
+
+function ClientDemoStoryScreen() {
+  return (
+    <div className="space-y-8">
+      <ClientDemoStoryCentre />
+    </div>
+  );
+}
+
+
+function ExecutiveLaunchScreen() {
+  return (
+    <div className="space-y-8">
+      <ExecutiveLaunchCentre />
+    </div>
+  );
+}
+
+
+function PayrollExportEngineScreen() {
+  return (
+    <div className="space-y-8">
+      <PayrollExportEngineFinal />
+    </div>
+  );
+}
+
+function ExceptionIntelligenceEngineScreen() {
+  return (
+    <div className="space-y-8">
+      <ExceptionIntelligenceEngineFinal />
+    </div>
+  );
+}
+
+function EnterpriseOnboardingSystemScreen() {
+  return (
+    <div className="space-y-8">
+      <EnterpriseOnboardingSystemFinal />
+    </div>
+  );
+}
+
+function RolesPermissionsEngineScreen() {
+  return (
+    <div className="space-y-8">
+      <RolesPermissionsEngineFinal />
+    </div>
+  );
+}
+
+function CommercialDemoEnvironmentScreen() {
+  return (
+    <div className="space-y-8">
+      <CommercialDemoEnvironmentFinal />
+    </div>
+  );
+}
+
 
 export default function Page() {
   const [active, setActiveRaw] = useState("Command Centre");
@@ -7565,7 +7284,7 @@ export default function Page() {
         supabase.from("time_exceptions").select("id,exception_type,severity,description,status,employee_id,store_id,roster_shift_id,source,exception_key").eq("company_id", activeCompanyId).order("created_at", { ascending: false }),
         supabase.from("hr_cases").select("id,employee_id,linked_exception_id,case_type,title,description,validity_status,status,employee_response_required,employee_response").eq("company_id", activeCompanyId).order("created_at", { ascending: false }),
         supabase.from("roster_shifts").select("id,shift_date,planned_start,planned_end,role,status,employee_id,store_id").eq("company_id", activeCompanyId).gte("shift_date", today).order("planned_start", { ascending: true }),
-        supabase.from("clock_events").select("id,employee_id,store_id,roster_shift_id,event_type,event_time,source,latitude,longitude").eq("company_id", activeCompanyId).order("event_time", { ascending: false }),
+        supabase.from("clock_events").select("id,employee_id,store_id,roster_shift_id,event_type,event_time,source,latitude,longitude,gps_accuracy,photo_url,photo_bucket,photo_path,device_info,clock_note").eq("company_id", activeCompanyId).order("event_time", { ascending: false }),
         supabase.from("payroll_batches").select("id,batch_name,period_start,period_end,payroll_system,status,exported_at").eq("company_id", activeCompanyId).order("created_at", { ascending: false }),
         supabase.from("payroll_hours").select("id,company_id,employee_id,period_start,period_end,normal_hours,overtime_hours,late_minutes,missing_clock_events,status,approved_at,approval_note,exported_at,export_batch_id,created_at").eq("company_id", activeCompanyId).order("created_at", { ascending: false }),
         supabase.from("payroll_clock_checks").select("*").eq("company_id", activeCompanyId).order("shift_date", { ascending: false }),
@@ -7603,9 +7322,20 @@ export default function Page() {
   }, [today, refreshKey, authUserEmail]);
 
   function renderSection() {
-    if (active === "Command Centre") return <CommandCentre stores={stores} employees={employees} exceptions={exceptions} hrCases={hrCases} onRefresh={refreshData} companyId={currentCompanyId} />;
+    if (active === "Enterprise Polish") return <EnterprisePolishScreen />;
+    if (active === "Payroll Export Engine") return <PayrollExportEngineScreen />;
+    if (active === "Exception Intelligence Engine") return <ExceptionIntelligenceEngineScreen />;
+    if (active === "Enterprise Onboarding System") return <EnterpriseOnboardingSystemScreen />;
+    if (active === "Roles & Permissions Engine") return <RolesPermissionsEngineScreen />;
+    if (active === "Commercial Demo Environment") return <CommercialDemoEnvironmentScreen />;
+    if (active === "Executive Launch") return <ExecutiveLaunchScreen />;
+    if (active === "Client Demo Story") return <ClientDemoStoryScreen />;
+    if (active === "Pilot Demo Readiness") return <PilotDemoReadinessScreen />;
+    if (active === "Command Centre") return <VyronCoreCostStyleCommandCentre stores={stores} employees={employees} exceptions={exceptions} hrCases={hrCases} onRefresh={refreshData} companyId={currentCompanyId} />;
     if (active === "Manager Action Centre") return <ManagerActionCentrePanel onNavigate={setActive} />;
     if (active === "Smart Detection") return <SmartDetectionEnginePanel exceptions={exceptions} onUpdated={refreshData} onNavigate={setActive} />;
+    if (active === "Automation Centre") return <AutomationCentreScreen />;
+    if (active === "Workforce Intelligence") return <WorkforceIntelligenceScreen />;
     if (active === "Live Activity") return <LiveActivityScreen clockEvents={clockEvents} exceptions={exceptions} hrCases={hrCases} employees={employees} stores={stores} />;
 
     if (active === "Employees") return <EmployeesScreen employees={employees} stores={stores} exceptions={exceptions} hrCases={hrCases} onAddEmployee={() => setAddEmployeeOpen(true)} onRefresh={refreshData} />;
@@ -7613,11 +7343,15 @@ export default function Page() {
     if (active === "Employee Notifications") return <EmployeeNotificationsPanel onUpdated={refreshData} />;
 
     if (active === "Clocking") return <ClockingManagementPanel clockEvents={clockEvents} employees={employees} stores={stores} rosterShifts={rosterShifts} exceptions={exceptions} onManualEvent={() => setManualClockOpen(true)} onRefresh={refreshData} />;
+    if (active === "Clocking Review") return <ClockReviewPanel />;
+    if (active === "Workforce Movement") return <WorkforceMovementPanel />;
+    if (active === "Roster Intelligence") return <RosterIntelligencePanel />;
     if (active === "Payroll Clock Engine") return <PayrollClockEngineScreen payrollClockChecks={payrollClockChecks} rosterShifts={rosterShifts} clockEvents={clockEvents} employees={employees} stores={stores} companyId={currentCompanyId} onRefresh={refreshData} />;
     if (active === "Exceptions") return <ExceptionsActionPanel exceptions={exceptions} employees={employees} stores={stores} companyId={currentCompanyId} onUpdated={refreshData} onNavigate={setActive} />;
     if (active === "Stores & Rosters") return <StoresRostersHub setActive={setActive} />;
     if (active === "Stores") return <StoresManagementPanel stores={stores} exceptions={exceptions} onRefresh={refreshData} companyId={currentCompanyId} />;
     if (active === "Rosters") return <RosterManagementPanel rosterShifts={rosterShifts} employees={employees} stores={stores} onOpenCreateShift={() => setCreateShiftOpen(true)} onRefresh={refreshData} />;
+    if (active === "Leave Control Centre") return <LeaveControlCentrePanel />;
     if (active === "Leave Management") return <LeaveManagementHub setActive={setActive} />;
     if (active === "Leave Approvals") return <LeaveApprovalsScreen leaveRequests={leaveRequests} employees={employees} onRefresh={refreshData} />;
     if (active === "Leave Balance Control") return <LeaveBalancePanel onUpdated={refreshData} />;
@@ -7625,9 +7359,24 @@ export default function Page() {
 
     if (active === "HR Cases") return <HRCasesActionPanel hrCases={hrCases} employees={employees} exceptions={exceptions} companyId={currentCompanyId} onUpdated={refreshData} />;
     if (active === "HR Warnings") return <HRWarningsDocumentPanel hrWarnings={hrWarnings} employees={employees} onRefresh={refreshData} userEmail={authUserEmail} />;
+    if (active === "HR Contract Centre") return <ContractCentrePanel />;
+    if (active === "Employee Document Vault") return <EmployeeDocumentVaultPanel />;
     if (active === "HR Documents") return <HrDocumentsManagementPanel hrDocuments={hrDocuments} employees={employees} onRefresh={refreshData} userEmail={authUserEmail} />;
     if (active === "Compliance") return <ComplianceManagementPanel rosterShifts={rosterShifts} clockEvents={clockEvents} exceptions={exceptions} hrCases={hrCases} payrollClockChecks={payrollClockChecks} />;
+    if (active === "Risk & Compliance Centre") return <RiskComplianceCentreScreen exceptions={exceptions} hrCases={hrCases} payrollClockChecks={payrollClockChecks} hrDocuments={hrDocuments} />;
 
+    if (active === "Payroll Export Centre") return <PayrollExportCentreScreen />;
+    if (active === "Reports Intelligence") return <ReportsIntelligenceScreen />;
+    if (active === "Notification Escalation") return <NotificationEscalationScreen />;
+    if (active === "Mobile Workforce") return <MobileWorkforceScreen />;
+    if (active === "Client Onboarding Hub") return <ClientOnboardingHubScreen />;
+    if (active === "System Health") return <SystemHealthScreen />;
+    if (active === "Executive Command Centre") return <ExecutiveCommandCentreScreen />;
+    if (active === "Payroll Hardening") return <PayrollHardeningScreen />;
+    if (active === "Mobile Manager") return <MobileManagerScreen />;
+    if (active === "Enterprise Onboarding") return <EnterpriseOnboardingScreen />;
+    if (active === "AI Intelligence Layer") return <AIIntelligenceLayerScreen />;
+    if (active === "Production Hardening") return <ProductionHardeningScreen />;
     if (active === "Reports Centre") return <ReportsCentreScreen setActive={setActive} />;
     if (active === "History Reports") return <HistoryReportsPanel />;
     if (active === "Executive Reports") return <ExecutiveReportsScreen stores={stores} employees={employees} rosterShifts={rosterShifts} clockEvents={clockEvents} exceptions={exceptions} hrCases={hrCases} payrollHours={payrollHours} />;
@@ -7640,8 +7389,9 @@ export default function Page() {
   if (!authReady) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f6f8fb] p-6 text-slate-950">
+      <VyronCoreVisualSystem />
         <div className="rounded-[28px] bg-white p-8 text-center shadow-[0_20px_60px_rgba(15,23,42,0.12)]">
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-blue-600">VYRON CORE</div>
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-700">VYRON CORE</div>
           <div className="mt-3 text-2xl font-bold">Checking secure session...</div>
         </div>
       </main>
@@ -7692,11 +7442,11 @@ return (
               </button>
             </div>
           )}
-{active === "Command Centre" && <CommandCentreLogoutOnlyButton />}
+
 
           {renderSection()}
 
-          {active === "Command Centre" && <CommandCentreQuickActions setActive={setActive} />}
+          
         </section>
       </div>
     </main>

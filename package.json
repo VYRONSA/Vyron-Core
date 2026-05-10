@@ -10,9 +10,11 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.104.1",
+    "docxtemplater": "^3.68.7",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.11.0",
     "next": "16.2.4",
+    "pizzip": "^3.2.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },

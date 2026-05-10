@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  ArrowLeft,
   CalendarDays,
   CheckCircle2,
   Clock3,
@@ -12,6 +13,7 @@ import {
   UserRound,
   XCircle,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
 type EmployeeRow = {
@@ -114,7 +116,7 @@ function leaveDays(startDate: string, endDate: string) {
 function statusTone(status: string) {
   if (status === "approved") return "border-emerald-200 bg-emerald-50 text-emerald-700";
   if (status === "declined") return "border-rose-200 bg-rose-50 text-rose-700";
-  if (status === "amended") return "border-blue-200 bg-blue-50 text-blue-700";
+  if (status === "amended") return "border-cyan-200 bg-cyan-50 text-cyan-700";
   return "border-amber-200 bg-amber-50 text-amber-700";
 }
 
@@ -140,6 +142,7 @@ function formatDays(value: number | string | null | undefined) {
 }
 
 export default function LeavePage() {
+  const router = useRouter();
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
   const [employeeCode, setEmployeeCode] = useState("");
   const [pinCode, setPinCode] = useState("");
@@ -410,9 +413,25 @@ export default function LeavePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f8fb] p-4 text-slate-950 md:p-8">
-      <section className="mx-auto max-w-6xl">
-        <header className="rounded-[34px] bg-gradient-to-r from-[#07101f] to-[#0b1a33] p-6 text-white shadow-2xl shadow-slate-300 md:p-7">
+    <main className="min-h-screen overflow-hidden bg-[#04100d] p-4 text-slate-950 md:p-8">
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <div className="absolute left-[-180px] top-[-220px] h-[620px] w-[620px] rounded-full bg-cyan-400/20 blur-[140px]" />
+        <div className="absolute right-[-180px] top-[120px] h-[760px] w-[760px] rounded-full bg-cyan-500/20 blur-[160px]" />
+        <div className="absolute bottom-[-260px] left-[36%] h-[680px] w-[680px] rounded-full bg-sky-300/18 blur-[170px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(8,47,73,0.98)_0%,rgba(14,116,144,0.9)_34%,rgba(238,246,255,0.94)_34%,rgba(238,246,255,0.94)_100%)]" />
+      </div>
+      <section className="relative z-10 mx-auto max-w-7xl">
+        <button
+          onClick={() => router.back()}
+          className="mb-6 inline-flex items-center gap-2 rounded-full bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+        <header className="relative overflow-hidden rounded-[2.2rem] border border-white/70 bg-white/95 p-7 text-[#06101f] shadow-[0_22px_70px_rgba(15,23,42,0.16)] backdrop-blur-xl md:p-8">
+          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cyan-300/30 blur-[80px]" />
+          <div className="pointer-events-none absolute bottom-[-120px] left-1/3 h-72 w-72 rounded-full bg-blue-400/20 blur-[90px]" />
+          <div className="relative z-10">
           <div className="flex items-center gap-4">
             <div className="relative h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-400 shadow-lg shadow-blue-500/30">
               <div className="absolute left-[13px] top-[10px] h-8 w-3 rotate-[-28deg] rounded-sm bg-white" />
@@ -420,16 +439,16 @@ export default function LeavePage() {
             </div>
 
             <div>
-              <div className="text-2xl font-black tracking-[0.34em] text-white">
+              <div className="text-2xl font-black tracking-[0.34em] text-[#06101f]">
                 VYRON
               </div>
-              <div className="mt-[-2px] text-xs font-semibold tracking-[0.55em] text-cyan-300">
+              <div className="mt-[-2px] text-xs font-semibold tracking-[0.55em] text-cyan-700">
                 CORE
               </div>
             </div>
           </div>
 
-          <div className="mt-8 text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">
+          <div className="mt-8 inline-flex rounded-full bg-cyan-100 px-4 py-2 text-xs font-black uppercase tracking-[0.35em] text-cyan-700">
             Employee Leave Kiosk
           </div>
 
@@ -437,16 +456,17 @@ export default function LeavePage() {
             Leave Application
           </h1>
 
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300">
+          <p className="mt-4 max-w-4xl text-base leading-8 text-slate-600">
             One simple place for employees to apply for leave, view leave balances,
             and check their leave status. Employee code and PIN must be entered every time.
           </p>
+        </div>
         </header>
 
-        <section className="mt-6 grid gap-6 lg:grid-cols-[0.78fr_1.22fr]">
+        <section className="mt-6 grid gap-6 lg:grid-cols-[0.82fr_1.18fr]">
           <div className="space-y-6">
-            <div className="rounded-[34px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
-              <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">
+            <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+              <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-700">
                 Step 1
               </div>
 
@@ -459,14 +479,14 @@ export default function LeavePage() {
               </p>
 
               {loadingEmployees && (
-                <div className="mt-5 rounded-2xl bg-blue-50 p-4 text-sm font-semibold text-blue-700">
+                <div className="mt-5 rounded-2xl bg-cyan-50 p-4 text-sm font-semibold text-cyan-700">
                   Loading employees...
                 </div>
               )}
 
               <label className="mt-6 block text-sm font-bold text-slate-800">
                 Employee Code
-                <div className="mt-2 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="mt-2 flex items-center gap-3 rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3">
                   <Search className="h-5 w-5 text-slate-400" />
                   <input
                     value={employeeCode}
@@ -483,7 +503,7 @@ export default function LeavePage() {
 
               <label className="mt-4 block text-sm font-bold text-slate-800">
                 PIN Code
-                <div className="mt-2 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="mt-2 flex items-center gap-3 rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3">
                   <LockKeyhole className="h-5 w-5 text-slate-400" />
                   <input
                     type="password"
@@ -539,8 +559,8 @@ export default function LeavePage() {
               )}
             </div>
 
-            <div className="rounded-[34px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
-              <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">
+            <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+              <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-700">
                 Step 2
               </div>
 
@@ -549,17 +569,17 @@ export default function LeavePage() {
               </h2>
 
               {!authenticated || !employee ? (
-                <div className="mt-5 rounded-2xl bg-slate-50 p-5 text-sm font-semibold text-slate-500">
+                <div className="mt-5 rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl p-5 text-sm font-semibold text-slate-500">
                   Verify employee code and PIN first.
                 </div>
               ) : (
                 <>
-                  <div className="mt-5 rounded-2xl bg-blue-50 p-4">
+                  <div className="mt-5 rounded-2xl bg-cyan-50 p-4">
                     <div className="flex items-center gap-3">
-                      <UserRound className="h-5 w-5 text-blue-700" />
+                      <UserRound className="h-5 w-5 text-cyan-700" />
                       <div>
                         <div className="font-bold text-blue-950">{fullName(employee)}</div>
-                        <div className="text-xs font-semibold text-blue-700">
+                        <div className="text-xs font-semibold text-cyan-700">
                           {employee.employee_number || employee.id}
                         </div>
                       </div>
@@ -567,7 +587,7 @@ export default function LeavePage() {
                   </div>
 
                   {leaveBalances.length > 0 && (
-                    <div className="mt-5 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+                    <div className="mt-5 rounded-[24px] border border-white/80 bg-white/80 p-4">
                       <div className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
                         My Leave Balances
                       </div>
@@ -614,7 +634,7 @@ export default function LeavePage() {
                         setSubmitMessage(null);
                         setError(null);
                       }}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none focus:border-blue-500"
+                      className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 text-sm font-semibold text-slate-950 outline-none focus:border-cyan-400"
                     >
                       <option value="annual_leave">Annual leave</option>
                       <option value="sick_leave">Sick leave</option>
@@ -656,7 +676,7 @@ export default function LeavePage() {
                           setSubmitMessage(null);
                           setError(null);
                         }}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none focus:border-blue-500"
+                        className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 text-sm font-semibold text-slate-950 outline-none focus:border-cyan-400"
                       />
                     </label>
 
@@ -670,12 +690,12 @@ export default function LeavePage() {
                           setSubmitMessage(null);
                           setError(null);
                         }}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none focus:border-blue-500"
+                        className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 text-sm font-semibold text-slate-950 outline-none focus:border-cyan-400"
                       />
                     </label>
                   </div>
 
-                  <div className="mt-5 rounded-2xl bg-slate-50 p-4">
+                  <div className="mt-5 rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl p-4">
                     <div className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
                       Total Leave Days
                     </div>
@@ -690,7 +710,7 @@ export default function LeavePage() {
                       value={reason}
                       onChange={(event) => setReason(event.target.value)}
                       rows={5}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none focus:border-blue-500"
+                      className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 text-sm font-semibold text-slate-950 outline-none focus:border-cyan-400"
                       placeholder="Optional reason for leave..."
                     />
                   </label>
@@ -714,10 +734,10 @@ export default function LeavePage() {
             </div>
           </div>
 
-          <div className="rounded-[34px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
+          <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl">
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
-                <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">
+                <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-700">
                   My Leave Status
                 </div>
                 <h2 className="mt-2 text-3xl font-bold text-slate-950">
@@ -729,7 +749,7 @@ export default function LeavePage() {
                 </p>
               </div>
 
-              <CalendarDays className="h-9 w-9 text-blue-600" />
+              <CalendarDays className="h-9 w-9 text-cyan-700" />
             </div>
 
             {!authenticated || !employee ? (
@@ -770,7 +790,7 @@ export default function LeavePage() {
 
                 <div className="mt-6 space-y-4">
                   {leaveRequests.length === 0 ? (
-                    <div className="rounded-[26px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
+                    <div className="rounded-[26px] border border-dashed border-white/80 bg-white/80 p-8 text-center">
                       <CalendarDays className="mx-auto h-10 w-10 text-slate-300" />
                       <div className="mt-3 text-lg font-bold text-slate-950">
                         No leave applications found
@@ -783,7 +803,7 @@ export default function LeavePage() {
                     leaveRequests.map((leave) => (
                       <article
                         key={leave.id}
-                        className="rounded-[26px] border border-slate-200 bg-slate-50 p-5"
+                        className="rounded-[26px] border border-white/80 bg-white/80 p-5"
                       >
                         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                           <div>
@@ -846,8 +866,8 @@ export default function LeavePage() {
                         )}
 
                         {leave.manager_feedback && (
-                          <div className="mt-4 rounded-2xl bg-blue-50 p-4">
-                            <div className="text-xs font-black uppercase tracking-[0.2em] text-blue-700">
+                          <div className="mt-4 rounded-2xl bg-cyan-50 p-4">
+                            <div className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">
                               Manager Feedback
                             </div>
                             <p className="mt-2 text-sm leading-6 text-blue-900">
