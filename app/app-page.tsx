@@ -10,7 +10,7 @@ function GlobalWarningBanner({ exceptions, hrCases, payrollHours }: any) {
 
   return (
     <div className="w-full border-b border-rose-300/30 bg-gradient-to-r from-rose-700 via-rose-600 to-orange-500 p-4 text-center text-sm font-black text-white shadow-[0_18px_60px_rgba(225,29,72,0.28)]">
-      âš ï¸ ACTION REQUIRED: Unresolved issues detected
+      ⚠️ ACTION REQUIRED: Unresolved issues detected
     </div>
   );
 }
@@ -790,14 +790,14 @@ function Sidebar({
                   isOpen ? "text-cyan-300" : "text-slate-400 hover:text-white"
                 }`}
               >
-                <span>{group.label}</span>
+                <span className="truncate">{group.label}</span>
                 <span className="flex items-center gap-2">
                   {groupAlertCount > 0 && (
                     <span className="rounded-full bg-rose-500 px-2 py-1 text-[10px] font-black leading-none text-white">
                       {groupAlertCount > 99 ? "99+" : groupAlertCount}
                     </span>
                   )}
-                  <span className="text-base">{isOpen ? "âˆ’" : "+"}</span>
+                  <span className="text-base">{isOpen ? "-" : "+"}</span>
                 </span>
               </button>
 
@@ -973,7 +973,7 @@ function LoginScreen({ onAuthenticated }: { onAuthenticated: (email: string) => 
             <div className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-700">VYRON CORE</div>
             <h2 className="mt-3 text-3xl font-bold tracking-tight">{mode === "login" ? "Login" : "Create account"}</h2>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Use the email that was added under Settings / Roles â†’ Company Users.
+              Use the email that was added under Settings / Roles → Company Users.
             </p>
 
             <div className="mt-8 space-y-4">
@@ -1476,7 +1476,7 @@ function ManualClockEventModal({
               <option value="">No linked shift</option>
               {filteredShifts.map((shift) => (
                 <option key={shift.id} value={shift.id}>
-                  {formatDate(shift.shift_date)} Â· {formatTime(shift.planned_start)}â€“{formatTime(shift.planned_end)}
+                  {formatDate(shift.shift_date)} · {formatTime(shift.planned_start)}–{formatTime(shift.planned_end)}
                 </option>
               ))}
             </select>
@@ -1806,7 +1806,7 @@ function LeaveApprovalsScreen({
 
     if (!found) return employeeCode;
 
-    return `${found.employee_number || "No code"} Â· ${found.phone || found.email || "No contact"}`;
+    return `${found.employee_number || "No code"} · ${found.phone || found.email || "No contact"}`;
   }
 
   async function updateLeaveStatus(request: LeaveRequestRow, status: "approved" | "declined" | "amended") {
@@ -2028,7 +2028,7 @@ function StoresScreen({
                     <div>
                       <div className="text-lg font-bold text-slate-950">{store.name}</div>
                       <div className="mt-1 text-xs font-semibold text-slate-500">
-                        {store.region || "No region"} Â· {store.city || "No city"}
+                        {store.region || "No region"} · {store.city || "No city"}
                       </div>
                     </div>
                     <StatusPill value={store.status} />
@@ -2413,7 +2413,7 @@ function EmployeesScreen({
                       <div>
                         <div className="font-bold text-slate-950">{employeeFullName(employee)}</div>
                         <div className="mt-1 text-xs font-semibold text-slate-500">
-                          {employee.employee_number || "No employee number"} Â· {employee.job_title || "No job title"} Â· Exceptions: {exceptionCount}
+                          {employee.employee_number || "No employee number"} · {employee.job_title || "No job title"} · Exceptions: {exceptionCount}
                         </div>
                       </div>
 
@@ -2509,7 +2509,7 @@ function RosterBuilderScreen({
                     <div>
                       <div className="text-sm font-bold text-slate-700">{storeName(shift.store_id)}</div>
                       <div className="mt-1 text-xs text-slate-500">
-                        {formatTime(shift.planned_start)} â€“ {formatTime(shift.planned_end)}
+                        {formatTime(shift.planned_start)} – {formatTime(shift.planned_end)}
                       </div>
                     </div>
 
@@ -2821,7 +2821,7 @@ function HRCasesScreen({
                     <div>
                       <div className="text-lg font-bold text-slate-950">{caseItem.title}</div>
                       <div className="mt-1 text-xs font-semibold text-slate-500">
-                        {getEmployeeDisplayName(caseItem.employee_id)} Â· {formatText(caseItem.case_type)}
+                        {getEmployeeDisplayName(caseItem.employee_id)} · {formatText(caseItem.case_type)}
                       </div>
                       <div className="mt-4 text-sm leading-6 text-slate-600">{caseItem.description}</div>
 
@@ -3692,7 +3692,7 @@ function ExecutiveReportsScreen({
               <div key={store.id} className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl p-4">
                 <div>
                   <div className="font-black text-slate-950">{store.name}</div>
-                  <div className="mt-1 text-xs text-slate-500">{store.city || "No city"} Â· {store.region || "No region"}</div>
+                  <div className="mt-1 text-xs text-slate-500">{store.city || "No city"} · {store.region || "No region"}</div>
                 </div>
                 <div className={count > 0 ? "text-lg font-black text-rose-600" : "text-lg font-black text-emerald-600"}>{count}</div>
               </div>
@@ -3709,7 +3709,7 @@ function ExecutiveReportsScreen({
               <div key={employee.id} className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl p-4">
                 <div>
                   <div className="font-black text-slate-950">{employee.first_name} {employee.last_name}</div>
-                  <div className="mt-1 text-xs text-slate-500">{employee.employee_number || "No employee number"} Â· {employee.job_title || "No role"}</div>
+                  <div className="mt-1 text-xs text-slate-500">{employee.employee_number || "No employee number"} · {employee.job_title || "No role"}</div>
                 </div>
                 <div className="text-right text-xs font-bold text-slate-500">
                   <div>{exceptionCount} exceptions</div>
@@ -4286,7 +4286,7 @@ function ClientOnboardingScreen({
 
         <div className="mt-6 space-y-3 text-sm text-slate-300">
           <div className="rounded-2xl bg-white/10 p-4">Designed for first sales demos and pilot launches.</div>
-          <div className="rounded-2xl bg-white/10 p-4">Keeps setup simple: company â†’ stores â†’ staff â†’ roster â†’ clocking.</div>
+          <div className="rounded-2xl bg-white/10 p-4">Keeps setup simple: company → stores → staff → roster → clocking.</div>
           <div className="rounded-2xl bg-white/10 p-4">Next: CSV import for bulk employees and stores.</div>
         </div>
       </Panel>
@@ -4322,22 +4322,22 @@ function LiveActivityScreen({
     ...clockEvents.slice(0, 12).map((event) => ({
       id: `clock-${event.id}`,
       type: "Clocking",
-      title: `${getEmployeeDisplayName(event.employee_id)} Â· ${formatText(event.event_type)}`,
-      detail: `${storeName(event.store_id)} Â· ${formatTime(event.event_time)} Â· ${event.source}`,
+      title: `${getEmployeeDisplayName(event.employee_id)} · ${formatText(event.event_type)}`,
+      detail: `${storeName(event.store_id)} · ${formatTime(event.event_time)} · ${event.source}`,
       risk: event.event_type === "clock_in" || event.event_type === "clock_out" ? "normal" : "watch"
 })),
     ...exceptions.slice(0, 8).map((item) => ({
       id: `exception-${item.id}`,
       type: "Exception",
-      title: `${getEmployeeDisplayName(item.employee_id)} Â· ${formatText(item.exception_type)}`,
-      detail: `${item.status} Â· ${item.description}`,
+      title: `${getEmployeeDisplayName(item.employee_id)} · ${formatText(item.exception_type)}`,
+      detail: `${item.status} · ${item.description}`,
       risk: item.status === "closed" || item.status === "approved" ? "normal" : "high"
 })),
     ...hrCases.slice(0, 8).map((item) => ({
       id: `hr-${item.id}`,
       type: "HR",
-      title: `${getEmployeeDisplayName(item.employee_id)} Â· ${item.title}`,
-      detail: `${item.status} Â· ${formatText(item.validity_status)}`,
+      title: `${getEmployeeDisplayName(item.employee_id)} · ${item.title}`,
+      detail: `${item.status} · ${formatText(item.validity_status)}`,
       risk: item.status === "closed" ? "normal" : "high"
 })),
   ].slice(0, 24);
@@ -4687,7 +4687,7 @@ function FinalV1ControlScreen({
     <div className="mt-8 space-y-8">
       {demoMode && (
         <div className="rounded-[30px] border border-cyan-200 bg-cyan-50 p-5 text-sm font-bold text-cyan-900">
-          Demo Mode is ON â€” use this screen as the guided closing flow for a client presentation.
+          Demo Mode is ON — use this screen as the guided closing flow for a client presentation.
         </div>
       )}
 
@@ -5194,7 +5194,7 @@ function StaffClockingScreen({
       const position = await getCurrentPosition();
       const { latitude, longitude, accuracy } = position.coords;
 
-      setGpsMessage(`GPS captured: ${latitude.toFixed(5)}, ${longitude.toFixed(5)} Â· accuracy ${Math.round(accuracy)}m`);
+      setGpsMessage(`GPS captured: ${latitude.toFixed(5)}, ${longitude.toFixed(5)} · accuracy ${Math.round(accuracy)}m`);
 
       const photoEvidence = await uploadClockPhoto(selectedEmployee.id, lockedNextAction);
 
@@ -5362,7 +5362,7 @@ function StaffClockingScreen({
                     <option value="">No linked shift</option>
                     {filteredShifts.map((shift) => (
                       <option key={shift.id} value={shift.id}>
-                        {formatDate(shift.shift_date)} Â· {formatTime(shift.planned_start)} - {formatTime(shift.planned_end)}
+                        {formatDate(shift.shift_date)} · {formatTime(shift.planned_start)} - {formatTime(shift.planned_end)}
                       </option>
                     ))}
                   </select>
@@ -5429,7 +5429,7 @@ function StaffClockingScreen({
             </div>
 
             <div className="text-sm font-bold text-slate-500">
-              In: {firstClockInToday ? formatTime(firstClockInToday.event_time) : "--:--"} Â· Out: {lastClockOutToday ? formatTime(lastClockOutToday.event_time) : "--:--"}
+              In: {firstClockInToday ? formatTime(firstClockInToday.event_time) : "--:--"} · Out: {lastClockOutToday ? formatTime(lastClockOutToday.event_time) : "--:--"}
             </div>
           </div>
 
@@ -5450,10 +5450,10 @@ function StaffClockingScreen({
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                       <div>
                         <div className="text-xl font-black text-[#06101f]">
-                          {isClockIn(event.event_type) ? "Clock In" : "Clock Out"} Â· {formatTime(event.event_time)}
+                          {isClockIn(event.event_type) ? "Clock In" : "Clock Out"} · {formatTime(event.event_time)}
                         </div>
                         <div className="mt-1 text-sm font-bold text-slate-500">
-                          {selectedStore?.name || stores.find((store) => store.id === event.store_id)?.name || "No store"} Â· Source: {formatText(event.source)}
+                          {selectedStore?.name || stores.find((store) => store.id === event.store_id)?.name || "No store"} · Source: {formatText(event.source)}
                         </div>
                       </div>
 
@@ -5649,7 +5649,7 @@ function ClockingManagementPanel({
                     <div>
                       <div className="font-black text-slate-950">{getEmployeeDisplayName(event.employee_id)}</div>
                       <div className="mt-1 text-xs font-semibold text-slate-500">
-                        {employeeCode(event.employee_id)} Â· {storeName(event.store_id)} Â· {formatTime(event.event_time)} Â· {event.source}
+                        {employeeCode(event.employee_id)} · {storeName(event.store_id)} · {formatTime(event.event_time)} · {event.source}
                       </div>
 
                       <div className="mt-3 grid gap-2 text-xs font-semibold text-slate-600 md:grid-cols-2">
@@ -5997,7 +5997,7 @@ function EmployeeHRFileScreen({
                         {localEmployeeName(employee)}
                       </h4>
                       <p className="mt-1 text-sm font-semibold text-slate-500">
-                        {employee.employee_number || "No employee number"} Â·{" "}
+                        {employee.employee_number || "No employee number"} ·{" "}
                         {employee.job_title || "No job title"}
                       </p>
                     </div>
@@ -6080,7 +6080,7 @@ function PayrollClockEngineScreen({
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div>
                     <h4 className="text-lg font-black text-slate-950">{item.employee_name}</h4>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">{item.store_name || "No store"} Â· {formatDate(item.shift_date)}</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">{item.store_name || "No store"} · {formatDate(item.shift_date)}</p>
                   </div>
                   <StatusPill value={item.manager_review_status || item.payroll_status || "review_required"} />
                 </div>
@@ -6185,7 +6185,7 @@ function StoresManagementPanel({
                     <div>
                       <h3 className="text-xl font-black text-slate-950">{store.name}</h3>
                       <p className="mt-1 text-sm font-semibold text-slate-500">
-                        {[store.city, store.region].filter(Boolean).join(" Â· ") || "Location not set"}
+                        {[store.city, store.region].filter(Boolean).join(" · ") || "Location not set"}
                       </p>
                     </div>
                     <StatusPill value={store.status || "active"} />
@@ -6259,7 +6259,7 @@ function RosterManagementPanel({
                   <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                       <div className="text-lg font-black text-slate-950">{employee ? `${employee.first_name} ${employee.last_name}` : "Unassigned employee"}</div>
-                      <div className="mt-1 text-sm font-semibold text-slate-500">{store?.name || "No store"} Â· {shift.role || "No role"}</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-500">{store?.name || "No store"} · {shift.role || "No role"}</div>
                     </div>
                     <StatusPill value={shift.status || "scheduled"} />
                   </div>
@@ -6819,9 +6819,7 @@ return (
               <button
                 onClick={goBack}
                 className="rounded-2xl border border-slate-200/70 bg-white/90 px-5 py-3 text-sm font-black text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.10)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-cyan-200 hover:bg-white"
-              >
-                â† Back
-              </button>
+              >Back</button>
             </div>
           )}
 
