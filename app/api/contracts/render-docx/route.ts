@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
@@ -80,7 +80,11 @@ export async function POST(request: NextRequest) {
 
     const fileName = `${cleanFileName(body.documentTitle || "contract")}.docx`;
 
-    return new NextResponse(output, {
+    const responseBody = new Blob([output as BlobPart], {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+
+    return new NextResponse(responseBody, {
       status: 200,
       headers: {
         "Content-Type":
@@ -99,3 +103,4 @@ export async function POST(request: NextRequest) {
     return new NextResponse(message, { status: 500 });
   }
 }
+

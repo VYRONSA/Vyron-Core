@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 function GlobalWarningBanner({ exceptions, hrCases, payrollHours }: any) {
   const hasIssues =
@@ -10,7 +10,7 @@ function GlobalWarningBanner({ exceptions, hrCases, payrollHours }: any) {
 
   return (
     <div className="w-full bg-rose-600 text-white p-4 text-sm font-bold text-center">
-      ⚠️ ACTION REQUIRED: Unresolved issues detected
+      âš ï¸ ACTION REQUIRED: Unresolved issues detected
     </div>
   );
 }
@@ -434,6 +434,21 @@ function toShiftDateTime(date: string, time: string) {
   return `${date}T${time}:00+02:00`;
 }
 
+
+function getEmployeeDisplayName(employee: any) {
+  if (!employee) return "Unknown employee";
+
+  const fullName = `${employee.first_name || ""} ${employee.last_name || ""}`.trim();
+
+  return (
+    fullName ||
+    employee.employee_number ||
+    employee.email ||
+    employee.phone ||
+    employee.name ||
+    "Unknown employee"
+  );
+}
 function safeNumber(value: number | null | undefined) {
   if (value === null || value === undefined) return 0;
   return Number(value) || 0;
@@ -875,7 +890,7 @@ function Sidebar({
                       {groupAlertCount > 99 ? "99+" : groupAlertCount}
                     </span>
                   )}
-                  <span className="text-base">{isOpen ? "−" : "+"}</span>
+                  <span className="text-base">{isOpen ? "âˆ’" : "+"}</span>
                 </span>
               </button>
 
@@ -1051,7 +1066,7 @@ function LoginScreen({ onAuthenticated }: { onAuthenticated: (email: string) => 
             <div className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-700">VYRON CORE</div>
             <h2 className="mt-3 text-3xl font-bold tracking-tight">{mode === "login" ? "Login" : "Create account"}</h2>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Use the email that was added under Settings / Roles → Company Users.
+              Use the email that was added under Settings / Roles â†’ Company Users.
             </p>
 
             <div className="mt-8 space-y-4">
@@ -1554,7 +1569,7 @@ function ManualClockEventModal({
               <option value="">No linked shift</option>
               {filteredShifts.map((shift) => (
                 <option key={shift.id} value={shift.id}>
-                  {formatDate(shift.shift_date)} · {formatTime(shift.planned_start)}–{formatTime(shift.planned_end)}
+                  {formatDate(shift.shift_date)} Â· {formatTime(shift.planned_start)}â€“{formatTime(shift.planned_end)}
                 </option>
               ))}
             </select>
@@ -1643,7 +1658,7 @@ function HrResponseModal({
         employee_response_required: false,
         validity_status: "review_required"
 })
-      .eq("id", hrCase.id);
+      .eq("id", hrCase!.id);
 
     if (updateError) {
       setError(updateError.message);
@@ -1884,7 +1899,7 @@ function LeaveApprovalsScreen({
 
     if (!found) return employeeCode;
 
-    return `${found.employee_number || "No code"} · ${found.phone || found.email || "No contact"}`;
+    return `${found.employee_number || "No code"} Â· ${found.phone || found.email || "No contact"}`;
   }
 
   async function updateLeaveStatus(request: LeaveRequestRow, status: "approved" | "declined" | "amended") {
@@ -2106,7 +2121,7 @@ function StoresScreen({
                     <div>
                       <div className="text-lg font-bold text-slate-950">{store.name}</div>
                       <div className="mt-1 text-xs font-semibold text-slate-500">
-                        {store.region || "No region"} · {store.city || "No city"}
+                        {store.region || "No region"} Â· {store.city || "No city"}
                       </div>
                     </div>
                     <StatusPill value={store.status} />
@@ -2491,7 +2506,7 @@ function EmployeesScreen({
                       <div>
                         <div className="font-bold text-slate-950">{employeeFullName(employee)}</div>
                         <div className="mt-1 text-xs font-semibold text-slate-500">
-                          {employee.employee_number || "No employee number"} · {employee.job_title || "No job title"} · Exceptions: {exceptionCount}
+                          {employee.employee_number || "No employee number"} Â· {employee.job_title || "No job title"} Â· Exceptions: {exceptionCount}
                         </div>
                       </div>
 
@@ -2533,7 +2548,7 @@ function RosterBuilderScreen({
   stores: StoreRow[];
   onCreateShift: () => void;
 }) {
-  function employeeName(id: string) {
+  function getEmployeeDisplayName(id: string) {
     const employee = employees.find((item) => item.id === id);
     return employee ? `${employee.first_name} ${employee.last_name}` : "Unassigned employee";
   }
@@ -2580,14 +2595,14 @@ function RosterBuilderScreen({
                 {grouped[date].map((shift) => (
                   <div key={shift.id} className="grid gap-4 p-5 md:grid-cols-[1fr_1fr_120px] md:items-center">
                     <div>
-                      <div className="font-bold text-slate-950">{employeeName(shift.employee_id)}</div>
+                      <div className="font-bold text-slate-950">{getEmployeeDisplayName(shift.employee_id)}</div>
                       <div className="mt-1 text-xs text-slate-500">{shift.role || "Shift role not set"}</div>
                     </div>
 
                     <div>
                       <div className="text-sm font-bold text-slate-700">{storeName(shift.store_id)}</div>
                       <div className="mt-1 text-xs text-slate-500">
-                        {formatTime(shift.planned_start)} – {formatTime(shift.planned_end)}
+                        {formatTime(shift.planned_start)} â€“ {formatTime(shift.planned_end)}
                       </div>
                     </div>
 
@@ -2625,7 +2640,7 @@ function ClockingLiveScreen({
   stores: StoreRow[];
   onManualEvent: () => void;
 }) {
-  function employeeName(id: string) {
+  function getEmployeeDisplayName(id: string) {
     const employee = employees.find((item) => item.id === id);
     return employee ? `${employee.first_name} ${employee.last_name}` : "Unassigned employee";
   }
@@ -2657,7 +2672,7 @@ function ClockingLiveScreen({
             <div key={event.id} className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl">
               <div className="grid gap-4 md:grid-cols-[1fr_1fr_120px] md:items-center">
                 <div>
-                  <div className="font-bold text-slate-950">{employeeName(event.employee_id)}</div>
+                  <div className="font-bold text-slate-950">{getEmployeeDisplayName(event.employee_id)}</div>
                   <div className="mt-1 text-xs text-slate-500">{storeName(event.store_id)}</div>
                 </div>
 
@@ -2692,7 +2707,7 @@ function ExceptionsPanel({
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  function employeeName(id: string) {
+  function getEmployeeDisplayName(id: string) {
     const employee = employees.find((item) => item.id === id);
     return employee ? `${employee.first_name} ${employee.last_name}` : "Unassigned employee";
   }
@@ -2762,7 +2777,7 @@ function ExceptionsPanel({
             <div key={item.id} className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl">
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <div className="text-base font-bold">{employeeName(item.employee_id)}</div>
+                  <div className="text-base font-bold">{getEmployeeDisplayName(item.employee_id)}</div>
                   <div className="mt-1 text-xs text-slate-500">{storeName(item.store_id)}</div>
                   <div className="mt-4 text-sm font-bold capitalize">{formatText(item.exception_type)}</div>
                   <div className="mt-1 text-sm text-slate-500">{item.description}</div>
@@ -2812,7 +2827,7 @@ function HRCasesScreen({
   const [manualCaseOpen, setManualCaseOpen] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  function employeeName(id: string) {
+  function getEmployeeDisplayName(id: string) {
     const employee = employees.find((item) => item.id === id);
     return employee ? `${employee.first_name} ${employee.last_name}` : "Unassigned employee";
   }
@@ -2860,7 +2875,7 @@ function HRCasesScreen({
         onClose={() => setSelectedCase(null)}
         onSaved={onRefresh}
         hrCase={selectedCase}
-        employeeName={selectedCase ? employeeName(selectedCase.employee_id) : ""}
+        employeeName={selectedCase ? getEmployeeDisplayName(selectedCase.employee_id) : ""}
       />
 
       <div className="mt-8 grid gap-8 xl:grid-cols-[1fr_0.7fr]">
@@ -2899,7 +2914,7 @@ function HRCasesScreen({
                     <div>
                       <div className="text-lg font-bold text-slate-950">{caseItem.title}</div>
                       <div className="mt-1 text-xs font-semibold text-slate-500">
-                        {employeeName(caseItem.employee_id)} · {formatText(caseItem.case_type)}
+                        {getEmployeeDisplayName(caseItem.employee_id)} Â· {formatText(caseItem.case_type)}
                       </div>
                       <div className="mt-4 text-sm leading-6 text-slate-600">{caseItem.description}</div>
 
@@ -3061,7 +3076,7 @@ function PayrollPrepScreen({
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().slice(0, 10);
   }, []);
 
-  function employeeName(id: string) {
+  function getEmployeeDisplayName(id: string) {
     const employee = employees.find((item) => item.id === id);
     return employee ? `${employee.first_name} ${employee.last_name}` : "Unknown employee";
   }
@@ -3197,7 +3212,7 @@ function PayrollPrepScreen({
     const exportRows = approvedUnexportedHours;
     const header = ["Employee", "Period Start", "Period End", "Normal Hours", "Overtime Hours", "Late Minutes", "Missing Clock Events", "Status"];
     const lines = exportRows.map((row) => [
-      employeeName(row.employee_id),
+      getEmployeeDisplayName(row.employee_id),
       row.period_start,
       row.period_end,
       Number(row.normal_hours || 0).toFixed(2),
@@ -3380,7 +3395,7 @@ function PayrollPrepScreen({
               shift,
               exceptionType: "missing_clock_in",
               severity: "high",
-              description: `${employeeName(employee.id)} has no clock-in for planned shift on ${formatDate(shift.shift_date)}.`
+              description: `${getEmployeeDisplayName(employee.id)} has no clock-in for planned shift on ${formatDate(shift.shift_date)}.`
 });
           }
 
@@ -3390,7 +3405,7 @@ function PayrollPrepScreen({
               shift,
               exceptionType: "missing_clock_out",
               severity: "high",
-              description: `${employeeName(employee.id)} has no clock-out for planned shift on ${formatDate(shift.shift_date)}.`
+              description: `${getEmployeeDisplayName(employee.id)} has no clock-out for planned shift on ${formatDate(shift.shift_date)}.`
 });
           }
 
@@ -3403,7 +3418,7 @@ function PayrollPrepScreen({
                 shift,
                 exceptionType: "late_arrival",
                 severity: shiftLateMinutes > 15 ? "medium" : "low",
-                description: `${employeeName(employee.id)} clocked in ${shiftLateMinutes} minutes late on ${formatDate(shift.shift_date)}.`
+                description: `${getEmployeeDisplayName(employee.id)} clocked in ${shiftLateMinutes} minutes late on ${formatDate(shift.shift_date)}.`
 });
             }
           }
@@ -3416,7 +3431,7 @@ function PayrollPrepScreen({
                 shift,
                 exceptionType: "early_leave",
                 severity: earlyLeaveMinutes > 15 ? "medium" : "low",
-                description: `${employeeName(employee.id)} clocked out ${earlyLeaveMinutes} minutes before planned end on ${formatDate(shift.shift_date)}.`
+                description: `${getEmployeeDisplayName(employee.id)} clocked out ${earlyLeaveMinutes} minutes before planned end on ${formatDate(shift.shift_date)}.`
 });
             }
           }
@@ -3428,7 +3443,7 @@ function PayrollPrepScreen({
               shift,
               exceptionType: "overtime_risk",
               severity: overtimeRiskMinutes > 60 ? "high" : "medium",
-              description: `${employeeName(employee.id)} worked ${overtimeRiskMinutes} minutes over planned shift on ${formatDate(shift.shift_date)}.`
+              description: `${getEmployeeDisplayName(employee.id)} worked ${overtimeRiskMinutes} minutes over planned shift on ${formatDate(shift.shift_date)}.`
 });
           }
         });
@@ -3604,7 +3619,7 @@ function PayrollPrepScreen({
               const aNeedsReview = a.status !== "approved" && a.status !== "exported";
               const bNeedsReview = b.status !== "approved" && b.status !== "exported";
               if (aNeedsReview !== bNeedsReview) return aNeedsReview ? -1 : 1;
-              return employeeName(a.employee_id).localeCompare(employeeName(b.employee_id));
+              return getEmployeeDisplayName(a.employee_id).localeCompare(getEmployeeDisplayName(b.employee_id));
             })
             .map((row) => {
             const rowExported = row.status === "exported" || Boolean(row.exported_at);
@@ -3614,7 +3629,7 @@ function PayrollPrepScreen({
               <div key={row.id} className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl">
                 <div className="grid gap-4 xl:grid-cols-[1fr_110px_110px_110px_120px_130px_160px] xl:items-center">
                   <div>
-                    <div className="font-bold text-slate-950">{employeeName(row.employee_id)}</div>
+                    <div className="font-bold text-slate-950">{getEmployeeDisplayName(row.employee_id)}</div>
                     <div className="mt-1 text-xs text-slate-500">{row.period_start} to {row.period_end}</div>
                     {row.approval_note && (
                       <div className="mt-2 text-xs font-semibold text-slate-500">{row.approval_note}</div>
@@ -3770,7 +3785,7 @@ function ExecutiveReportsScreen({
               <div key={store.id} className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl p-4">
                 <div>
                   <div className="font-black text-slate-950">{store.name}</div>
-                  <div className="mt-1 text-xs text-slate-500">{store.city || "No city"} · {store.region || "No region"}</div>
+                  <div className="mt-1 text-xs text-slate-500">{store.city || "No city"} Â· {store.region || "No region"}</div>
                 </div>
                 <div className={count > 0 ? "text-lg font-black text-rose-600" : "text-lg font-black text-emerald-600"}>{count}</div>
               </div>
@@ -3787,7 +3802,7 @@ function ExecutiveReportsScreen({
               <div key={employee.id} className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl p-4">
                 <div>
                   <div className="font-black text-slate-950">{employee.first_name} {employee.last_name}</div>
-                  <div className="mt-1 text-xs text-slate-500">{employee.employee_number || "No employee number"} · {employee.job_title || "No role"}</div>
+                  <div className="mt-1 text-xs text-slate-500">{employee.employee_number || "No employee number"} Â· {employee.job_title || "No role"}</div>
                 </div>
                 <div className="text-right text-xs font-bold text-slate-500">
                   <div>{exceptionCount} exceptions</div>
@@ -4364,7 +4379,7 @@ function ClientOnboardingScreen({
 
         <div className="mt-6 space-y-3 text-sm text-slate-300">
           <div className="rounded-2xl bg-white/10 p-4">Designed for first sales demos and pilot launches.</div>
-          <div className="rounded-2xl bg-white/10 p-4">Keeps setup simple: company → stores → staff → roster → clocking.</div>
+          <div className="rounded-2xl bg-white/10 p-4">Keeps setup simple: company â†’ stores â†’ staff â†’ roster â†’ clocking.</div>
           <div className="rounded-2xl bg-white/10 p-4">Next: CSV import for bulk employees and stores.</div>
         </div>
       </Panel>
@@ -4386,7 +4401,7 @@ function LiveActivityScreen({
   employees: EmployeeRow[];
   stores: StoreRow[];
 }) {
-  function employeeName(id: string) {
+  function getEmployeeDisplayName(id: string) {
     const employee = employees.find((item) => item.id === id);
     return employee ? `${employee.first_name} ${employee.last_name}` : "Unknown employee";
   }
@@ -4400,22 +4415,22 @@ function LiveActivityScreen({
     ...clockEvents.slice(0, 12).map((event) => ({
       id: `clock-${event.id}`,
       type: "Clocking",
-      title: `${employeeName(event.employee_id)} · ${formatText(event.event_type)}`,
-      detail: `${storeName(event.store_id)} · ${formatTime(event.event_time)} · ${event.source}`,
+      title: `${getEmployeeDisplayName(event.employee_id)} Â· ${formatText(event.event_type)}`,
+      detail: `${storeName(event.store_id)} Â· ${formatTime(event.event_time)} Â· ${event.source}`,
       risk: event.event_type === "clock_in" || event.event_type === "clock_out" ? "normal" : "watch"
 })),
     ...exceptions.slice(0, 8).map((item) => ({
       id: `exception-${item.id}`,
       type: "Exception",
-      title: `${employeeName(item.employee_id)} · ${formatText(item.exception_type)}`,
-      detail: `${item.status} · ${item.description}`,
+      title: `${getEmployeeDisplayName(item.employee_id)} Â· ${formatText(item.exception_type)}`,
+      detail: `${item.status} Â· ${item.description}`,
       risk: item.status === "closed" || item.status === "approved" ? "normal" : "high"
 })),
     ...hrCases.slice(0, 8).map((item) => ({
       id: `hr-${item.id}`,
       type: "HR",
-      title: `${employeeName(item.employee_id)} · ${item.title}`,
-      detail: `${item.status} · ${formatText(item.validity_status)}`,
+      title: `${getEmployeeDisplayName(item.employee_id)} Â· ${item.title}`,
+      detail: `${item.status} Â· ${formatText(item.validity_status)}`,
       risk: item.status === "closed" ? "normal" : "high"
 })),
   ].slice(0, 24);
@@ -4765,7 +4780,7 @@ function FinalV1ControlScreen({
     <div className="mt-8 space-y-8">
       {demoMode && (
         <div className="rounded-[30px] border border-cyan-200 bg-cyan-50 p-5 text-sm font-bold text-cyan-900">
-          Demo Mode is ON — use this screen as the guided closing flow for a client presentation.
+          Demo Mode is ON â€” use this screen as the guided closing flow for a client presentation.
         </div>
       )}
 
@@ -5161,8 +5176,8 @@ function StaffClockingScreen({
     }
 
     selectEmployee(matchedEmployee.id);
-    setEmployeeSearch(employeeName(matchedEmployee));
-    setLastMessage(`${employeeName(matchedEmployee)} selected.`);
+    setEmployeeSearch(getEmployeeDisplayName(matchedEmployee));
+    setLastMessage(`${getEmployeeDisplayName(matchedEmployee)} selected.`);
   }
 
   async function getCurrentPosition(): Promise<GeolocationPosition> {
@@ -5265,7 +5280,7 @@ function StaffClockingScreen({
       const position = await getCurrentPosition();
       const { latitude, longitude, accuracy } = position.coords;
 
-      setGpsMessage(`GPS captured: ${latitude.toFixed(5)}, ${longitude.toFixed(5)} · accuracy ${Math.round(accuracy)}m`);
+      setGpsMessage(`GPS captured: ${latitude.toFixed(5)}, ${longitude.toFixed(5)} Â· accuracy ${Math.round(accuracy)}m`);
 
       const photoEvidence = await uploadClockPhoto(selectedEmployee.id, lockedNextAction);
 
@@ -5305,7 +5320,7 @@ function StaffClockingScreen({
 
       setPhotoFile(null);
       setLastMessage(
-        `${employeeName(selectedEmployee)} ${lockedNextAction === "clock_in" ? "clocked in" : "clocked out"} successfully.`
+        `${getEmployeeDisplayName(selectedEmployee)} ${lockedNextAction === "clock_in" ? "clocked in" : "clocked out"} successfully.`
       );
 
       await onRefresh();
@@ -5384,7 +5399,7 @@ function StaffClockingScreen({
                         : "border border-cyan-400/15 bg-white/5 text-slate-200 hover:bg-white/10"
                     }`}
                   >
-                    {employeeName(employee)}
+                    {getEmployeeDisplayName(employee)}
                     <span className="ml-2 text-xs opacity-70">
                       {employee.employee_number || "No number"}
                     </span>
@@ -5399,7 +5414,7 @@ function StaffClockingScreen({
               <div className="rounded-[2rem] border border-white/80 bg-white p-5 shadow-[0_16px_45px_rgba(15,23,42,0.08)]">
                 <div className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">Selected Employee</div>
                 <div className="mt-2 text-2xl font-black text-[#06101f]">
-                  {selectedEmployee ? employeeName(selectedEmployee) : "No employee selected"}
+                  {selectedEmployee ? getEmployeeDisplayName(selectedEmployee) : "No employee selected"}
                 </div>
                 <div className="mt-2 text-sm font-bold text-slate-500">
                   {selectedEmployee?.employee_number || "Select by search or code"}
@@ -5433,7 +5448,7 @@ function StaffClockingScreen({
                     <option value="">No linked shift</option>
                     {filteredShifts.map((shift) => (
                       <option key={shift.id} value={shift.id}>
-                        {formatDate(shift.shift_date)} · {formatTime(shift.planned_start)} - {formatTime(shift.planned_end)}
+                        {formatDate(shift.shift_date)} Â· {formatTime(shift.planned_start)} - {formatTime(shift.planned_end)}
                       </option>
                     ))}
                   </select>
@@ -5493,21 +5508,21 @@ function StaffClockingScreen({
         <section className="rounded-[2.2rem] border border-white/70 bg-white/95 p-7 shadow-[0_22px_70px_rgba(15,23,42,0.16)] backdrop-blur-xl">
           <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
             <div>
-              <div className="text-xs font-black uppercase tracking-[0.35em] text-cyan-700">Today’s Clocking History</div>
+              <div className="text-xs font-black uppercase tracking-[0.35em] text-cyan-700">Todayâ€™s Clocking History</div>
               <h2 className="mt-2 text-3xl font-black text-[#06101f]">
-                {selectedEmployee ? employeeName(selectedEmployee) : "Select an employee"}
+                {selectedEmployee ? getEmployeeDisplayName(selectedEmployee) : "Select an employee"}
               </h2>
             </div>
 
             <div className="text-sm font-bold text-slate-500">
-              In: {firstClockInToday ? formatTime(firstClockInToday.event_time) : "--:--"} · Out: {lastClockOutToday ? formatTime(lastClockOutToday.event_time) : "--:--"}
+              In: {firstClockInToday ? formatTime(firstClockInToday.event_time) : "--:--"} Â· Out: {lastClockOutToday ? formatTime(lastClockOutToday.event_time) : "--:--"}
             </div>
           </div>
 
           <div className="mt-6 space-y-3">
             {!selectedEmployee ? (
               <div className="rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl p-5 text-sm font-bold text-slate-500">
-                Search or enter a staff code to view today’s clocking history.
+                Search or enter a staff code to view todayâ€™s clocking history.
               </div>
             ) : selectedEmployeeTodayEvents.length === 0 ? (
               <div className="rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl p-5 text-sm font-bold text-slate-500">
@@ -5521,10 +5536,10 @@ function StaffClockingScreen({
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                       <div>
                         <div className="text-xl font-black text-[#06101f]">
-                          {isClockIn(event.event_type) ? "Clock In" : "Clock Out"} · {formatTime(event.event_time)}
+                          {isClockIn(event.event_type) ? "Clock In" : "Clock Out"} Â· {formatTime(event.event_time)}
                         </div>
                         <div className="mt-1 text-sm font-bold text-slate-500">
-                          {selectedStore?.name || stores.find((store) => store.id === event.store_id)?.name || "No store"} · Source: {formatText(event.source)}
+                          {selectedStore?.name || stores.find((store) => store.id === event.store_id)?.name || "No store"} Â· Source: {formatText(event.source)}
                         </div>
                       </div>
 
@@ -5590,7 +5605,7 @@ function ClockingManagementPanel({
   const [storeFilter, setStoreFilter] = useState("all");
   const [eventFilter, setEventFilter] = useState("all");
 
-  function employeeName(id: string) {
+  function getEmployeeDisplayName(id: string) {
     const found = employees.find((employee) => employee.id === id);
     return found ? `${found.first_name} ${found.last_name}` : "Unknown employee";
   }
@@ -5631,7 +5646,7 @@ function ClockingManagementPanel({
       if (!term) return true;
 
       return [
-        employeeName(event.employee_id),
+        getEmployeeDisplayName(event.employee_id),
         employeeCode(event.employee_id),
         storeName(event.store_id),
         event.event_type,
@@ -5718,9 +5733,9 @@ function ClockingManagementPanel({
                 <article key={event.id} className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl">
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div>
-                      <div className="font-black text-slate-950">{employeeName(event.employee_id)}</div>
+                      <div className="font-black text-slate-950">{getEmployeeDisplayName(event.employee_id)}</div>
                       <div className="mt-1 text-xs font-semibold text-slate-500">
-                        {employeeCode(event.employee_id)} · {storeName(event.store_id)} · {formatTime(event.event_time)} · {event.source}
+                        {employeeCode(event.employee_id)} Â· {storeName(event.store_id)} Â· {formatTime(event.event_time)} Â· {event.source}
                       </div>
 
                       <div className="mt-3 grid gap-2 text-xs font-semibold text-slate-600 md:grid-cols-2">
@@ -6436,7 +6451,7 @@ function EmployeeHRFileScreen({
       .includes(search);
   });
 
-  function employeeName(employee: EmployeeRow) {
+  function getEmployeeDisplayName(employee: EmployeeRow) {
     return `${employee.first_name || ""} ${employee.last_name || ""}`.trim() || "Unknown employee";
   }
 
@@ -6495,9 +6510,9 @@ function EmployeeHRFileScreen({
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h4 className="text-xl font-black text-slate-950">{employeeName(employee)}</h4>
+                      <h4 className="text-xl font-black text-slate-950">{getEmployeeDisplayName(employee)}</h4>
                       <p className="mt-1 text-sm font-semibold text-slate-500">
-                        {employee.employee_number || "No employee number"} · {employee.job_title || "No job title"}
+                        {employee.employee_number || "No employee number"} Â· {employee.job_title || "No job title"}
                       </p>
                     </div>
                     <StatusPill value={employee.active ? "active" : "inactive"} />
@@ -6609,7 +6624,7 @@ function StoresManagementPanel({
                     <div>
                       <h3 className="text-xl font-black text-slate-950">{store.name}</h3>
                       <p className="mt-1 text-sm font-semibold text-slate-500">
-                        {[store.city, store.region].filter(Boolean).join(" · ") || "Location not set"}
+                        {[store.city, store.region].filter(Boolean).join(" Â· ") || "Location not set"}
                       </p>
                     </div>
                     <StatusPill value={store.status || "active"} />
@@ -6683,7 +6698,7 @@ function RosterManagementPanel({
                   <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                       <div className="text-lg font-black text-slate-950">{employee ? `${employee.first_name} ${employee.last_name}` : "Unassigned employee"}</div>
-                      <div className="mt-1 text-sm font-semibold text-slate-500">{store?.name || "No store"} · {shift.role || "No role"}</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-500">{store?.name || "No store"} Â· {shift.role || "No role"}</div>
                     </div>
                     <StatusPill value={shift.status || "scheduled"} />
                   </div>
@@ -6757,7 +6772,7 @@ function PayrollClockEngineScreen({
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div>
                     <h4 className="text-lg font-black text-slate-950">{item.employee_name}</h4>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">{item.store_name || "No store"} · {formatDate(item.shift_date)}</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">{item.store_name || "No store"} Â· {formatDate(item.shift_date)}</p>
                   </div>
                   <StatusPill value={item.manager_review_status || item.payroll_status || "review_required"} />
                 </div>
@@ -6820,7 +6835,7 @@ function HrDocumentsManagementPanel({
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
 
-  function employeeName(employeeId: string | null | undefined) {
+  function getEmployeeDisplayName(employeeId: string | null | undefined) {
     if (!employeeId) return "No employee linked";
     const employee = employees.find((item) => item.id === employeeId || item.employee_number === employeeId);
     if (!employee) return "Unknown employee";
@@ -6842,7 +6857,7 @@ function HrDocumentsManagementPanel({
       !search ||
       [
         document.employee_name || "",
-        employeeName(document.employee_id),
+        getEmployeeDisplayName(document.employee_id),
         document.document_type || "",
         document.document_title || "",
         document.document_notes || "",
@@ -6921,13 +6936,13 @@ function HrDocumentsManagementPanel({
                       <StatusPill value={document.status || "active"} />
                     </div>
                     <h4 className="mt-3 text-xl font-black text-slate-950">{document.document_title || document.file_name || "Untitled HR document"}</h4>
-                    <p className="mt-2 text-sm font-semibold text-slate-600">{document.employee_name || employeeName(document.employee_id)}</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-600">{document.employee_name || getEmployeeDisplayName(document.employee_id)}</p>
                     {document.document_notes && <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-500">{document.document_notes}</p>}
                   </div>
                 </div>
 
                 <div className="mt-5 grid gap-3 md:grid-cols-3">
-                  <InfoBox label="Employee" value={document.employee_name || employeeName(document.employee_id)} />
+                  <InfoBox label="Employee" value={document.employee_name || getEmployeeDisplayName(document.employee_id)} />
                   <InfoBox label="File Name" value={document.file_name || "No file name"} />
                   <InfoBox label="Storage" value={document.file_bucket || document.file_path ? "File linked" : "No file linked"} />
                 </div>
@@ -7104,6 +7119,40 @@ function CommercialDemoEnvironmentScreen() {
     <div className="space-y-8">
       <CommercialDemoEnvironmentFinal />
     </div>
+  );
+}
+
+
+function EmptyWorkAreaScreen({
+  title,
+  setActive,
+}: {
+  title: string;
+  setActive: (value: string) => void;
+}) {
+  return (
+    <Panel>
+      <div className="py-12 text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-[#06101f] text-cyan-300 shadow-lg shadow-cyan-950/15">
+          <Zap className="h-7 w-7" />
+        </div>
+
+        <h2 className="mt-6 text-3xl font-black tracking-tight text-slate-950">
+          {title}
+        </h2>
+
+        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-500">
+          This workspace is registered in the navigation but does not have a dedicated live screen yet.
+        </p>
+
+        <button
+          onClick={() => setActive("Command Centre")}
+          className="mt-6 rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15"
+        >
+          Back to Command Centre
+        </button>
+      </div>
+    </Panel>
   );
 }
 
@@ -7438,7 +7487,7 @@ return (
                 onClick={goBack}
                 className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50"
               >
-                ← Back
+                â† Back
               </button>
             </div>
           )}
@@ -7848,3 +7897,5 @@ FINAL PREMIUM POLISH NOTES
 8. Reduced duplicate Command Centre visual clutter.
 9. Full app preserved.
 */
+
+
