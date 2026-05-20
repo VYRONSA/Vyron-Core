@@ -1,0 +1,1 @@
+export default function EnterpriseHRExportDashboard(){return <div className="rounded-[32px] bg-white p-8 shadow-xl"><h1 className="text-4xl font-black">Enterprise HR Export Dashboard</h1><p className="mt-4 font-bold text-slate-500">Employee full file, CCMA packs, payroll supporting docs and audit exports.</p></div>}

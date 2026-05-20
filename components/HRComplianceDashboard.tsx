@@ -1,0 +1,1 @@
+export default function HRComplianceDashboard(){return <div className="p-8 text-3xl font-black">HR Compliance Dashboard</div>}

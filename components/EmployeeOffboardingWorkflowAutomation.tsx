@@ -1,0 +1,1 @@
+export default function EmployeeOffboardingWorkflowAutomation(){return <div className="p-8 text-3xl font-black">Employee Offboarding Workflow Automation</div>}

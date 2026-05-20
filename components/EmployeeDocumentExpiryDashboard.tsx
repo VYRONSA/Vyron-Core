@@ -1,0 +1,1 @@
+export default function EmployeeDocumentExpiryDashboard(){return <div className="p-8 text-3xl font-black">Employee Document Expiry Dashboard</div>}

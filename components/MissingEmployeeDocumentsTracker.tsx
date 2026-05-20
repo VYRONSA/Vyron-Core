@@ -1,0 +1,1 @@
+export default function MissingEmployeeDocumentsTracker(){return <div className="p-8 text-3xl font-black">Missing Employee Documents Tracker</div>}

@@ -1,0 +1,1 @@
+export default function HRDocumentExportCentre(){return <div className="p-8 text-3xl font-black">HR Document Export Centre</div>}

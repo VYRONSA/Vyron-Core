@@ -1,0 +1,1 @@
+"use client"; export default function MultiCompanySwitching(){return <div className="rounded-[32px] bg-white p-8 shadow-xl"><h1 className="text-4xl font-black">Multi Company Switching</h1></div>}

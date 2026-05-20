@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -100,7 +100,7 @@ const actionableNotificationTypes = new Set([
 
 function notificationNeedsManagerAction(notification: EmployeeNotification) {
   return (
-    actionableNotificationTypes.has(notification.notification_type) &&
+    actionableNotificationTypes.has((notification.notification_type || notification.type || 'general')) &&
     ["pending", "drafted", "failed"].includes(notification.delivery_status)
   );
 }
@@ -313,8 +313,7 @@ export default function ManagerActionCentrePanel({
           .order("created_at", { ascending: false })
           .limit(50),
         supabase
-          .from("employee_notifications")
-          .select("*")
+          .from("employee_notifications").select("*")
           .in("notification_type", [
             "hr_warning",
             "hr_document",
@@ -589,10 +588,10 @@ export default function ManagerActionCentrePanel({
                     {leave.employee_name || "Unknown employee"}
                   </div>
                   <div className="mt-1 text-xs font-semibold text-slate-500">
-                    {leave.employee_id || "No employee code"} · {formatText(leave.leave_type)}
+                    {leave.employee_id || "No employee code"} Â· {formatText(leave.leave_type)}
                   </div>
                   <div className="mt-3 text-sm text-slate-600">
-                    {formatDate(leave.start_date)} → {formatDate(leave.end_date)} ·{" "}
+                    {formatDate(leave.start_date)} â†’ {formatDate(leave.end_date)} Â·{" "}
                     {leaveDays(leave.start_date, leave.end_date)} day(s)
                   </div>
                   <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-xs font-bold text-cyan-700">
@@ -652,7 +651,7 @@ export default function ManagerActionCentrePanel({
                       {selectedLeave.employee_name || "Unknown employee"}
                     </div>
                     <div className="mt-1 text-sm font-semibold text-slate-500">
-                      {selectedLeave.employee_id || "No employee code"} ·{" "}
+                      {selectedLeave.employee_id || "No employee code"} Â·{" "}
                       {formatText(selectedLeave.leave_type)}
                     </div>
                   </div>
@@ -797,7 +796,7 @@ export default function ManagerActionCentrePanel({
                     {notification.employee_name}
                   </div>
                   <div className="mt-1 text-xs font-semibold text-slate-500">
-                    {notification.title} · {notification.delivery_status}
+                    {notification.title} Â· {notification.delivery_status}
                   </div>
                   <div className="mt-3 text-sm text-slate-600">
                     {formatDateTime(notification.created_at)}
@@ -817,3 +816,4 @@ export default function ManagerActionCentrePanel({
     </div>
   );
 }
+

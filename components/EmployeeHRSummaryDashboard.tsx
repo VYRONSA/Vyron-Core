@@ -1,0 +1,1 @@
+export default function EmployeeHRSummaryDashboard(){return <div className="p-8 text-3xl font-black">Employee HR Summary Dashboard</div>}

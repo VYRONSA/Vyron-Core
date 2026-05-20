@@ -1,0 +1,1 @@
+export default function EmployeeDisciplinaryPackGenerator(){return <div className="p-8 text-3xl font-black">Employee Disciplinary Pack Generator</div>}

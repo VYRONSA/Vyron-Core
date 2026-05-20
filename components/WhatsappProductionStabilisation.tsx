@@ -1,0 +1,1 @@
+"use client"; export default function WhatsappProductionStabilisation(){return <div className="rounded-[32px] bg-white p-8 shadow-xl"><h1 className="text-4xl font-black">WhatsApp Production Stabilisation</h1></div>}

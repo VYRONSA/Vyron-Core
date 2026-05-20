@@ -23,6 +23,7 @@ type HrCaseRow = {
   status: string;
   employee_response_required: boolean | null;
   employee_response: string | null;
+  manager_feedback?: string | null;
 };
 
 type EmployeeRow = {
@@ -91,6 +92,8 @@ export default function HRCasesActionPanel({
   const [caseTypeFilter, setCaseTypeFilter] = useState("all");
   const [employeeResponse, setEmployeeResponse] = useState("");
   const [managerNote, setManagerNote] = useState("");
+  const [whatsAppFeedback, setWhatsAppFeedback] = useState("");
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
   const [saving, setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newEmployeeId, setNewEmployeeId] = useState("");
@@ -213,6 +216,60 @@ export default function HRCasesActionPanel({
     );
   }
 
+  async function sendManagerWhatsAppAndUpdate(status: "resolved" | "closed") {
+    if (!selectedCase) return;
+
+    setSendingWhatsApp(true);
+    setMessage(null);
+    setError(null);
+
+    const employee = employeeFor(selectedCase.employee_id);
+    const employeeDisplayName = employee ? `${employee.first_name} ${employee.last_name}`.trim() : "Employee";
+    const phone = employee?.phone || "";
+    const feedback = whatsAppFeedback.trim() || managerNote.trim() || "Case reviewed by management.";
+
+    if (!phone) {
+      setError(`No phone number saved for ${employeeDisplayName}. Add a phone number before sending WhatsApp.`);
+      setSendingWhatsApp(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/hr-cases/whatsapp-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hrCaseId: selectedCase.id,
+          employeeId: selectedCase.employee_id,
+          employeeName: employeeDisplayName,
+          phone,
+          feedback,
+          status,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setError(data.error || "WhatsApp action failed.");
+        setSendingWhatsApp(false);
+        return;
+      }
+
+      setMessage(`Manager WhatsApp sent and saved for ${employeeDisplayName}.`);
+      setWhatsAppFeedback("");
+      setManagerNote("");
+      setSelectedCase(null);
+
+      if (onUpdated) await onUpdated();
+
+      setSendingWhatsApp(false);
+    } catch (error: any) {
+      setError(error?.message || "WhatsApp action failed.");
+      setSendingWhatsApp(false);
+    }
+  }
+
   async function closeCase() {
     if (!selectedCase) return;
 
@@ -299,6 +356,7 @@ export default function HRCasesActionPanel({
     setSelectedCase(item);
     setEmployeeResponse(item.employee_response || "");
     setManagerNote("");
+    setWhatsAppFeedback("");
     setMessage(null);
     setError(null);
     setCreating(false);
@@ -584,6 +642,35 @@ export default function HRCasesActionPanel({
                 </p>
               </div>
 
+              <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <div className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+                  Last manager WhatsApp message
+                </div>
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">
+                  {selectedCase.manager_feedback || "No manager WhatsApp message saved yet."}
+                </p>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-cyan-100 bg-cyan-50 p-5">
+                <div className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">
+                  Employee WhatsApp reply / response
+                </div>
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-cyan-900">
+                  {selectedCase.employee_response || "No employee response received yet."}
+                </p>
+              </div>
+
+              <label className="mt-5 block text-sm font-bold text-slate-800">
+                Manager feedback / WhatsApp message
+                <textarea
+                  value={whatsAppFeedback}
+                  onChange={(event) => setWhatsAppFeedback(event.target.value)}
+                  rows={4}
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-blue-500"
+                  placeholder="Type the message to send to the employee on WhatsApp..."
+                />
+              </label>
+
               {selectedLinkedException && (
                 <div className="mt-5 rounded-2xl bg-amber-50 p-5">
                   <div className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">Linked Exception</div>
@@ -629,19 +716,35 @@ export default function HRCasesActionPanel({
                 </div>
               )}
 
-              <div className="mt-6 grid gap-3 md:grid-cols-3">
+              <div className="mt-6 grid gap-3 md:grid-cols-5">
                 <button
                   onClick={saveEmployeeResponse}
-                  disabled={saving}
+                  disabled={saving || sendingWhatsApp}
                   className="rounded-2xl bg-blue-600 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300"
                 >
                   Save Response
                 </button>
 
+                <button
+                  onClick={() => sendManagerWhatsAppAndUpdate("resolved")}
+                  disabled={saving || sendingWhatsApp}
+                  className="rounded-2xl bg-cyan-600 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300"
+                >
+                  {sendingWhatsApp ? "Sending..." : "Resolve + Send WhatsApp"}
+                </button>
+
+                <button
+                  onClick={() => sendManagerWhatsAppAndUpdate("closed")}
+                  disabled={saving || sendingWhatsApp}
+                  className="rounded-2xl bg-slate-950 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300"
+                >
+                  {sendingWhatsApp ? "Sending..." : "Close + Send WhatsApp"}
+                </button>
+
                 {selectedCase.status === "closed" ? (
                   <button
                     onClick={reopenCase}
-                    disabled={saving}
+                    disabled={saving || sendingWhatsApp}
                     className="rounded-2xl bg-amber-500 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300"
                   >
                     Reopen
@@ -649,7 +752,7 @@ export default function HRCasesActionPanel({
                 ) : (
                   <button
                     onClick={closeCase}
-                    disabled={saving}
+                    disabled={saving || sendingWhatsApp}
                     className="rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300"
                   >
                     Close Case

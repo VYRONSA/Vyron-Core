@@ -1,0 +1,1 @@
+export default function AdvancedHRComplianceAnalytics(){return <div className="p-8 text-3xl font-black">Advanced HR Compliance Analytics</div>}

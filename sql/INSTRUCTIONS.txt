@@ -1,0 +1,12 @@
+================================================================================
+  DO NOT PASTE THIS FILE INTO THE SUPABASE SQL EDITOR
+================================================================================
+
+This is plain-text instructions only. It is NOT SQL.
+
+PASTE THIS FILE INSTEAD:
+  sql/PASTE_THIS_IN_SUPABASE.sql
+
+(Open it in your repo, Ctrl+A, copy all, paste into Supabase SQL -> New query -> Run.)
+
+Full guide: sql/RUN_COMPANY_TABLES.md (also do not paste into SQL editor)

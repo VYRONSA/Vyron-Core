@@ -1,0 +1,1 @@
+export default function EmployeeDocumentTimeline(){return <div className="p-8 text-3xl font-black">Employee Document Timeline</div>}

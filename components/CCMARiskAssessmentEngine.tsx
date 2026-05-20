@@ -1,0 +1,1 @@
+export default function CCMARiskAssessmentEngine(){return <div className="p-8 text-3xl font-black">CCMA Risk Assessment Engine</div>}

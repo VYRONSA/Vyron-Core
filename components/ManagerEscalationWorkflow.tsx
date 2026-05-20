@@ -1,0 +1,1 @@
+export default function ManagerEscalationWorkflow(){return <div className="p-8 text-3xl font-black">Manager Escalation Workflow</div>}

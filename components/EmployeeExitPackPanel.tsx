@@ -1,0 +1,1 @@
+export default function EmployeeExitPackPanel(){return <div className="p-8 text-2xl font-black">Employee Exit Pack Engine Loaded</div>}

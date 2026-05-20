@@ -1,0 +1,1 @@
+export default function VyronHRCommandCentreFinalWidgets(){return <div className="p-8 text-3xl font-black">VYRON HR Command Centre Final Widgets</div>}

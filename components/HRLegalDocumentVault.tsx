@@ -1,0 +1,1 @@
+export default function HRLegalDocumentVault(){return <div className="p-8 text-3xl font-black">HR Legal Document Vault</div>}

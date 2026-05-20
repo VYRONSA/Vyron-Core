@@ -1,0 +1,1 @@
+export default function HRComplianceRiskEngine(){return <div className="p-8 text-3xl font-black">HR Compliance Risk Engine</div>}

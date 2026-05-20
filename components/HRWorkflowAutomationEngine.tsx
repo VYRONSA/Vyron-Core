@@ -1,0 +1,1 @@
+export default function HRWorkflowAutomationEngine(){return <div className="p-8 text-3xl font-black">HR Workflow Automation Engine</div>}

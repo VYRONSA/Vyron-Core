@@ -1,0 +1,1 @@
+export default function HRSmartDocumentRecommendations(){return <div className="p-8 text-3xl font-black">HR Smart Document Recommendations</div>}

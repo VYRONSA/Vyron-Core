@@ -1,165 +1,103 @@
 "use client";
 
-import {
-  AlertTriangle,
-  ArrowUpRight,
-  BarChart3,
-  Brain,
-  Building2,
-  CheckCircle2,
-  ClipboardList,
-  Database,
-  FileSpreadsheet,
-  LockKeyhole,
-  Rocket,
-  ShieldCheck,
-  Sparkles,
-  Upload,
-  Users,
-  WalletCards,
-  Zap,
-} from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { LockKeyhole, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { supabase } from "../lib/supabase";
 
-export default function RolesPermissionsEngineFinal() {
+export default function RolesPermissionsEngineFinal({
+  companyUsers = [],
+  companyId,
+  onUpdated,
+}: {
+  companyUsers?: any[];
+  companyId?: string;
+  onUpdated?: () => void | Promise<void>;
+}) {
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("manager");
+  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const admins = useMemo(() => companyUsers.filter((x) => x.role === "admin").length, [companyUsers]);
+  const managers = useMemo(() => companyUsers.filter((x) => x.role === "manager").length, [companyUsers]);
+
+  async function addUser() {
+    setSaving(true);
+    setMessage(null);
+
+    if (!email.trim()) {
+      setMessage("Email is required.");
+      setSaving(false);
+      return;
+    }
+
+    const { error } = await supabase.from("company_users").insert({
+      company_id: companyId,
+      user_email: email.trim().toLowerCase(),
+      role,
+      status: "active",
+    });
+
+    if (error) {
+      setMessage(error.message);
+      setSaving(false);
+      return;
+    }
+
+    setMessage("User access added.");
+    setEmail("");
+    if (onUpdated) await onUpdated();
+    setSaving(false);
+  }
+
   return (
-    <section className="space-y-8">
-      <div className="relative overflow-hidden rounded-[40px] border border-cyan-300/15 bg-gradient-to-br from-[#020617] via-[#07101f] to-[#0b1f3a] p-8 text-white shadow-[0_34px_100px_rgba(2,6,23,0.36),0_0_52px_rgba(34,211,238,0.14)]">
-        <div className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-cyan-300/20 blur-[90px]" />
-        <div className="relative flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <div className="flex items-center gap-3 text-xs font-black uppercase tracking-[0.45em] text-cyan-300">
-              <Sparkles className="h-5 w-5" />
-              Batch 07
-            </div>
-            <h1 className="mt-4 max-w-5xl text-5xl font-black tracking-tight md:text-6xl">
-              Roles & Permissions Engine
-            </h1>
-            <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-300">
-              Enterprise permission control for owner, admin, HR, payroll, area manager, store manager and employee access.
-            </p>
-          </div>
-
-          <div className="rounded-[30px] border border-white/10 bg-white/10 p-6 backdrop-blur-xl">
-            <div className="text-xs font-black uppercase tracking-[0.3em] text-cyan-300">Commercial value</div>
-            <div className="mt-3 text-5xl font-black text-white">High</div>
-            <div className="mt-2 text-xs text-slate-300">Enterprise SaaS priority</div>
-          </div>
-        </div>
+    <section className="space-y-6">
+      <div className="rounded-[34px] bg-gradient-to-r from-[#07101f] to-[#0b1a33] p-7 text-white shadow-2xl">
+        <div className="text-xs font-black uppercase tracking-[0.4em] text-cyan-300">ACCESS CONTROL</div>
+        <h1 className="mt-3 text-4xl font-black">Roles & Permissions Engine</h1>
+        <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
+          Control who can access payroll, HR, clocking, rosters and executive reports.
+        </p>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <article className="rounded-[30px] border border-white/80 bg-white/95 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
-            <div className="w-fit rounded-2xl bg-cyan-100 p-3 text-cyan-700"><Users className="h-6 w-6" /></div>
-            <div className="mt-6 text-3xl font-black text-slate-950">7</div>
-            <div className="mt-2 text-sm font-black text-slate-700">Roles</div>
-          </article>
-          <article className="rounded-[30px] border border-white/80 bg-white/95 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
-            <div className="w-fit rounded-2xl bg-cyan-100 p-3 text-cyan-700"><ShieldCheck className="h-6 w-6" /></div>
-            <div className="mt-6 text-3xl font-black text-slate-950">18</div>
-            <div className="mt-2 text-sm font-black text-slate-700">Protected Areas</div>
-          </article>
-          <article className="rounded-[30px] border border-white/80 bg-white/95 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
-            <div className="w-fit rounded-2xl bg-cyan-100 p-3 text-cyan-700"><Database className="h-6 w-6" /></div>
-            <div className="mt-6 text-3xl font-black text-slate-950">100%</div>
-            <div className="mt-2 text-sm font-black text-slate-700">Audit Events</div>
-          </article>
-          <article className="rounded-[30px] border border-white/80 bg-white/95 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
-            <div className="w-fit rounded-2xl bg-cyan-100 p-3 text-cyan-700"><LockKeyhole className="h-6 w-6" /></div>
-            <div className="mt-6 text-3xl font-black text-slate-950">Build</div>
-            <div className="mt-2 text-sm font-black text-slate-700">Security Status</div>
-          </article>
+      <div className="grid gap-5 md:grid-cols-3">
+        <Metric icon={<Users />} label="Total users" value={companyUsers.length} />
+        <Metric icon={<ShieldCheck />} label="Admins" value={admins} />
+        <Metric icon={<LockKeyhole />} label="Managers" value={managers} />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-[34px] border border-white/80 bg-white/95 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.13)] backdrop-blur-xl">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-3xl font-black tracking-tight text-slate-950">Execution Checklist</h2>
-              <p className="mt-2 text-sm text-slate-500">Apply these items as the implementation direction for this module.</p>
-            </div>
-            <div className="rounded-full bg-cyan-100 px-4 py-2 text-sm font-black text-cyan-700">6 items</div>
-          </div>
-
-          <div className="mt-8 grid gap-4 md:grid-cols-2">
-          <article className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#06101f] text-sm font-black text-cyan-300">1</div>
-              <div>
-                <div className="font-black text-slate-950">Define Owner, Super Admin, HR Director, Area Manager, Store Manager, Payroll Admin and Employee roles.</div>
-                <div className="mt-1 text-sm leading-6 text-slate-500">Enterprise execution item</div>
-              </div>
-            </div>
-          </article>
-          <article className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#06101f] text-sm font-black text-cyan-300">2</div>
-              <div>
-                <div className="font-black text-slate-950">Restrict screen visibility by role.</div>
-                <div className="mt-1 text-sm leading-6 text-slate-500">Enterprise execution item</div>
-              </div>
-            </div>
-          </article>
-          <article className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#06101f] text-sm font-black text-cyan-300">3</div>
-              <div>
-                <div className="font-black text-slate-950">Restrict payroll exports, HR records and document access.</div>
-                <div className="mt-1 text-sm leading-6 text-slate-500">Enterprise execution item</div>
-              </div>
-            </div>
-          </article>
-          <article className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#06101f] text-sm font-black text-cyan-300">4</div>
-              <div>
-                <div className="font-black text-slate-950">Track who approved payroll, edited shifts and exported reports.</div>
-                <div className="mt-1 text-sm leading-6 text-slate-500">Enterprise execution item</div>
-              </div>
-            </div>
-          </article>
-          <article className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#06101f] text-sm font-black text-cyan-300">5</div>
-              <div>
-                <div className="font-black text-slate-950">Add session validation and route guard direction.</div>
-                <div className="mt-1 text-sm leading-6 text-slate-500">Enterprise execution item</div>
-              </div>
-            </div>
-          </article>
-          <article className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#06101f] text-sm font-black text-cyan-300">6</div>
-              <div>
-                <div className="font-black text-slate-950">Prepare permissions matrix for enterprise rollout.</div>
-                <div className="mt-1 text-sm leading-6 text-slate-500">Enterprise execution item</div>
-              </div>
-            </div>
-          </article>
-          </div>
+      <div className="rounded-[34px] bg-white p-6 shadow-lg">
+        <div className="flex items-center gap-3">
+          <UserPlus className="h-7 w-7 text-slate-900" />
+          <h2 className="text-2xl font-black text-slate-950">Add company user</h2>
         </div>
 
-        <div className="rounded-[34px] bg-[#06101f] p-6 text-white shadow-[0_24px_70px_rgba(2,6,23,0.30)]">
-          <Rocket className="h-8 w-8 text-cyan-300" />
-          <h2 className="mt-5 text-3xl font-black">Why this matters</h2>
-          <p className="mt-4 text-sm leading-7 text-slate-300">
-            Large clients require role security before they trust a system with payroll and HR data.
-          </p>
+        <div className="mt-6 grid gap-3 md:grid-cols-[1fr_0.4fr_auto]">
+          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="manager@company.co.za" className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold outline-none" />
+          <select value={role} onChange={(e) => setRole(e.target.value)} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold outline-none">
+            <option value="admin">Admin</option>
+            <option value="manager">Manager</option>
+            <option value="payroll">Payroll</option>
+            <option value="hr">HR</option>
+            <option value="viewer">Viewer</option>
+          </select>
+          <button onClick={addUser} disabled={saving} className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white disabled:bg-slate-300">Add user</button>
+        </div>
 
-          <div className="mt-8 space-y-3">
-            {[
-              "Protects payroll and HR trust.",
-              "Improves client confidence.",
-              "Makes VYRON CORE easier to sell.",
-              "Moves the platform closer to enterprise readiness.",
-            ].map((item) => (
-              <div key={item} className="flex items-center gap-3 rounded-2xl bg-white/10 p-4 text-sm font-black">
-                <CheckCircle2 className="h-5 w-5 text-cyan-300" />
-                {item}
-              </div>
-            ))}
-          </div>
+        {message && <div className="mt-4 rounded-2xl bg-blue-50 p-4 text-sm font-bold text-blue-700">{message}</div>}
+
+        <div className="mt-6 space-y-3">
+          {companyUsers.map((item) => (
+            <div key={item.id || item.user_email} className="rounded-2xl bg-slate-50 p-4">
+              <div className="font-black text-slate-950">{item.user_email}</div>
+              <div className="mt-1 text-sm font-bold uppercase text-slate-500">{item.role} · {item.status}</div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
   );
+}
+function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: any }) {
+  return <div className="rounded-[28px] bg-white p-6 shadow-lg"><div>{icon}</div><div className="mt-4 text-4xl font-black text-slate-950">{value}</div><div className="text-sm font-bold text-slate-500">{label}</div></div>;
 }

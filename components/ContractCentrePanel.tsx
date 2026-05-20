@@ -1,716 +1,485 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Download,
-  Eye,
-  FileArchive,
-  RefreshCcw,
-  Search,
-  Trash2,
-  Upload,
-  UserRound,
-} from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { Download, FileText, Search, Trash2, Upload } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
-type EmployeeRow = {
-  id: string;
-  employee_number: string | null;
-  first_name: string;
-  last_name: string;
-  job_title: string | null;
-  active: boolean;
-  email: string | null;
-  phone: string | null;
-};
+const DEMO_COMPANY_ID = "11111111-1111-1111-1111-111111111111";
 
-type HrDocumentRow = {
-  id: string;
-  employee_id: string;
-  employee_name: string | null;
-  document_type: string;
-  document_title: string;
-  document_notes: string | null;
-  file_name: string | null;
-  file_url: string | null;
-  file_bucket: string | null;
-  file_path: string | null;
-  status: string;
-  uploaded_by: string | null;
-  created_at: string;
-  document_category?: string | null;
-  expiry_date?: string | null;
-  review_date?: string | null;
-};
-
-function employeeName(employee: EmployeeRow | null | undefined) {
-  if (!employee) return "Unknown employee";
-  return `${employee.first_name || ""} ${employee.last_name || ""}`.trim();
+function employeeName(e: any) {
+  return e ? `${e.first_name || ""} ${e.last_name || ""}`.trim() || e.employee_number || "Employee" : "Employee";
 }
 
-function formatText(value: string | null | undefined) {
-  if (!value) return "Not set";
-  return value.replaceAll("_", " ");
+function today() {
+  return new Date().toISOString().slice(0, 10);
 }
 
-function formatDateTime(value: string | null | undefined) {
-  if (!value) return "Not set";
-
-  try {
-    return new Date(value).toLocaleString("en-ZA", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return value;
-  }
+function sizeText(v?: number | null) {
+  if (!v) return "Unknown";
+  if (v < 1024) return `${v} B`;
+  if (v < 1048576) return `${Math.round(v / 1024)} KB`;
+  return `${(v / 1048576).toFixed(2)} MB`;
 }
 
-function StatusPill({ value }: { value: string }) {
-  const className =
-    value === "signed" || value === "active"
-      ? "bg-emerald-100 text-emerald-700"
-      : value === "archived"
-      ? "bg-slate-100 text-slate-700"
-      : "bg-blue-100 text-cyan-700";
-
-  return (
-    <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${className}`}>
-      {formatText(value)}
-    </span>
-  );
+function formatType(value: string) {
+  return String(value || "").replaceAll("_", " ");
 }
 
-function StatCard({
-  title,
-  value,
-  subtitle,
-  tone,
-  icon,
-}: {
-  title: string;
-  value: string;
-  subtitle: string;
-  tone: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div className={`rounded-[2rem] border p-5 shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-[0_28px_80px_rgba(37,99,235,0.20)] ${tone}`}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-xs font-black uppercase tracking-[0.22em] opacity-70">
-            {title}
-          </div>
-          <div className="mt-3 text-4xl font-black">{value}</div>
-          <div className="mt-2 text-sm font-semibold opacity-80">{subtitle}</div>
-        </div>
-        <div className="rounded-2xl bg-white/70 p-3">{icon}</div>
-      </div>
-    </div>
-  );
+function fileDisplayName(doc: any) {
+  return doc.file_name || doc.document_title || "Uploaded HR file";
 }
 
-export default function ContractCentrePanel() {
-  const [employees, setEmployees] = useState<EmployeeRow[]>([]);
-  const [documents, setDocuments] = useState<HrDocumentRow[]>([]);
+const documentTypes = [
+  { value: "employment_contract", label: "Employment Contract" },
+  { value: "signed_job_description", label: "Signed Job Description" },
+  { value: "offer_letter", label: "Offer Letter" },
+  { value: "increase_letter", label: "Increase Letter" },
+  { value: "loan_agreement", label: "Loan Agreement / Loan Letter" },
+  { value: "warning_document", label: "Warning Document" },
+  { value: "disciplinary_document", label: "Disciplinary Document" },
+  { value: "leave_document", label: "Leave Document" },
+  { value: "medical_certificate", label: "Medical Certificate" },
+  { value: "id_document", label: "ID / Passport Copy" },
+  { value: "bank_confirmation", label: "Bank Confirmation" },
+  { value: "tax_document", label: "Tax / SARS Document" },
+  { value: "training_certificate", label: "Training Certificate" },
+  { value: "policy_acknowledgement", label: "Policy Acknowledgement" },
+  { value: "performance_review", label: "Performance Review" },
+  { value: "other", label: "Other HR Document" },
+];
 
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+export default function ContractCentrePanel({
+  employees = [],
+  employeeDocuments = [],
+  companyId = DEMO_COMPANY_ID,
+  onUpdated,
+}: any) {
+  const activeEmployees = employees.filter((e: any) => e.active !== false);
+
+  const [employeeId, setEmployeeId] = useState(activeEmployees[0]?.id || "");
+  const [documentType, setDocumentType] = useState("employment_contract");
   const [documentTitle, setDocumentTitle] = useState("");
-  const [notes, setNotes] = useState("");
+  const [documentNotes, setDocumentNotes] = useState("");
+  const [issueDate, setIssueDate] = useState(today());
+  const [expiryDate, setExpiryDate] = useState("");
+  const [signedStatus, setSignedStatus] = useState("signed");
   const [file, setFile] = useState<File | null>(null);
-
   const [search, setSearch] = useState("");
-  const [selectedDocument, setSelectedDocument] = useState<HrDocumentRow | null>(null);
-  const [signedFileUrl, setSignedFileUrl] = useState<string | null>(null);
-
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [fileLoading, setFileLoading] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
+  const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  const employeeMap = useMemo(() => {
-    const map = new Map<string, EmployeeRow>();
-    employees.forEach((employee) => map.set(employee.id, employee));
-    return map;
-  }, [employees]);
+  const selectedEmployee = activeEmployees.find((e: any) => e.id === employeeId);
 
-  const selectedEmployee = selectedEmployeeId ? employeeMap.get(selectedEmployeeId) || null : null;
+  const filteredDocs = useMemo(() => {
+    return employeeDocuments.filter((d: any) => {
+      if (employeeId && d.employee_id !== employeeId) return false;
 
-  const filteredEmployees = useMemo(() => {
-    const term = search.trim().toLowerCase();
+      const term = search.trim().toLowerCase();
+      if (!term) return true;
 
-    if (!term) return employees;
-
-    return employees.filter((employee) =>
-      [
-        employee.employee_number || "",
-        employee.first_name || "",
-        employee.last_name || "",
-        employee.job_title || "",
-        employee.email || "",
-        employee.phone || "",
+      return [
+        d.employee_name,
+        d.document_type,
+        d.document_title,
+        d.file_name,
+        d.status,
+        d.signed_status,
+        d.document_notes,
       ]
         .join(" ")
         .toLowerCase()
-        .includes(term)
-    );
-  }, [employees, search]);
+        .includes(term);
+    });
+  }, [employeeDocuments, employeeId, search]);
 
-  const selectedEmployeeDocuments = useMemo(() => {
-    if (!selectedEmployeeId) return [];
+  const activeDocs = filteredDocs.filter((d: any) => d.status !== "archived");
+  const archivedDocs = filteredDocs.filter((d: any) => d.status === "archived");
 
-    return documents.filter((document) => document.employee_id === selectedEmployeeId);
-  }, [documents, selectedEmployeeId]);
-
-  const signedContractCount = useMemo(
-    () =>
-      documents.filter(
-        (document) =>
-          document.status === "signed" &&
-          ["employment_contract", "contract"].includes(document.document_type)
-      ).length,
-    [documents]
-  );
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    if (!selectedEmployee) return;
-
-    setDocumentTitle(`${employeeName(selectedEmployee)} - Signed Contract`);
-  }, [selectedEmployeeId]);
-
-  async function loadData() {
-    setLoading(true);
-    setError(null);
-
-    const [employeeResult, documentResult] = await Promise.all([
-      supabase
-        .from("employees")
-        .select("id,employee_number,first_name,last_name,job_title,active,email,phone")
-        .order("first_name", { ascending: true }),
-      supabase
-        .from("hr_documents")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(500),
-    ]);
-
-    if (employeeResult.error) {
-      setError(employeeResult.error.message);
-      setLoading(false);
-      return;
-    }
-
-    if (documentResult.error) {
-      setError(documentResult.error.message);
-      setLoading(false);
-      return;
-    }
-
-    const loadedEmployees = (employeeResult.data || []) as EmployeeRow[];
-
-    setEmployees(loadedEmployees);
-    setDocuments((documentResult.data || []) as HrDocumentRow[]);
-
-    if (!selectedEmployeeId && loadedEmployees.length > 0) {
-      setSelectedEmployeeId(loadedEmployees[0].id);
-    }
-
-    setLoading(false);
+  function handleTypeChange(value: string) {
+    setDocumentType(value);
   }
 
-  function cleanFileName(value: string) {
-    return value
-      .toLowerCase()
-      .replace(/[^a-z0-9.]+/g, "-")
-      .replace(/(^-|-$)+/g, "")
-      .slice(0, 140);
-  }
-
-  async function saveSignedContract() {
-    setSaving(true);
-    setError(null);
+  async function uploadDocument() {
+    setBusy(true);
     setMessage(null);
 
     if (!selectedEmployee) {
-      setError("Select an employee first.");
-      setSaving(false);
+      setMessage("Select an employee first.");
+      setBusy(false);
       return;
     }
 
     if (!file) {
-      setError("Choose the signed contract file first.");
-      setSaving(false);
+      setMessage("Browse and select a file first.");
+      setBusy(false);
       return;
     }
 
-    if (!documentTitle.trim()) {
-      setError("Document title is required.");
-      setSaving(false);
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${companyId}/${selectedEmployee.id}/${documentType}/${Date.now()}-${safeName}`;
+
+    const upload = await supabase.storage
+      .from("employee-documents")
+      .upload(path, file, { cacheControl: "3600", upsert: false });
+
+    if (upload.error) {
+      setMessage(upload.error.message);
+      setBusy(false);
       return;
     }
 
-    const filePath = `${selectedEmployee.id}/contracts/${Date.now()}-${cleanFileName(file.name)}`;
+    const publicUrl = supabase.storage.from("employee-documents").getPublicUrl(path).data.publicUrl;
 
-    const { error: uploadError } = await supabase.storage
-      .from("hr-signed-documents")
-      .upload(filePath, file, {
-        contentType: file.type || "application/octet-stream",
-        upsert: false,
-      });
+    const selectedTypeLabel =
+      documentTypes.find((item) => item.value === documentType)?.label || "HR Document";
 
-    if (uploadError) {
-      setError(uploadError.message);
-      setSaving(false);
-      return;
-    }
-
-    const { error: insertError } = await supabase.from("hr_documents").insert({
+    const insert = await supabase.from("employee_documents").insert({
+      company_id: companyId,
       employee_id: selectedEmployee.id,
       employee_name: employeeName(selectedEmployee),
-      document_type: "employment_contract",
-      document_category: "signed_contract",
-      document_title: documentTitle.trim(),
-      document_notes: notes.trim() || null,
+      document_type: documentType,
+      document_title: documentTitle.trim() || selectedTypeLabel,
+      document_notes: documentNotes.trim() || null,
       file_name: file.name,
-      file_url: null,
-      file_bucket: "hr-signed-documents",
-      file_path: filePath,
-      status: "signed",
-      uploaded_by: "VYRON CORE",
-      review_date: null,
-      expiry_date: null,
+      file_url: publicUrl,
+      file_bucket: "employee-documents",
+      file_path: path,
+      file_mime_type: file.type || null,
+      file_size_bytes: file.size,
+      issue_date: issueDate || null,
+      expiry_date: expiryDate || null,
+      signed_status: signedStatus,
+      status: "active",
+      uploaded_by: "manager",
     });
 
-    if (insertError) {
-      setError(insertError.message);
-      setSaving(false);
+    if (insert.error) {
+      setMessage(insert.error.message);
+      setBusy(false);
       return;
     }
 
-    setMessage("Signed contract saved under the employee.");
+    setMessage("HR file uploaded successfully.");
     setFile(null);
-    setNotes("");
-    await loadData();
-    setSaving(false);
+    setDocumentTitle("");
+    setDocumentNotes("");
+    setExpiryDate("");
+
+    if (onUpdated) await onUpdated();
+
+    setBusy(false);
   }
 
-  async function openDocument(document: HrDocumentRow) {
-    setSelectedDocument(document);
-    setSignedFileUrl(null);
-    setFileLoading(true);
-    setError(null);
+  async function archiveDoc(doc: any) {
+    setBusy(true);
 
-    if (!document.file_bucket || !document.file_path) {
-      setFileLoading(false);
-      setError("This document has no file attached.");
-      return;
+    const result = await supabase
+      .from("employee_documents")
+      .update({ status: "archived" })
+      .eq("id", doc.id);
+
+    if (result.error) {
+      setMessage(result.error.message);
+    } else {
+      setMessage("Document archived successfully.");
+      if (onUpdated) await onUpdated();
     }
 
-    const { data, error: signedError } = await supabase.storage
-      .from(document.file_bucket)
-      .createSignedUrl(document.file_path, 60 * 10);
-
-    if (signedError) {
-      setError(signedError.message);
-      setFileLoading(false);
-      return;
-    }
-
-    setSignedFileUrl(data.signedUrl);
-    setFileLoading(false);
+    setBusy(false);
   }
 
-  async function downloadDocument(document: HrDocumentRow) {
-    setError(null);
+  async function restoreDoc(doc: any) {
+    setBusy(true);
 
-    if (!document.file_bucket || !document.file_path) {
-      setError("This document has no file attached.");
-      return;
+    const result = await supabase
+      .from("employee_documents")
+      .update({ status: "active" })
+      .eq("id", doc.id);
+
+    if (result.error) {
+      setMessage(result.error.message);
+    } else {
+      setMessage("Document restored successfully.");
+      if (onUpdated) await onUpdated();
     }
 
-    const { data, error: downloadError } = await supabase.storage
-      .from(document.file_bucket)
-      .download(document.file_path);
-
-    if (downloadError || !data) {
-      setError(downloadError?.message || "Could not download document.");
-      return;
-    }
-
-    const url = URL.createObjectURL(data);
-    const link = window.document.createElement("a");
-    link.href = url;
-    link.download = document.file_name || `${document.document_title}.file`;
-    link.click();
-    URL.revokeObjectURL(url);
+    setBusy(false);
   }
 
-  async function deleteDocument(document: HrDocumentRow) {
-    const confirmed = window.confirm(`Delete this document?\n\n${document.document_title}`);
+  async function deleteDoc(doc: any) {
+    const confirmed = window.confirm("Delete this document permanently? Use this only if the wrong file was uploaded.");
     if (!confirmed) return;
 
-    setDeletingId(document.id);
-    setError(null);
-    setMessage(null);
+    setBusy(true);
 
-    if (document.file_bucket && document.file_path) {
-      await supabase.storage.from(document.file_bucket).remove([document.file_path]);
+    if (doc.file_path) {
+      await supabase.storage.from("employee-documents").remove([doc.file_path]);
     }
 
-    const { error: deleteError } = await supabase
-      .from("hr_documents")
-      .delete()
-      .eq("id", document.id);
+    const result = await supabase.from("employee_documents").delete().eq("id", doc.id);
 
-    if (deleteError) {
-      setError(deleteError.message);
-      setDeletingId(null);
-      return;
+    if (result.error) {
+      setMessage(result.error.message);
+    } else {
+      setMessage("Document deleted permanently.");
+      if (onUpdated) await onUpdated();
     }
 
-    setDocuments((current) => current.filter((item) => item.id !== document.id));
-    setMessage("Document deleted.");
-    setDeletingId(null);
+    setBusy(false);
   }
 
-  return (
-    <div className="mt-8 space-y-8">
-      <section className="relative overflow-hidden rounded-[2.2rem] border border-white/70 bg-white/95 p-7 text-[#06101f] shadow-[0_22px_70px_rgba(15,23,42,0.16)] backdrop-blur-xl">
-        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cyan-300/30 blur-[80px]" />
-        <div className="pointer-events-none absolute bottom-[-120px] left-1/3 h-72 w-72 rounded-full bg-blue-400/20 blur-[90px]" />
-        <div className="relative z-10">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+  function DocumentCard({ d, archived = false }: { d: any; archived?: boolean }) {
+    return (
+      <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-700">
-              Signed Contract Vault
+            <div className="font-black text-slate-950">{fileDisplayName(d)}</div>
+            <div className="mt-1 text-sm font-semibold capitalize text-slate-500">
+              {formatType(d.document_type)} · {d.document_title || "HR File"}
             </div>
-            <h2 className="mt-3 text-4xl font-bold">Save Signed Contracts</h2>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">
-              Simple workflow: select employee, upload the signed contract, save it under the employee.
-            </p>
+            <div className="mt-1 text-xs font-bold text-slate-400">
+              {d.employee_name} · {sizeText(d.file_size_bytes)}
+            </div>
           </div>
 
+          <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${
+            archived ? "bg-slate-300 text-slate-700" : "bg-emerald-100 text-emerald-700"
+          }`}>
+            {archived ? "Archived" : d.signed_status || "Active"}
+          </span>
+        </div>
+
+        <div className="mt-3 text-sm text-slate-600">
+          {d.document_notes || "No notes."}
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          {d.file_url && (
+            <a
+              href={d.file_url}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-2xl bg-blue-600 px-4 py-3 text-center text-sm font-black text-white"
+            >
+              <Download className="mr-2 inline h-4 w-4" />
+              Open
+            </a>
+          )}
+
+          {archived ? (
+            <button
+              onClick={() => restoreDoc(d)}
+              disabled={busy}
+              className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white disabled:bg-slate-300"
+            >
+              Restore
+            </button>
+          ) : (
+            <button
+              onClick={() => archiveDoc(d)}
+              disabled={busy}
+              className="rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-white disabled:bg-slate-300"
+            >
+              Archive
+            </button>
+          )}
+
           <button
-            onClick={loadData}
-            className="flex w-fit items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-bold text-slate-950"
+            onClick={() => deleteDoc(d)}
+            disabled={busy}
+            className="rounded-2xl bg-rose-600 px-4 py-3 text-sm font-black text-white disabled:bg-slate-300"
           >
-            <RefreshCcw className="h-4 w-4" />
-            {loading ? "Loading..." : "Refresh"}
+            <Trash2 className="mr-2 inline h-4 w-4" />
+            Delete
           </button>
         </div>
       </div>
-      </section>
+    );
+  }
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <StatCard
-          title="Employees"
-          value={String(employees.length)}
-          subtitle="Loaded employees"
-          tone="border-slate-200 bg-white text-slate-950"
-          icon={<UserRound className="h-6 w-6 text-slate-700" />}
-        />
+  return (
+    <section className="space-y-6">
+      <div className="rounded-[34px] bg-gradient-to-r from-[#07101f] to-[#0b1a33] p-7 text-white shadow-2xl">
+        <div className="text-xs font-black uppercase tracking-[0.4em] text-cyan-300">
+          EMPLOYEE HR FILES
+        </div>
 
-        <StatCard
-          title="Contracts"
-          value={String(signedContractCount)}
-          subtitle="Signed contracts saved"
-          tone="border-emerald-200 bg-emerald-50 text-emerald-900"
-          icon={<CheckCircle2 className="h-6 w-6 text-emerald-700" />}
-        />
+        <h1 className="mt-3 text-4xl font-black">
+          Employee HR Files
+        </h1>
 
-        <StatCard
-          title="Selected"
-          value={String(selectedEmployeeDocuments.length)}
-          subtitle="Files for selected employee"
-          tone="border-cyan-200 bg-cyan-50 text-cyan-900"
-          icon={<FileArchive className="h-6 w-6 text-cyan-700" />}
-        />
-      </section>
+        <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
+          Upload separate HR files per employee. Each file keeps its own category, file name, notes and status.
+        </p>
+      </div>
 
-      {error && (
-        <section className="rounded-2xl bg-rose-50 p-4 text-sm font-semibold text-rose-700">
-          <AlertTriangle className="mr-2 inline h-4 w-4" />
-          {error}
-        </section>
-      )}
-
-      {message && (
-        <section className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">
-          <CheckCircle2 className="mr-2 inline h-4 w-4" />
-          {message}
-        </section>
-      )}
-
-      <section className="grid gap-8 xl:grid-cols-[0.75fr_1.25fr]">
-        <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl">
-          <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-600">
-            Step 1
+      <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+        <div className="rounded-[34px] bg-white p-6 shadow-lg">
+          <div className="flex items-center gap-3">
+            <Upload className="h-7 w-7" />
+            <h2 className="text-2xl font-black">Upload Employee HR File</h2>
           </div>
-          <h3 className="mt-2 text-2xl font-bold text-slate-950">
-            Select Employee
-          </h3>
 
-          <div className="mt-5 flex items-center gap-3 rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3">
+          <div className="mt-6 space-y-4">
+            <label className="block text-sm font-black">
+              Employee
+              <select
+                value={employeeId}
+                onChange={(e) => setEmployeeId(e.target.value)}
+                className="mt-2 w-full rounded-2xl bg-slate-50 px-4 py-3 font-bold"
+              >
+                <option value="">Select employee</option>
+
+                {activeEmployees.map((e: any) => (
+                  <option key={e.id} value={e.id}>
+                    {employeeName(e)} · {e.employee_number || "No code"}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block text-sm font-black">
+              HR file category
+              <select
+                value={documentType}
+                onChange={(e) => handleTypeChange(e.target.value)}
+                className="mt-2 w-full rounded-2xl bg-slate-50 px-4 py-3 font-bold"
+              >
+                {documentTypes.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block text-sm font-black">
+              Optional file label
+              <input
+                value={documentTitle}
+                onChange={(e) => setDocumentTitle(e.target.value)}
+                placeholder="Optional label, e.g. 2026 Increase Letter"
+                className="mt-2 w-full rounded-2xl bg-slate-50 px-4 py-3 font-bold"
+              />
+            </label>
+
+            <textarea
+              value={documentNotes}
+              onChange={(e) => setDocumentNotes(e.target.value)}
+              rows={3}
+              placeholder="Notes about this HR file..."
+              className="w-full rounded-2xl bg-slate-50 px-4 py-3 font-bold"
+            />
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block text-sm font-black">
+                Issue date
+                <input
+                  type="date"
+                  value={issueDate}
+                  onChange={(e) => setIssueDate(e.target.value)}
+                  className="mt-2 w-full rounded-2xl bg-slate-50 px-4 py-3 font-bold"
+                />
+              </label>
+
+              <label className="block text-sm font-black">
+                Expiry / review date
+                <input
+                  type="date"
+                  value={expiryDate}
+                  onChange={(e) => setExpiryDate(e.target.value)}
+                  className="mt-2 w-full rounded-2xl bg-slate-50 px-4 py-3 font-bold"
+                />
+              </label>
+            </div>
+
+            <label className="block text-sm font-black">
+              Status
+              <select
+                value={signedStatus}
+                onChange={(e) => setSignedStatus(e.target.value)}
+                className="mt-2 w-full rounded-2xl bg-slate-50 px-4 py-3 font-bold"
+              >
+                <option value="signed">Signed</option>
+                <option value="unsigned">Unsigned</option>
+                <option value="pending_signature">Pending signature</option>
+                <option value="not_required">Signature not required</option>
+              </select>
+            </label>
+
+            <label className="block rounded-[28px] border-2 border-dashed border-cyan-200 bg-cyan-50 p-6 text-center text-sm font-black text-cyan-900">
+              <Upload className="mx-auto h-8 w-8" />
+              <div className="mt-3">Browse and select HR file</div>
+
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                className="mt-4 block w-full rounded-2xl bg-white px-4 py-3"
+              />
+            </label>
+
+            {file && (
+              <div className="rounded-2xl bg-slate-50 p-4 text-sm font-bold">
+                Selected: {file.name} · {sizeText(file.size)}
+              </div>
+            )}
+
+            {message && (
+              <div className="rounded-2xl bg-blue-50 p-4 text-sm font-bold text-blue-700">
+                {message}
+              </div>
+            )}
+
+            <button
+              onClick={uploadDocument}
+              disabled={busy}
+              className="w-full rounded-2xl bg-slate-950 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300"
+            >
+              {busy ? "Working..." : "Upload to Employee HR File"}
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-[34px] bg-white p-6 shadow-lg">
+          <div className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3">
             <Search className="h-5 w-5 text-slate-400" />
             <input
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search employees..."
-              className="w-full bg-transparent text-sm font-semibold outline-none"
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search file name, category or notes..."
+              className="w-full bg-transparent text-sm font-bold outline-none"
             />
           </div>
 
-          <div className="mt-5 max-h-[620px] space-y-3 overflow-auto pr-1">
-            {filteredEmployees.map((employee) => {
-              const selected = employee.id === selectedEmployeeId;
-
-              return (
-                <button
-                  key={employee.id}
-                  onClick={() => setSelectedEmployeeId(employee.id)}
-                  className={`w-full rounded-[24px] border p-5 text-left transition hover:-translate-y-0.5 hover:shadow-lg ${
-                    selected ? "border-cyan-400 bg-cyan-50" : "border-slate-200 bg-slate-50"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="font-black text-slate-950">{employeeName(employee)}</div>
-                      <div className="mt-1 text-xs font-semibold text-slate-500">
-                        {employee.employee_number || "No employee number"} ·{" "}
-                        {employee.job_title || "No job title"}
-                      </div>
-                    </div>
-                    <UserRound className="h-5 w-5 text-cyan-600" />
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="space-y-8">
-          <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl">
-            <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-600">
-              Step 2
-            </div>
-            <h3 className="mt-2 text-2xl font-bold text-slate-950">
-              Upload Signed Contract
-            </h3>
-
-            <div className="mt-6 grid gap-4">
-              {selectedEmployee && (
-                <div className="rounded-[2rem] border border-cyan-100 bg-cyan-50/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-                  <div className="font-black text-blue-950">
-                    Saving for {employeeName(selectedEmployee)}
-                  </div>
-                  <div className="mt-1 text-xs font-semibold text-cyan-700">
-                    {selectedEmployee.employee_number || "No employee number"} ·{" "}
-                    {selectedEmployee.job_title || "No job title"}
-                  </div>
+          <div className="mt-6 space-y-4">
+            {activeDocs.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-200 p-8 text-center">
+                <FileText className="mx-auto h-10 w-10 text-slate-300" />
+                <div className="mt-3 font-black text-slate-500">
+                  No active HR files found.
                 </div>
-              )}
-
-              <label className="text-sm font-bold text-slate-800">
-                Contract Title
-                <input
-                  value={documentTitle}
-                  onChange={(event) => setDocumentTitle(event.target.value)}
-                  placeholder="Employee Name - Signed Contract"
-                  className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 text-sm font-semibold text-slate-950 outline-none focus:border-cyan-400"
-                />
-              </label>
-
-              <label className="text-sm font-bold text-slate-800">
-                Notes
-                <textarea
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  rows={4}
-                  placeholder="Optional notes..."
-                  className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 text-sm font-semibold text-slate-950 outline-none focus:border-cyan-400"
-                />
-              </label>
-
-              <label className="text-sm font-bold text-slate-800">
-                Signed Contract File
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp"
-                  onChange={(event) => setFile(event.target.files?.[0] || null)}
-                  className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 text-sm font-semibold text-slate-950 outline-none focus:border-cyan-400"
-                />
-              </label>
-
-              <button
-                onClick={saveSignedContract}
-                disabled={saving}
-                className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-black text-[#06101f] disabled:bg-slate-300"
-              >
-                <Upload className="h-4 w-4" />
-                {saving ? "Saving..." : "Save Signed Contract"}
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div>
-                <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-600">
-                  Employee Files
-                </div>
-                <h3 className="mt-2 text-2xl font-bold text-slate-950">
-                  {selectedEmployee ? employeeName(selectedEmployee) : "Saved Contracts"}
-                </h3>
               </div>
+            ) : (
+              activeDocs.map((d: any) => <DocumentCard key={d.id} d={d} />)
+            )}
 
-              <button
-                onClick={loadData}
-                className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-700"
-              >
-                Refresh
-              </button>
-            </div>
-
-            <div className="mt-6 space-y-3">
-              {loading ? (
-                <div className="rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl p-5 text-sm font-semibold text-slate-500">
-                  Loading documents...
+            {archivedDocs.length > 0 && (
+              <div className="pt-6">
+                <div className="mb-3 text-xs font-black uppercase tracking-[0.3em] text-slate-400">
+                  Archived HR files
                 </div>
-              ) : selectedEmployeeDocuments.length === 0 ? (
-                <div className="rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl p-5 text-sm font-semibold text-slate-500">
-                  No signed contracts saved for this employee yet.
-                </div>
-              ) : (
-                selectedEmployeeDocuments.map((document) => (
-                  <article key={document.id} className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.10)] backdrop-blur-xl">
-                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                      <div>
-                        <div className="font-black text-slate-950">{document.document_title}</div>
-                        <div className="mt-1 text-xs font-semibold text-slate-500">
-                          {formatText(document.document_type)} · {formatDateTime(document.created_at)}
-                        </div>
-                        <div className="mt-2 text-xs font-semibold text-slate-500">
-                          {document.file_name || "No file name"}
-                        </div>
-                      </div>
 
-                      <StatusPill value={document.status || "signed"} />
-                    </div>
-
-                    {document.document_notes && (
-                      <div className="mt-4 rounded-2xl border border-white/80 bg-white/95 p-4 shadow-sm text-sm font-semibold leading-6 text-slate-700">
-                        {document.document_notes}
-                      </div>
-                    )}
-
-                    <div className="mt-4 grid gap-2 md:grid-cols-3">
-                      <button
-                        onClick={() => openDocument(document)}
-                        className="flex items-center justify-center gap-2 rounded-2xl bg-[#06101f] px-4 py-3 text-sm font-black text-cyan-300"
-                      >
-                        <Eye className="h-4 w-4" />
-                        Open
-                      </button>
-
-                      <button
-                        onClick={() => downloadDocument(document)}
-                        className="flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-black text-slate-700"
-                      >
-                        <Download className="h-4 w-4" />
-                        Download
-                      </button>
-
-                      <button
-                        onClick={() => deleteDocument(document)}
-                        disabled={deletingId === document.id}
-                        className="flex items-center justify-center gap-2 rounded-2xl bg-rose-600 px-4 py-3 text-sm font-black text-[#06101f] disabled:bg-slate-300"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        {deletingId === document.id ? "Deleting..." : "Delete"}
-                      </button>
-                    </div>
-                  </article>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {selectedDocument && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4">
-          <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[34px] bg-white p-6 shadow-2xl">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div>
-                <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-600">
-                  Signed Contract
-                </div>
-                <h3 className="mt-2 text-3xl font-black text-slate-950">
-                  {selectedDocument.document_title}
-                </h3>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
-                  {selectedDocument.file_name || "Uploaded contract"}
-                </p>
-              </div>
-
-              <button
-                onClick={() => {
-                  setSelectedDocument(null);
-                  setSignedFileUrl(null);
-                }}
-                className="rounded-2xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-700"
-              >
-                Close
-              </button>
-            </div>
-
-            <section className="mt-6 rounded-[28px] border border-slate-200 bg-slate-50 p-5">
-              {fileLoading ? (
-                <div className="rounded-2xl bg-white p-8 text-center text-sm font-bold text-slate-500">
-                  Loading file...
-                </div>
-              ) : signedFileUrl ? (
                 <div className="space-y-4">
-                  <a
-                    href={signedFileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-[#06101f]"
-                  >
-                    Open File in New Tab
-                  </a>
-
-                  <div className="rounded-2xl bg-white p-5 text-sm font-semibold leading-6 text-slate-700">
-                    File path: {selectedDocument.file_path}
-                  </div>
+                  {archivedDocs.map((d: any) => (
+                    <DocumentCard key={d.id} d={d} archived />
+                  ))}
                 </div>
-              ) : (
-                <div className="rounded-2xl bg-white p-8 text-center text-sm font-bold text-slate-500">
-                  No file attached.
-                </div>
-              )}
-
-              {selectedDocument.document_notes && (
-                <div className="mt-4 rounded-2xl bg-white p-5 text-sm font-semibold leading-6 text-slate-700">
-                  {selectedDocument.document_notes}
-                </div>
-              )}
-            </section>
+              </div>
+            )}
           </div>
         </div>
-      )}
-    </div>
+      </div>
+    </section>
   );
 }

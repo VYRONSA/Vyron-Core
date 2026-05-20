@@ -1,0 +1,1 @@
+export default function EnterpriseHRDashboardWidgets(){return <div className="p-8 text-3xl font-black">Enterprise HR Dashboard Widgets</div>}

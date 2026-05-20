@@ -3,11 +3,24 @@
 :root {
   --vyron-bg: #07101f;
   --vyron-bg-2: #0b1a33;
-  --vyron-panel: rgba(255,255,255,0.94);
-  --vyron-border: rgba(255,255,255,0.10);
+  --vyron-surface: rgba(255, 255, 255, 0.95);
+  --vyron-surface-muted: #f6f8fb;
+  --vyron-panel: rgba(255, 255, 255, 0.94);
+  --vyron-border: rgba(255, 255, 255, 0.1);
+  --vyron-border-soft: rgba(148, 163, 184, 0.28);
   --vyron-cyan: #22d3ee;
   --vyron-blue: #2563eb;
   --vyron-text: #06101f;
+  --vyron-text-muted: #64748b;
+  --vyron-success: #10b981;
+  --vyron-warn: #f59e0b;
+  --vyron-danger: #f43f5e;
+  --vyron-focus: rgba(34, 211, 238, 0.55);
+  --vyron-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --vyron-radius-panel: 2rem;
+  --vyron-radius-card: 2rem;
+  --vyron-shadow-panel: 0 18px 55px rgba(15, 23, 42, 0.12), 0 0 24px rgba(34, 211, 238, 0.04);
+  --vyron-shadow-lift: 0 28px 80px rgba(37, 99, 235, 0.18), 0 0 36px rgba(34, 211, 238, 0.12);
 }
 
 html,
@@ -15,12 +28,22 @@ body {
   min-height: 100%;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background:
-    radial-gradient(circle at 18% 8%, rgba(34,211,238,0.18), transparent 30%),
-    radial-gradient(circle at 88% 18%, rgba(37,99,235,0.16), transparent 34%),
+    radial-gradient(circle at 18% 8%, rgba(34, 211, 238, 0.18), transparent 30%),
+    radial-gradient(circle at 88% 18%, rgba(37, 99, 235, 0.16), transparent 34%),
     linear-gradient(135deg, #050914 0%, #07101f 34%, #eef7ff 34%, #f8fbff 100%);
   color: var(--vyron-text);
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+::selection {
+  background: rgba(34, 211, 238, 0.28);
+  color: #020617;
 }
 
 * {
@@ -31,33 +54,288 @@ body {
   min-height: 100vh;
 }
 
+.vyron-tabular {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.vyron-focus-ring:focus-visible {
+  outline: 2px solid var(--vyron-cyan);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.18);
+}
+
 .vyron-panel {
-  background: rgba(255,255,255,0.94);
-  border: 1px solid rgba(255,255,255,0.70);
-  box-shadow:
-    0 20px 60px rgba(15,23,42,0.12),
-    0 0 24px rgba(34,211,238,0.06);
+  background: var(--vyron-panel);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: var(--vyron-shadow-panel);
   backdrop-filter: blur(18px);
 }
 
 .vyron-dark-panel {
   background:
-    radial-gradient(circle at 18% 8%, rgba(34,211,238,0.18), transparent 28%),
+    radial-gradient(circle at 18% 8%, rgba(34, 211, 238, 0.18), transparent 28%),
     linear-gradient(135deg, #020617 0%, #07101f 58%, #0b1f3a 100%);
-  border: 1px solid rgba(125,211,252,0.16);
+  border: 1px solid rgba(125, 211, 252, 0.16);
   box-shadow:
-    0 26px 70px rgba(2,6,23,0.30),
-    0 0 34px rgba(34,211,238,0.12);
+    0 26px 70px rgba(2, 6, 23, 0.3),
+    0 0 34px rgba(34, 211, 238, 0.12);
 }
 
 .vyron-card {
-  border-radius: 30px;
-  transition: all 180ms ease;
+  border-radius: var(--vyron-radius-card);
+  transition:
+    transform 180ms var(--vyron-ease),
+    box-shadow 220ms var(--vyron-ease);
 }
 
 .vyron-card:hover {
   transform: translateY(-2px);
+  box-shadow: var(--vyron-shadow-lift);
+}
+
+.vyron-input {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid var(--vyron-border-soft);
+  background: rgba(255, 255, 255, 0.92);
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--vyron-text);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.vyron-input::placeholder {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.vyron-input:hover {
+  border-color: rgba(34, 211, 238, 0.35);
+}
+
+.vyron-input:focus {
+  outline: none;
+  border-color: var(--vyron-cyan);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2);
+}
+
+.vyron-btn-secondary {
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.75rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #fff;
+  transition:
+    transform 160ms var(--vyron-ease),
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.vyron-btn-secondary:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 12px 32px rgba(34, 211, 238, 0.12);
+}
+
+.vyron-status-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.vyron-status-live::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--vyron-success);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.65);
+  animation: vyron-status-pulse 2.4s ease-in-out infinite;
+}
+
+.vyron-status-loading::before {
+  background: var(--vyron-cyan);
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.55);
+  animation: vyron-status-pulse 1.1s ease-in-out infinite;
+}
+
+.vyron-nav-item {
+  position: relative;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease,
+    transform 160ms var(--vyron-ease);
+}
+
+.vyron-nav-item:hover:not(.vyron-nav-item-active) {
+  transform: translateX(2px);
+}
+
+.vyron-nav-item-active {
+  background: linear-gradient(90deg, #2563eb 0%, #22d3ee 100%);
   box-shadow:
-    0 26px 80px rgba(15,23,42,0.14),
-    0 0 30px rgba(34,211,238,0.10);
+    0 10px 28px rgba(34, 211, 238, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.vyron-nav-item-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  width: 3px;
+  border-radius: 0 4px 4px 0;
+  background: #fff;
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.55);
+}
+
+.vyron-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.14) 0%,
+    rgba(34, 211, 238, 0.16) 48%,
+    rgba(148, 163, 184, 0.14) 100%
+  );
+  background-size: 200% 100%;
+  animation: vyron-shimmer 2.2s ease-in-out infinite;
+}
+
+.vyron-empty-state {
+  border-radius: 1.75rem;
+  border: 1px dashed var(--vyron-border-soft);
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  padding: 2rem;
+  text-align: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+@keyframes vyron-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes vyron-status-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes vyron-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.vyron-page-enter {
+  animation: vyron-page-in 0.42s var(--vyron-ease) both;
+}
+
+.vyron-stagger > * {
+  animation: vyron-page-in 0.42s var(--vyron-ease) both;
+}
+
+.vyron-stagger > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.vyron-stagger > *:nth-child(2) {
+  animation-delay: 45ms;
+}
+.vyron-stagger > *:nth-child(3) {
+  animation-delay: 90ms;
+}
+.vyron-stagger > *:nth-child(4) {
+  animation-delay: 135ms;
+}
+.vyron-stagger > *:nth-child(5) {
+  animation-delay: 180ms;
+}
+.vyron-stagger > *:nth-child(6) {
+  animation-delay: 225ms;
+}
+
+@keyframes vyron-ai-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 28px 2px rgba(34, 211, 238, 0.18);
+  }
+}
+
+.vyron-ai-ops-glow {
+  animation: vyron-ai-pulse 3.5s ease-in-out infinite;
+}
+
+@keyframes vyron-spark-grow {
+  from {
+    transform: scaleY(0.35);
+    opacity: 0.5;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.vyron-spark-bar {
+  transform-origin: bottom;
+  animation: vyron-spark-grow 0.7s ease-out forwards;
+}
+
+.vyron-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.12) 0%,
+    rgba(34, 211, 238, 0.22) 45%,
+    rgba(148, 163, 184, 0.12) 90%
+  );
+  background-size: 200% 100%;
+  animation: vyron-shimmer 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .vyron-page-enter,
+  .vyron-stagger > *,
+  .vyron-card:hover,
+  .vyron-shimmer,
+  .vyron-skeleton,
+  .vyron-ai-ops-glow,
+  .vyron-spark-bar,
+  .vyron-status-live::before,
+  .vyron-status-loading::before,
+  .vyron-nav-item:hover:not(.vyron-nav-item-active) {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
 }

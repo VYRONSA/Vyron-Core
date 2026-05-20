@@ -1,0 +1,1 @@
+export default function HRNotificationCentreEngine(){return <div className="p-8 text-3xl font-black">HR Notification Centre Engine</div>}
