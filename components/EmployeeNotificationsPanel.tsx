@@ -8,11 +8,13 @@ export default function EmployeeNotificationsPanel({
   leaveRequests = [],
   hrCases = [],
   notifications = [],
+  onUpdated, // 👈 Added to the destructured arguments
 }: {
   employees?: any[];
   leaveRequests?: any[];
   hrCases?: any[];
   notifications?: any[];
+  onUpdated?: () => void; // 👈 Added to the TypeScript definition
 }) {
   const [employeeId, setEmployeeId] = useState("");
 
