@@ -15029,8 +15029,8 @@ function HrCasesDrilldownOnlyPage({
                       </p>
 
                       <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
-                        <span className="rounded-full bg-rose-50 px-3 py-1 text-rose-700">{statusToClientText(hrCase.status)}</span>
-                        <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-700">{statusToClientText(hrCase.validity_status || "review_required")}</span>
+                        <span className="rounded-full bg-rose-50 px-3 py-1 text-rose-700">{statusToClientText(hrCase.status ?? "")}</span>
+                        <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-700">{statusToClientText(hrCase.validity_status ?? "")}</span>
                         <span className="rounded-full bg-cyan-50 px-3 py-1 text-cyan-700">{employeeExceptions.length} exception(s)</span>
                         <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">{employeeLeave.length} leave record(s)</span>
                         <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">{employeePayroll.length} payroll blocker(s)</span>
