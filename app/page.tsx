@@ -16084,10 +16084,10 @@ export default function Page() {
         dirQuery.error &&
         isMissingCompaniesProfileColumnError(dirQuery.error.message)
       ) {
-        dirQuery = await supabase
+        dirQuery = (await supabase
           .from("companies")
           .select(COMPANIES_DIRECTORY_SELECT_WITHOUT_PROFILE)
-          .order("created_at", { ascending: false });
+          .order("created_at", { ascending: false })) as any;
       }
 
       const companyRows = dirQuery.error ? undefined : dirQuery.data;
@@ -17667,3 +17667,4 @@ function EmployeeDocumentCentre({
 
   
  
+  
