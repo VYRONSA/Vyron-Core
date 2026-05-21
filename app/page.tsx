@@ -14889,6 +14889,7 @@ function HrCasesDrilldownOnlyPage({
   setActive: (value: string) => void;
   onRefresh: () => void;
 }) {
+  const [hrCaseModalOpen, setHrCaseModalOpen] = useState(false);
   const openHrCases = hrCases.filter(hrCaseIsOpen);
   const closedHrCases = hrCases.filter((item) => !hrCaseIsOpen(item));
   const openExceptions = exceptions.filter(exceptionIsOpen);
