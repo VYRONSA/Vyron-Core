@@ -31,6 +31,8 @@ type EmployeeNotification = {
   employee_id: string;
   employee_name: string;
   notification_type: string;
+  /** Legacy column alias when notification_type is absent */
+  type?: string;
   title: string;
   message: string;
   delivery_status: string;

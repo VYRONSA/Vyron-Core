@@ -1,23 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdminClient, getSupabasePublicConfig } from "@/lib/server-api-auth";
 
 export const runtime = "nodejs";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const serviceRoleKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  "";
+export const dynamic = "force-dynamic";
 
 const VERIFY_TOKEN =
   process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || "vyron_core_verify_token";
-
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-  },
-});
 
 function normalisePhone(value: string) {
   let phone = String(value || "").replace(/[^\d]/g, "");
@@ -40,7 +28,7 @@ function phoneMatches(a: string, b: string) {
 }
 
 async function logMessage(row: Record<string, any>) {
-  const { error } = await supabaseAdmin.from("hr_whatsapp_messages").insert(row);
+  const { error } = await getSupabaseAdminClient().from("hr_whatsapp_messages").insert(row);
   return error ? error.message : null;
 }
 
@@ -52,11 +40,12 @@ export async function GET(request: NextRequest) {
   const challenge = searchParams.get("hub.challenge");
 
   if (!mode && !token && !challenge) {
+    const { url } = getSupabasePublicConfig();
     return NextResponse.json({
       ok: true,
       message: "VYRON CORE WhatsApp webhook is live.",
       expectedVerifyToken: VERIFY_TOKEN,
-      hasSupabaseUrl: Boolean(supabaseUrl),
+      hasSupabaseUrl: Boolean(url),
       hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
       hasAnonFallback: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
     });
@@ -123,6 +112,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const supabaseAdmin = getSupabaseAdminClient();
     const { data: employees, error: employeeError } = await supabaseAdmin
       .from("employees")
       .select("id, first_name, last_name, phone")

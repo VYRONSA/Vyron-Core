@@ -1,20 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdminClient, getSupabasePublicConfig } from "@/lib/server-api-auth";
 
 export const runtime = "nodejs";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const serviceRoleKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  "";
-
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-  },
-});
+export const dynamic = "force-dynamic";
 
 function normalisePhone(value: string) {
   let phone = String(value || "").replace(/[^\d]/g, "");
@@ -24,16 +12,17 @@ function normalisePhone(value: string) {
 }
 
 async function logMessage(row: Record<string, any>) {
-  const { error } = await supabaseAdmin.from("hr_whatsapp_messages").insert(row);
+  const { error } = await getSupabaseAdminClient().from("hr_whatsapp_messages").insert(row);
   return error ? error.message : null;
 }
 
 export async function GET() {
+  const { url } = getSupabasePublicConfig();
   return NextResponse.json({
     ok: true,
     route: "/api/hr-cases/whatsapp-action",
     message: "HR WhatsApp action route is live.",
-    hasSupabaseUrl: Boolean(supabaseUrl),
+    hasSupabaseUrl: Boolean(url),
     hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
     hasAnonFallback: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
     hasWhatsappPhoneNumberId: Boolean(process.env.WHATSAPP_PHONE_NUMBER_ID),
@@ -126,7 +115,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { error: updateError } = await supabaseAdmin
+    const { error: updateError } = await getSupabaseAdminClient()
       .from("hr_cases")
       .update({
         status,

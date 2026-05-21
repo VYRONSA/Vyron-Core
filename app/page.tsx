@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 function GlobalWarningBanner({ exceptions, hrCases, payrollHours }: any) {
   const hasIssues =
@@ -16075,22 +16075,27 @@ export default function Page() {
       );
 
       let remoteEntries: MasterClientDirectoryEntry[] = [];
-      let dirQuery = await supabase
+      const dirQueryWithProfile = await supabase
         .from("companies")
         .select(COMPANIES_DIRECTORY_SELECT_WITH_PROFILE)
         .order("created_at", { ascending: false });
 
+      let companyRows: Record<string, unknown>[] | undefined = dirQueryWithProfile.error
+        ? undefined
+        : (dirQueryWithProfile.data as Record<string, unknown>[] | null) ?? undefined;
+
       if (
-        dirQuery.error &&
-        isMissingCompaniesProfileColumnError(dirQuery.error.message)
+        dirQueryWithProfile.error &&
+        isMissingCompaniesProfileColumnError(dirQueryWithProfile.error.message)
       ) {
-        dirQuery = (await supabase
+        const dirQueryWithoutProfile = await supabase
           .from("companies")
           .select(COMPANIES_DIRECTORY_SELECT_WITHOUT_PROFILE)
-          .order("created_at", { ascending: false })) as any;
+          .order("created_at", { ascending: false });
+        companyRows = dirQueryWithoutProfile.error
+          ? undefined
+          : (dirQueryWithoutProfile.data as Record<string, unknown>[] | null) ?? undefined;
       }
-
-      const companyRows = dirQuery.error ? undefined : dirQuery.data;
 
       if (companyRows?.length) {
         remoteEntries = companyRows
@@ -16506,15 +16511,17 @@ export default function Page() {
         employeeDocumentsRes = { data: [], error: null } as any;
       }
 
-      let hrCasesRes = await supabase
+      const hrCasesWithFeedbackRes = await supabase
         .from("hr_cases")
         .select(HR_CASES_SELECT_WITH_MANAGER_FEEDBACK)
         .eq("company_id", activeCompanyId)
         .order("created_at", { ascending: false });
 
+      let hrCasesRes = hrCasesWithFeedbackRes;
+
       if (
-        hrCasesRes.error &&
-        isMissingHrCasesManagerFeedbackColumnError(hrCasesRes.error.message)
+        hrCasesWithFeedbackRes.error &&
+        isMissingHrCasesManagerFeedbackColumnError(hrCasesWithFeedbackRes.error.message)
       ) {
         hrCasesRes = (await supabase
           .from("hr_cases")

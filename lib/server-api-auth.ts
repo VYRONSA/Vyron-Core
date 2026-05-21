@@ -23,6 +23,27 @@ export function getSupabasePublicConfig(): { url: string; anonKey: string } {
   };
 }
 
+/** Service-role (or anon fallback) client for server routes — lazy; safe at build time. */
+export function getSupabaseAdminClient(): SupabaseClient {
+  const url = stripEnvQuotes(process.env.NEXT_PUBLIC_SUPABASE_URL || "");
+  const key = stripEnvQuotes(
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      ""
+  );
+  if (!url) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL is required.");
+  }
+  if (!key) {
+    throw new Error(
+      "SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY is required."
+    );
+  }
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
 /** Bearer JWT session → Supabase client scoped to the signed-in user (RLS). */
 export async function authenticateApiRequest(
   authorizationHeader: string | null

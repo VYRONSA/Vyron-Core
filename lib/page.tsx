@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 function GlobalWarningBanner({ exceptions, hrCases, payrollHours }: any) {
   const hasIssues =
@@ -158,7 +158,7 @@ type HrCaseRow = {
   manager_feedback?: string | null;
   employee_response?: string | null;
   employee_response_required?: boolean | null;
-};;
+};
 
 
 type HrWarningRow = {
@@ -2053,7 +2053,6 @@ function LeaveApprovalsScreen({
   leaveRequests: LeaveRequestRow[];
   employees: EmployeeRow[];
   onRefresh: () => void;
-  setHrCaseModalOpen: (value: boolean) => void;
 }) {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"pending" | "all" | "approved" | "declined" | "amended">("pending");
@@ -9720,6 +9719,7 @@ function HrCasesDrilldownOnlyPage({
   setActive: (value: string) => void;
   onRefresh: () => void;
 }) {
+  const [hrCaseModalOpen, setHrCaseModalOpen] = useState(false);
   const openHrCases = hrCases.filter(hrCaseIsOpen);
   const closedHrCases = hrCases.filter((item) => !hrCaseIsOpen(item));
   const openExceptions = exceptions.filter(exceptionIsOpen);
