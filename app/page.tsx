@@ -16516,11 +16516,11 @@ export default function Page() {
         hrCasesRes.error &&
         isMissingHrCasesManagerFeedbackColumnError(hrCasesRes.error.message)
       ) {
-        hrCasesRes = await supabase
+        hrCasesRes = (await supabase
           .from("hr_cases")
           .select(HR_CASES_SELECT_WITHOUT_MANAGER_FEEDBACK)
           .eq("company_id", activeCompanyId)
-          .order("created_at", { ascending: false });
+          .order("created_at", { ascending: false })) as any;
       }
 
       const planData =
@@ -17667,5 +17667,6 @@ function EmployeeDocumentCentre({
 
   
  
+  
   
   
