@@ -1038,6 +1038,8 @@ type HrCaseRow = {
   employee_id: string;
   linked_exception_id: string | null;
   case_type: string;
+  title?: string | null;    
+  description?: string | null;
 };
 
 
