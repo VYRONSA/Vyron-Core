@@ -1042,7 +1042,6 @@ type HrCaseRow = {
   validity_status: string;
   status: string;
   employee_response_required: boolean | null;
-  employee_response: string | null;
 };
 
 
