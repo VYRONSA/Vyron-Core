@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 function GlobalWarningBanner({ exceptions, hrCases, payrollHours }: any) {
   const hasIssues =
@@ -147,18 +147,18 @@ type ExceptionRow = {
 };
 
 type HrCaseRow = {
-  manager_feedback?: string | null;
   id: string;
   employee_id: string;
   linked_exception_id: string | null;
   case_type: string;
   title: string;
   description: string;
-  validity_status: string;
+  validity_status: string | null;
   status: string;
-  employee_response_required: boolean | null;
-  employee_response: string | null;
-};
+  manager_feedback?: string | null;
+  employee_response?: string | null;
+  employee_response_required?: boolean | null;
+};;
 
 
 type HrWarningRow = {
@@ -11615,7 +11615,6 @@ function EmployeeDocumentCentre({
 
 
 
- 
 
- 
- 
+
+  
