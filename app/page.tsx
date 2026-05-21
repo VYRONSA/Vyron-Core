@@ -15070,7 +15070,7 @@ function HrCasesDrilldownOnlyPage({
             closedHrCases.slice(0, 8).map((hrCase) => (
               <button key={hrCase.id} onClick={() => setActive("HR Documents")} className="rounded-2xl border border-slate-100 bg-white p-4 text-left shadow-sm">
                 <div className="font-black text-slate-950">{hrCase.title || hrCase.case_type || "Closed HR case"}</div>
-                <div className="mt-1 text-sm text-slate-500">{employeeName(hrCase.employee_id)} Â· {statusToClientText(hrCase.status)}</div>
+                <div className="mt-1 text-sm text-slate-500">{employeeName(hrCase.employee_id)} Â· {statusToClientText(hrCase.status ?? "")}</div>
               </button>
             ))
           )}
@@ -17666,3 +17666,4 @@ function EmployeeDocumentCentre({
 
 
   
+ 
