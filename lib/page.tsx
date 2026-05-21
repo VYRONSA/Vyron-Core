@@ -10895,7 +10895,7 @@ export default function Page() {
     if (active === "Rosters") return <RosterManagementPanel rosterShifts={rosterShifts} employees={employees} stores={stores} onOpenCreateShift={() => setCreateShiftOpen(true)} onRefresh={refreshData} />;
     if (active === "Leave Control Centre") return <LeaveControlCentrePanel />;
     if (active === "Leave Management") return <LeaveApprovalsScreen leaveRequests={leaveRequests} employees={employees} onRefresh={refreshData} setHrCaseModalOpen={() => {}} />;
-    if (active === "Leave Approvals") return <LeaveApprovalsScreen leaveRequests={leaveRequests} employees={employees} onRefresh={refreshData} />;
+   if (active === "Leave Approvals") return <LeaveApprovalsScreen leaveRequests={leaveRequests} employees={employees} onRefresh={refreshData} setHrCaseModalOpen={() => {}} />;
     if (active === "Leave Balance Control") return <LeaveBalancePanel onUpdated={refreshData} />;
     if (active === "Leave Decision Audit") return <LeaveDecisionAuditPanel />;
 
@@ -11627,4 +11627,5 @@ function EmployeeDocumentCentre({
   
   
  
+  
   
