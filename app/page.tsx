@@ -13227,7 +13227,7 @@ function EmployeeHrFileDrilldownCentre({
                 <button key={item.id} onClick={() => setActive("WhatsApp Action Centre")} className="rounded-2xl bg-white p-4 text-left shadow-sm">
                   <div className="font-black text-slate-950">{item.leave_type || "Leave"}</div>
                   <div className="mt-1 text-xs font-bold text-slate-500">
-                    {formatDate(item.start_date)} - {formatDate(item.end_date)} Â· {statusToClientText(item.status)}
+                  {formatDate(item.start_date)} - {formatDate(item.end_date)} · {statusToClientText(item.status ?? "")}
                   </div>
                 </button>
               ))
