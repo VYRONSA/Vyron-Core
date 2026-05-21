@@ -148,7 +148,6 @@ type ExceptionRow = {
 
 type HrCaseRow = {
   manager_feedback?: string | null;
-  employee_response?: string | null;
   employee_response_required?: boolean | null;
   validity_status?: string | null;
   id: string;
@@ -11620,3 +11619,4 @@ function EmployeeDocumentCentre({
 
 
 
+ 
