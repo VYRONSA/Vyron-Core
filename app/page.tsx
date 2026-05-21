@@ -16503,7 +16503,7 @@ export default function Page() {
         employeeDocumentsRes.error &&
         isMissingPostgrestTableError(employeeDocumentsRes.error.message, "employee_documents")
       ) {
-        employeeDocumentsRes = { data: [], error: null } as typeof employeeDocumentsRes;
+        employeeDocumentsRes = { data: [], error: null } as any;
       }
 
       let hrCasesRes = await supabase
@@ -17667,4 +17667,5 @@ function EmployeeDocumentCentre({
 
   
  
+  
   
