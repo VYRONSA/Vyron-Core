@@ -13208,7 +13208,7 @@ function EmployeeHrFileDrilldownCentre({
             {employeeHrCases.length === 0 ? (
               <div className="rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-500">No leave history yet.</div>
             ) : (
-              employeeHrCases.slice(0, 6).map((item) => (
+              employeeHrCases.slice(0, 6).map((item: any) => (
                 <button key={item.id} onClick={() => setActive("WhatsApp Action Centre")} className="rounded-2xl bg-white p-4 text-left shadow-sm">
                   <div className="font-black text-slate-950">{item.leave_type || "Leave"}</div>
                   <div className="mt-1 text-xs font-bold text-slate-500">
@@ -13227,7 +13227,7 @@ function EmployeeHrFileDrilldownCentre({
             {employeeHrCases.length === 0 ? (
               <div className="rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-500">No HR cases yet.</div>
             ) : (
-              employeeHrCases.slice(0, 6).map((item) => (
+              employeeHrCases.slice(0, 6).map((item: any) => (
                 <button key={item.id} onClick={() => setActive("HR Cases")} className="rounded-2xl bg-white p-4 text-left shadow-sm">
                   <div className="font-black text-slate-950">{item.title || item.case_type}</div>
                   <div className="mt-1 text-xs font-bold text-slate-500">{statusToClientText(item.status ?? "")}</div>
@@ -15028,8 +15028,8 @@ function HrCasesDrilldownOnlyPage({
                       </p>
 
                       <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
-                        <span className="rounded-full bg-rose-50 px-3 py-1 text-rose-700">{statusToClientText(hrCase.status ?? "")}</span>
-                        <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-700">{statusToClientText((hrCase.validity_status || "review_required") ?? "")}</span>
+                        <span className="rounded-full bg-rose-50 px-3 py-1 text-rose-700">{statusToClientText(hrCase.status)}</span>
+                        <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-700">{statusToClientText(hrCase.validity_status || "review_required")}</span>
                         <span className="rounded-full bg-cyan-50 px-3 py-1 text-cyan-700">{employeeExceptions.length} exception(s)</span>
                         <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">{employeeLeave.length} leave record(s)</span>
                         <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">{employeePayroll.length} payroll blocker(s)</span>
@@ -15069,7 +15069,7 @@ function HrCasesDrilldownOnlyPage({
             closedHrCases.slice(0, 8).map((hrCase) => (
               <button key={hrCase.id} onClick={() => setActive("HR Documents")} className="rounded-2xl border border-slate-100 bg-white p-4 text-left shadow-sm">
                 <div className="font-black text-slate-950">{hrCase.title || hrCase.case_type || "Closed HR case"}</div>
-                <div className="mt-1 text-sm text-slate-500">{employeeName(hrCase.employee_id)} Â· {statusToClientText(hrCase.status ?? "")}</div>
+                <div className="mt-1 text-sm text-slate-500">{employeeName(hrCase.employee_id)} Â· {statusToClientText(hrCase.status)}</div>
               </button>
             ))
           )}
