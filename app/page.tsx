@@ -3389,8 +3389,8 @@ function LeaveApprovalsScreen({
   leaveRequests: LeaveRequestRow[];
   employees: EmployeeRow[];
   onRefresh: () => void;
-  setHrCaseModalOpen: (value: boolean) => void;
 }) {
+  const [hrCaseModalOpen, setHrCaseModalOpen] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"pending" | "all" | "approved" | "declined" | "amended">("pending");
   const [error, setError] = useState<string | null>(null);
@@ -13208,7 +13208,7 @@ function EmployeeHrFileDrilldownCentre({
             {employeeHrCases.length === 0 ? (
               <div className="rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-500">No leave history yet.</div>
             ) : (
-              employeeHrCases.slice(0, 6).map((item: any) => (
+              employeeHrCases.slice(0, 6).map((item) => (
                 <button key={item.id} onClick={() => setActive("WhatsApp Action Centre")} className="rounded-2xl bg-white p-4 text-left shadow-sm">
                   <div className="font-black text-slate-950">{item.leave_type || "Leave"}</div>
                   <div className="mt-1 text-xs font-bold text-slate-500">
@@ -13227,7 +13227,7 @@ function EmployeeHrFileDrilldownCentre({
             {employeeHrCases.length === 0 ? (
               <div className="rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-500">No HR cases yet.</div>
             ) : (
-              employeeHrCases.slice(0, 6).map((item: any) => (
+              employeeHrCases.slice(0, 6).map((item) => (
                 <button key={item.id} onClick={() => setActive("HR Cases")} className="rounded-2xl bg-white p-4 text-left shadow-sm">
                   <div className="font-black text-slate-950">{item.title || item.case_type}</div>
                   <div className="mt-1 text-xs font-bold text-slate-500">{statusToClientText(item.status ?? "")}</div>
