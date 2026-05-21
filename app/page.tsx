@@ -13203,8 +13203,8 @@ function EmployeeHrFileDrilldownCentre({
       <div className="grid gap-6 xl:grid-cols-3">
         <Panel>
           
-        </Panel>
-        <h3 className="text-xl font-black text-slate-950">HR case timeline</h3>
+        <Panel>
+  <h3 className="text-xl font-black text-slate-950">HR case timeline</h3>
   <div className="mt-5 grid gap-3">
     {employeeHrCases.length === 0 ? (
       <div className="rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-500">No HR cases yet.</div>
@@ -13212,13 +13212,12 @@ function EmployeeHrFileDrilldownCentre({
       employeeHrCases.slice(0, 6).map((item) => (
         <button key={item.id} onClick={() => setActive("HR Cases")} className="rounded-2xl bg-white p-4 text-left shadow-sm">
           <div className="font-black text-slate-950">{item.title || item.case_type}</div>
-          {/* 🎯 ADD THE FALLBACK HERE BELOW */}
           <div className="mt-1 text-xs font-bold text-slate-500">{statusToClientText(item.status ?? "")}</div>
         </button>
       ))
     )}
   </div>
-        <Panel>
+</Panel>
           <h3 className="text-xl font-black text-slate-950">Leave timeline</h3>
           <div className="mt-5 grid gap-3">
             {employeeLeave.length === 0 ? (
