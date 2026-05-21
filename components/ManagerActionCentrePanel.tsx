@@ -100,7 +100,7 @@ const actionableNotificationTypes = new Set([
 
 function notificationNeedsManagerAction(notification: EmployeeNotification) {
   return (
-    actionableNotificationTypes.has((notification.notification_type || notification.type || 'general')) &&
+    actionableNotificationTypes.has((notification.notification_type || (notification as any).type || 'general')) &&
     ["pending", "drafted", "failed"].includes(notification.delivery_status)
   );
 }
@@ -817,3 +817,4 @@ export default function ManagerActionCentrePanel({
   );
 }
 
+  
