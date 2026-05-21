@@ -4670,7 +4670,7 @@ function LiveActivityScreen({
       id: `hr-${item.id}`,
       type: "HR",
       title: `${getEmployeeDisplayName(item.employee_id)} · ${item.title}`,
-      detail: `${item.status} · ${formatText(item.validity_status)}`,
+      detail: `${item.status} · ${formatText(item.validity_status ?? "")}`,
       risk: item.status === "closed" ? "normal" : "high"
 })),
   ].slice(0, 24);
@@ -11611,7 +11611,7 @@ function EmployeeDocumentCentre({
 
 
 
-
+ 
 
 
 
