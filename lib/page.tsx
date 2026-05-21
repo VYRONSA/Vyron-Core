@@ -3181,7 +3181,7 @@ function HRCasesScreen({
                     </div>
 
                     <div className="flex flex-col items-start gap-2 md:min-w-[220px] md:items-end">
-                      <ValidityPill value={caseItem.validity_status} />
+                      <ValidityPill value={caseItem.validity_status ?? ""} />
                       <StatusPill value={caseItem.status} />
 
                       <button
@@ -11617,4 +11617,5 @@ function EmployeeDocumentCentre({
 
 
 
+  
   
