@@ -1037,11 +1037,6 @@ type HrCaseRow = {
   employee_id: string;
   linked_exception_id: string | null;
   case_type: string;
-  title: string;
-  description: string;
-  validity_status: string;
-  status: string;
-  employee_response_required: boolean | null;
 };
 
 
