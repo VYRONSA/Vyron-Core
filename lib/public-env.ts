@@ -21,6 +21,8 @@ export function readPublicSupabaseEnv(): { url: string; anonKey: string } {
 const PLACEHOLDER_HOST_RE =
   /placeholder\.supabase\.co|YOUR_PROJECT|YOUR_SUPABASE|your-anon-key/i;
 
+const PLACEHOLDER_ANON_RE = /^(your-anon-key|YOUR_SUPABASE_ANON_KEY)$/i;
+
 export function validatePublicSupabaseEnv(): string[] {
   const { url, anonKey } = readPublicSupabaseEnv();
   const problems: string[] = [];
@@ -40,7 +42,7 @@ export function validatePublicSupabaseEnv(): string[] {
     }
   }
 
-  if (anonKey && (anonKey === "your-anon-key" || PLACEHOLDER_HOST_RE.test(anonKey))) {
+  if (anonKey && (PLACEHOLDER_ANON_RE.test(anonKey) || PLACEHOLDER_HOST_RE.test(anonKey))) {
     problems.push("NEXT_PUBLIC_SUPABASE_ANON_KEY is still a placeholder");
   }
 

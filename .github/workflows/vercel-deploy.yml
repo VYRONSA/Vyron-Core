@@ -7,6 +7,9 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -22,9 +25,16 @@ jobs:
 
       - name: Compile Next.js Application
         run: npm run build
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Vercel Build (prebuilt, production)
+        run: vercel build --prod --yes
         env:
-          NEXT_PUBLIC_SUPABASE_URL: "https://ujgnhcwertihoqjgaofn.supabase.co"
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqZ25oY3dlcnRpaG9xamdhb2ZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExMTI1ODMsImV4cCI6MjA3NjY4ODU4M30.4i0t_Wcl14_fsh5WwT7iMRw4m9T2V_XfWp6m6Lh2bZ0"
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Deploy Direct to Vercel
         uses: amondnet/vercel-action@v25
@@ -32,4 +42,4 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
+          vercel-args: '--prod --prebuilt'
