@@ -65,6 +65,7 @@ import {
   Trash2,
   Archive,
 } from "lucide-react";
+import { readPublicSupabaseEnv } from "../lib/public-env";
 import { supabase } from "../lib/supabase";
 import {
   getCompanyAccess,
@@ -2127,6 +2128,65 @@ function Header({
 }
 
 
+function serializeAuthErrorForUi(err: unknown): string {
+  const lines: string[] = [];
+  if (err !== null && err !== undefined) {
+    if (typeof err === "object") {
+      const e = err as Record<string, unknown>;
+      if (typeof e.name === "string") lines.push(`name: ${e.name}`);
+      if (typeof e.message === "string") lines.push(`message: ${e.message}`);
+      if (e.cause !== undefined) lines.push(`cause: ${String(e.cause)}`);
+      if (typeof e.stack === "string") lines.push(`stack: ${e.stack}`);
+      if (e.status !== undefined) lines.push(`status: ${String(e.status)}`);
+      if (typeof e.code === "string") lines.push(`code: ${e.code}`);
+    } else {
+      lines.push(String(err));
+    }
+    try {
+      const names =
+        typeof err === "object" && err !== null ? Object.getOwnPropertyNames(err) : [];
+      lines.push(`json: ${JSON.stringify(err, names)}`);
+    } catch {
+      lines.push(`json: ${String(err)}`);
+    }
+  } else {
+    lines.push(String(err));
+  }
+  return lines.join("\n");
+}
+
+function isNetworkAuthMessage(msg: string): boolean {
+  return /failed to fetch|networkerror|load failed|network request failed/i.test(msg);
+}
+
+function exposeAuthError(err: unknown, setError: (s: string) => void, label: string) {
+  const detail = serializeAuthErrorForUi(err);
+  console.error(`[auth] ${label}`, err, detail);
+  const msg =
+    err instanceof Error
+      ? err.message
+      : typeof err === "object" && err && "message" in err
+        ? String((err as { message?: unknown }).message)
+        : "";
+  if (isNetworkAuthMessage(msg) || isNetworkAuthMessage(detail)) {
+    window.alert(`Auth error (raw):\n\n${detail}`);
+  }
+  setError(detail);
+}
+
+function logSupabaseTargetHost() {
+  const { url } = readPublicSupabaseEnv();
+  let host = "(missing NEXT_PUBLIC_SUPABASE_URL)";
+  if (url) {
+    try {
+      host = new URL(url).host;
+    } catch {
+      host = url;
+    }
+  }
+  console.log("[login] supabase target host:", host);
+}
+
 function LoginScreen({
   onAuthenticated,
   onSignOutClearSession,
@@ -2173,20 +2233,29 @@ function LoginScreen({
     }
 
     if (mode === "login") {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password
-});
+      try {
+        logSupabaseTargetHost();
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password,
+        });
 
-      if (signInError) {
-        setError(signInError.message);
+        if (signInError) {
+          exposeAuthError(signInError, setError, "signInError");
+          setLoading(false);
+          return;
+        }
+
+        const userEmail = data.user?.email || email.trim().toLowerCase();
+        logSupabaseTargetHost();
+        onAuthenticated(userEmail);
+        setLoading(false);
+        return;
+      } catch (authErr) {
+        exposeAuthError(authErr, setError, "signIn catch");
         setLoading(false);
         return;
       }
-
-      const userEmail = data.user?.email || email.trim().toLowerCase();
-      onAuthenticated(userEmail);
-      setLoading(false);
       return;
     }
 
@@ -2212,7 +2281,7 @@ function LoginScreen({
     });
 
     if (signUpError) {
-      setError(signUpError.message);
+      exposeAuthError(signUpError, setError, "signUpError");
       setLoading(false);
       return;
     }
@@ -2298,7 +2367,11 @@ function LoginScreen({
               </div>
             )}
 
-            {error && <div className="mt-5 rounded-2xl bg-rose-50 p-4 text-sm font-semibold text-rose-700">{error}</div>}
+            {error && (
+              <div className="mt-5 rounded-2xl border-2 border-rose-600 bg-rose-50 p-4 text-sm font-semibold text-rose-800 whitespace-pre-wrap break-words">
+                {error}
+              </div>
+            )}
             {message && <div className="mt-5 rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">{message}</div>}
 
             {!signupRestricted && (
