@@ -33,6 +33,7 @@ yarn-error.log*
 # secrets & local env (never commit)
 .env
 .env.local
+.env.production
 .env*.local
 .env.development.local
 .env.test.local
