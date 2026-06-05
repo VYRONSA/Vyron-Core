@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 import { assertPublicSupabaseEnvForBuild } from "./lib/public-env";
 
-// NEXT_PUBLIC_* are inlined at build time — validate before shipping a broken auth bundle.
 if (process.env.npm_lifecycle_event === "build") {
   assertPublicSupabaseEnvForBuild();
 }
@@ -13,32 +12,27 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/manifest.webmanifest",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "no-cache, must-revalidate",
-          },
-        ],
+        headers: [{ key: "Cache-Control", value: "no-cache, must-revalidate" }],
       },
-    ];
-  },
-
-  async redirects() {
-    return [
       {
         source: "/favicon.ico",
-        destination: "/vyron-core-favicon.ico",
-        permanent: false,
+        headers: [{ key: "Cache-Control", value: "no-cache, must-revalidate" }],
       },
       {
-        source: "/icon-192.png",
-        destination: "/vyron-core-icon-192.png",
-        permanent: false,
+        source: "/vyron-core-favicon.ico",
+        headers: [{ key: "Cache-Control", value: "no-cache, must-revalidate" }],
       },
       {
-        source: "/icon-512.png",
-        destination: "/vyron-core-icon-512.png",
-        permanent: false,
+        source: "/vyron-core-icon-192.png",
+        headers: [{ key: "Cache-Control", value: "no-cache, must-revalidate" }],
+      },
+      {
+        source: "/vyron-core-icon-512.png",
+        headers: [{ key: "Cache-Control", value: "no-cache, must-revalidate" }],
+      },
+      {
+        source: "/vyron-core-apple-touch-icon.png",
+        headers: [{ key: "Cache-Control", value: "no-cache, must-revalidate" }],
       },
     ];
   },
