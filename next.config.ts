@@ -7,9 +7,41 @@ if (process.env.npm_lifecycle_event === "build") {
 }
 
 const nextConfig: NextConfig = {
-  // Enterprise guardrail: do not ship browser source maps in production (formulas stay server-side).
-  // Dev keeps Next defaults (source maps for debugging). Production uses SWC minification by default.
   productionBrowserSourceMaps: false,
+
+  async headers() {
+    return [
+      {
+        source: "/manifest.webmanifest",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-cache, must-revalidate",
+          },
+        ],
+      },
+    ];
+  },
+
+  async redirects() {
+    return [
+      {
+        source: "/favicon.ico",
+        destination: "/vyron-core-favicon.ico",
+        permanent: false,
+      },
+      {
+        source: "/icon-192.png",
+        destination: "/vyron-core-icon-192.png",
+        permanent: false,
+      },
+      {
+        source: "/icon-512.png",
+        destination: "/vyron-core-icon-512.png",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

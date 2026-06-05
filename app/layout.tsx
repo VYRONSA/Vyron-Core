@@ -13,9 +13,19 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Vyron Core — Workforce Operations",
+  title: "VYRON CORE - Workforce Operations",
   description:
     "Enterprise workforce control: clocking, roster, HR risk, payroll readiness, and intelligence in one system.",
+  icons: {
+    icon: "/vyron-core-favicon.ico",
+    shortcut: "/vyron-core-favicon.ico",
+    apple: "/vyron-core-apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "VYRON CORE",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export default function RootLayout({
