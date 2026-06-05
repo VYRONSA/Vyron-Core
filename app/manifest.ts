@@ -11,25 +11,11 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     background_color: "#020617",
     theme_color: "#020617",
-    orientation: "portrait-primary",
-    categories: ["business", "productivity"],
     icons: [
       {
-        src: "/vyron-core-icon-192.png",
-        sizes: "192x192",
-        type: "image/png",
-        purpose: "maskable",
-      },
-      {
-        src: "/vyron-core-icon-512.png",
-        sizes: "512x512",
-        type: "image/png",
-        purpose: "maskable",
-      },
-      {
-        src: "/vyron-core-apple-touch-icon.png",
-        sizes: "180x180",
-        type: "image/png",
+        src: "/favicon.ico",
+        sizes: "48x48",
+        type: "image/x-icon",
         purpose: "any",
       },
     ],
