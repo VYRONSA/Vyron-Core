@@ -1,25 +1,26 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "VYRON CORE - Workforce Operations",
+  title: "VYRON CORE",
   description:
-    "Enterprise workforce control: clocking, roster, HR risk, payroll readiness, and intelligence in one system.",
+    "AI-powered workforce management, HR, clocking, rostering, payroll readiness and workforce intelligence platform.",
+  applicationName: "VYRON CORE",
+  manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/vyron-core-favicon.ico",
+    icon: [
+      { url: "/vyron-core-favicon.ico", type: "image/x-icon" },
+      { url: "/vyron-core-icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/vyron-core-icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
     shortcut: "/vyron-core-favicon.ico",
-    apple: "/vyron-core-apple-touch-icon.png",
+    apple: [
+      {
+        url: "/vyron-core-apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
   },
   appleWebApp: {
     capable: true,
@@ -28,19 +29,21 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: "#020617",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="vyron-shell min-h-full flex flex-col font-sans antialiased">
-        {children}
-      </body>
+    <html lang="en">
+      <body>{children}</body>
     </html>
   );
 }
