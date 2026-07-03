@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { authenticateApiRequest } from "@/lib/server-api-auth";
 
 export const runtime = "nodejs";
 
@@ -11,24 +12,39 @@ function normalisePhone(value: string) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await authenticateApiRequest(request.headers.get("authorization"));
+    if (!auth.ok) {
+      return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status });
+    }
+
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
     const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
     const graphVersion = process.env.WHATSAPP_GRAPH_VERSION || "v20.0";
 
     if (!phoneNumberId) {
-      return NextResponse.json({ ok: false, error: "Missing WHATSAPP_PHONE_NUMBER_ID in .env.local" }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: "Missing WHATSAPP_PHONE_NUMBER_ID in .env.local" },
+        { status: 500 }
+      );
     }
 
     if (!accessToken) {
-      return NextResponse.json({ ok: false, error: "Missing WHATSAPP_ACCESS_TOKEN in .env.local" }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: "Missing WHATSAPP_ACCESS_TOKEN in .env.local" },
+        { status: 500 }
+      );
     }
 
     const body = await request.json();
     const to = normalisePhone(body?.to || "");
     const message = String(body?.message || "").trim();
 
-    if (!to) return NextResponse.json({ ok: false, error: "Recipient phone number is required." }, { status: 400 });
-    if (!message) return NextResponse.json({ ok: false, error: "Message is required." }, { status: 400 });
+    if (!to) {
+      return NextResponse.json({ ok: false, error: "Recipient phone number is required." }, { status: 400 });
+    }
+    if (!message) {
+      return NextResponse.json({ ok: false, error: "Message is required." }, { status: 400 });
+    }
 
     const response = await fetch(`https://graph.facebook.com/${graphVersion}/${phoneNumberId}/messages`, {
       method: "POST",
@@ -63,7 +79,8 @@ export async function POST(request: NextRequest) {
       to,
       meta: data,
     });
-  } catch (error: any) {
-    return NextResponse.json({ ok: false, error: error?.message || "Unknown WhatsApp API error." }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown WhatsApp API error.";
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }

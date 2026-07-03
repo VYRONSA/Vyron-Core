@@ -167,7 +167,7 @@ export default function ExceptionsActionPanel({
     setError(null);
 
     const { error: updateError } = await supabase
-      .from("exceptions")
+      .from("time_exceptions")
       .update({
         status: nextStatus,
         description:
@@ -175,7 +175,8 @@ export default function ExceptionsActionPanel({
             ? `${selectedException.description}\n\nManager note: ${managerNote.trim()}`
             : selectedException.description,
       })
-      .eq("id", selectedException.id);
+      .eq("id", selectedException.id)
+      .eq("company_id", companyId);
 
     if (updateError) {
       setError(updateError.message);
@@ -227,11 +228,12 @@ export default function ExceptionsActionPanel({
     }
 
     await supabase
-      .from("exceptions")
+      .from("time_exceptions")
       .update({
         status: "needs_review",
       })
-      .eq("id", selectedException.id);
+      .eq("id", selectedException.id)
+      .eq("company_id", companyId);
 
     setMessage(`HR case created for ${employee ? `${employee.first_name} ${employee.last_name}` : "employee"}.`);
     setSelectedException(null);

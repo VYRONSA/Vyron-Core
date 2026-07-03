@@ -1,4 +1,8 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import {
+  isLegacyFakeWorkspaceId,
+  isProtectedDeveloperWorkspaceId,
+} from "@/lib/developer-workspace";
 
 export type VyronCompanyAccess = {
   company_id: string;
@@ -64,6 +68,82 @@ export function isSupabaseMissingTableError(
   return (
     message.includes(tableLower) ||
     message.includes(`public.${tableLower}`)
+  );
+}
+
+/** Stable PostgREST FK name for company_users.company_id → companies.id (sql/001, sql/015). */
+export const COMPANY_USERS_COMPANY_FK = "company_users_company_id_fkey";
+
+/** Embed company_users on companies directory queries. */
+export const COMPANY_USERS_DIRECTORY_EMBED = `company_users!${COMPANY_USERS_COMPANY_FK}(user_email, role, status)`;
+
+const COMPANY_USERS_WITH_COMPANY_SELECT = `*, companies!${COMPANY_USERS_COMPANY_FK}(*)`;
+
+/** PostgREST PGRST200 — embedded join relationship missing from schema cache. */
+export function isSupabaseRelationshipError(
+  error: { code?: string; message?: string } | null | undefined
+): boolean {
+  if (!error) return false;
+  if (error.code === "PGRST200") return true;
+  const msg = (error.message || "").toLowerCase();
+  return msg.includes("could not find a relationship");
+}
+
+/** Postgres invalid UUID literal (e.g. legacy master-workspace placeholder sent to uuid columns). */
+export function isSupabaseUuidSyntaxError(
+  error: { code?: string; message?: string } | null | undefined
+): boolean {
+  if (!error) return false;
+  const msg = (error.message || "").toLowerCase();
+  return (
+    msg.includes("invalid input syntax for type uuid") ||
+    msg.includes("invalid uuid") ||
+    msg.includes("master-workspace") ||
+    msg.includes("master_workspace")
+  );
+}
+
+/** PostgREST schema cache / missing relation — non-fatal when optional tables or embeds are absent. */
+export function isSupabaseSchemaCacheError(
+  error: { code?: string; message?: string } | null | undefined
+): boolean {
+  if (!error) return false;
+  if (isSupabaseMissingTableError(error) || isSupabaseRelationshipError(error)) return true;
+  const msg = (error.message || "").toLowerCase();
+  return (
+    msg.includes("schema cache") ||
+    msg.includes("could not find the table") ||
+    /\bpgrst205\b/.test(msg) ||
+    /\bpgrst200\b/.test(msg)
+  );
+}
+
+/** True when a load error is a known schema-cache / migration gap — do not show red workspace banners. */
+export function shouldSuppressWorkspaceLoadError(
+  error: { code?: string; message?: string } | null | undefined
+): boolean {
+  if (!error) return false;
+  return (
+    isSupabaseUuidSyntaxError(error) ||
+    isSupabaseSchemaCacheError(error) ||
+    isSupabaseMissingRpcError(error)
+  );
+}
+
+/** String variant for formatted access errors returned from getCompanyAccess helpers. */
+export function shouldSuppressWorkspaceLoadMessage(message: string | null | undefined): boolean {
+  if (!message) return false;
+  const m = message.toLowerCase();
+  return (
+    m.includes("schema cache") ||
+    m.includes("pgrst205") ||
+    m.includes("pgrst200") ||
+    m.includes("could not find a relationship") ||
+    m.includes("could not find the table") ||
+    m.includes("invalid input syntax for type uuid") ||
+    m.includes("master-workspace") ||
+    m.includes("master_workspace") ||
+    m.includes("vyron_get_company_access")
   );
 }
 
@@ -226,10 +306,11 @@ export async function withPostgrestSchemaRetry<T>(
   return lastResult as T;
 }
 
+/** Master operator platform session — no tenant company_id (VYRON DEV uses platform workspace UUID separately). */
 export function getMasterOperatorCompanyAccess(): VyronCompanyAccess {
   return {
-    company_id: "master-workspace",
-    company_name: "VYRON CORE Workspace",
+    company_id: "",
+    company_name: "VYRON Platform",
     user_role: VYRON_MASTER_OPERATOR_ROLE,
     user_status: "active",
     subscription_status: "active",
@@ -237,38 +318,36 @@ export function getMasterOperatorCompanyAccess(): VyronCompanyAccess {
   };
 }
 
-/** Session-only master workspace when no DB companies exist yet. */
+/** Master operator lists real companies from public.companies only. */
 export function getMasterOperatorAvailableCompanies(): VyronCompanyAccess[] {
-  return [getMasterOperatorCompanyAccess()];
+  return [];
 }
-
-/** Non-deletable directory / workspace ids (session workspace + legacy demo seeds). */
-export const PROTECTED_MASTER_OPERATOR_COMPANY_IDS: readonly string[] = [
-  "master-workspace",
-];
 
 /** Legacy mock ids — kept out of Master Client Directory even if cached in localStorage. */
 export const MASTER_CLIENT_DIRECTORY_EXCLUDED_IDS: readonly string[] = [
-  "master-workspace",
   "11111111-1111-1111-1111-111111111111",
   "22222222-2222-2222-2222-222222222222",
+  "master-workspace",
+  "master_workspace",
 ];
 
 const masterClientDirectoryExcludedIdSet = new Set(MASTER_CLIENT_DIRECTORY_EXCLUDED_IDS);
 
 export function isExcludedFromMasterClientDirectory(id: string): boolean {
-  return masterClientDirectoryExcludedIdSet.has((id || "").trim());
+  const normalized = (id || "").trim();
+  if (masterClientDirectoryExcludedIdSet.has(normalized)) return true;
+  if (isLegacyFakeWorkspaceId(normalized)) return true;
+  if (isProtectedDeveloperWorkspaceId(normalized)) return true;
+  return false;
 }
 
 const COMPANY_ID_UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const protectedMasterOperatorCompanyIdSet = new Set(PROTECTED_MASTER_OPERATOR_COMPANY_IDS);
-
-/** True when id is a real DB company row (valid UUID, not a mock workspace). */
+/** True when id is a real DB company row (valid UUID, not the developer workspace). */
 export function isDeletableCompanyId(id: string): boolean {
   const normalized = (id || "").trim();
-  if (!normalized || protectedMasterOperatorCompanyIdSet.has(normalized)) {
+  if (!normalized || isProtectedDeveloperWorkspaceId(normalized)) {
     return false;
   }
   return COMPANY_ID_UUID_REGEX.test(normalized);
@@ -367,6 +446,118 @@ function formatTableAccessError(
   return error.message || "Unknown company access error.";
 }
 
+/** Merge company_users rows when PostgREST cannot embed (missing FK in schema cache). */
+export async function attachCompanyUsersToDirectoryRows(
+  supabase: SupabaseClient,
+  rows: Record<string, unknown>[]
+): Promise<Record<string, unknown>[]> {
+  if (!rows.length) return rows;
+
+  const companyIds = [
+    ...new Set(rows.map((row) => String(row.id || "")).filter(Boolean)),
+  ];
+  if (!companyIds.length) return rows;
+
+  const { data: userRows, error } = await supabase
+    .from("company_users")
+    .select("company_id, user_email, role, status")
+    .in("company_id", companyIds);
+
+  if (error) {
+    return rows.map((row) => ({ ...row, company_users: [] }));
+  }
+
+  const usersByCompany = new Map<string, Record<string, unknown>[]>();
+  for (const userRow of userRows || []) {
+    const companyId = String(userRow.company_id || "");
+    if (!companyId) continue;
+    const bucket = usersByCompany.get(companyId) || [];
+    bucket.push({
+      user_email: userRow.user_email,
+      role: userRow.role,
+      status: userRow.status,
+    });
+    usersByCompany.set(companyId, bucket);
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    company_users: usersByCompany.get(String(row.id || "")) || [],
+  }));
+}
+
+async function getAvailableCompaniesViaCompanyUsersSplit(
+  supabase: SupabaseClient,
+  email: string
+): Promise<VyronAvailableCompaniesResult> {
+  const { data: userRows, error: userError } = await supabase
+    .from("company_users")
+    .select("company_id, role, status")
+    .eq("status", "active")
+    .eq("user_email", email);
+
+  if (userError) {
+    if (
+      isSupabaseMissingTableError(userError, "company_users") ||
+      shouldSuppressWorkspaceLoadError(userError)
+    ) {
+      return getAvailableCompaniesViaRpc(supabase, email);
+    }
+    return {
+      companies: [],
+      error: formatTableAccessError(userError, "company_users"),
+    };
+  }
+
+  if (!userRows?.length) {
+    return getAvailableCompaniesViaRpc(supabase, email);
+  }
+
+  const companyIds = [
+    ...new Set(
+      userRows
+        .map((row) => row.company_id)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
+
+  const { data: companyRows, error: companyError } = await supabase
+    .from("companies")
+    .select("id, name, subscription_status, status")
+    .in("id", companyIds);
+
+  if (companyError) {
+    if (shouldSuppressWorkspaceLoadError(companyError)) {
+      return getAvailableCompaniesViaRpc(supabase, email);
+    }
+    return {
+      companies: [],
+      error: formatTableAccessError(companyError, "companies"),
+    };
+  }
+
+  const companyMap = new Map(
+    (companyRows || []).map((company) => [company.id, company])
+  );
+
+  const joinRows: CompanyUserJoinRow[] = userRows.map((row) => ({
+    company_id: row.company_id,
+    role: row.role,
+    status: row.status,
+    companies: companyMap.get(row.company_id) || null,
+  }));
+
+  const mapped = joinRows
+    .map((row) => mapCompanyUserJoinToAccess(email, row))
+    .filter((row): row is VyronCompanyAccess => row !== null);
+
+  if (mapped.length === 0) {
+    return getAvailableCompaniesViaRpc(supabase, email);
+  }
+
+  return { companies: dedupeCompaniesById(mapped), error: null };
+}
+
 async function getAvailableCompaniesViaRpc(
   supabase: SupabaseClient,
   email: string
@@ -454,7 +645,7 @@ async function insertCompanyViaRest(
         name,
         subscription_status: "active",
         subscription_tier: "Starter",
-        monthly_fee: 499,
+        monthly_fee: 1_499,
       })
       .select("id, name")
       .single()
@@ -712,46 +903,12 @@ export async function getAvailableCompanies(
       }
       return {
         companies: getMasterOperatorAvailableCompanies(),
-        error: dbResult.error,
+        error: null,
       };
     }
 
-    const { data: companyUserRows, error: companyUserError } = await withPostgrestSchemaRetry(
-      async () =>
-        supabase
-          .from("company_users")
-          .select("*, companies(*)")
-          .eq("status", "active")
-          .eq("user_email", email)
-    );
-
-    if (companyUserError) {
-      if (isSupabaseMissingTableError(companyUserError, "company_users")) {
-        return getAvailableCompaniesViaRpc(supabase, email);
-      }
-      return {
-        companies: [],
-        error: formatTableAccessError(companyUserError, "company_users"),
-      };
-    }
-
-    const rows = (companyUserRows || []) as CompanyUserJoinRow[];
-    const mapped = rows
-      .map((row) => mapCompanyUserJoinToAccess(email, row))
-      .filter((row): row is VyronCompanyAccess => row !== null);
-
-    if (mapped.length === 0) {
-      const rpcResult = await getAvailableCompaniesViaRpc(supabase, email);
-      if (rpcResult.companies.length > 0) return rpcResult;
-      return {
-        companies: [],
-        error:
-          rpcResult.error ||
-          `No active company mapping bound to account user ${email}.`,
-      };
-    }
-
-    return { companies: dedupeCompaniesById(mapped), error: null };
+    // Split queries avoid PostgREST PGRST200 when company_users → companies FK is missing from cache.
+    return getAvailableCompaniesViaCompanyUsersSplit(supabase, email);
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Unknown company security context fault.";
@@ -766,6 +923,16 @@ export async function getAvailableCompanies(
 export async function getCompanyAccess(
   supabase: SupabaseClient
 ): Promise<VyronCompanyAccessResult> {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user?.email) {
+    return { access: null, error: "No active user email session discovered." };
+  }
+
+  const email = normalizeVyronEmail(userData.user.email);
+  if (isVyronMasterOperator("", email)) {
+    return { access: getMasterOperatorCompanyAccess(), error: null };
+  }
+
   const { companies, error } = await getAvailableCompanies(supabase);
   if (error) return { access: null, error };
   if (!companies.length) {

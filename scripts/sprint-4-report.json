@@ -1,0 +1,155 @@
+{
+  "runId": 1781033779752,
+  "supabaseHost": "ldnrmgafsquzfitcuvxq.supabase.co",
+  "timestamp": "2026-06-09T19:36:19.752Z",
+  "sql038": {
+    "columns": {
+      "employee_name": false,
+      "incident_type": false,
+      "incident_date": false,
+      "issue_date": false,
+      "expiry_date": true,
+      "manager_notes": false,
+      "company_id": true
+    },
+    "applied": {
+      "ok": false,
+      "message": "Apply sql/038-hr-warnings-operational-columns.sql in SQL Editor",
+      "present": {
+        "employee_name": false,
+        "incident_type": false,
+        "incident_date": false,
+        "issue_date": false,
+        "expiry_date": true,
+        "manager_notes": false,
+        "company_id": true
+      }
+    }
+  },
+  "phase1_hrWarnings": {
+    "create": {
+      "ok": false,
+      "message": "Could not find the 'severity' column of 'hr_warnings' in the schema cache"
+    },
+    "edit": {
+      "ok": false,
+      "message": "Could not find the 'severity' column of 'hr_warnings' in the schema cache"
+    },
+    "finalWarning": {
+      "ok": false,
+      "message": "Could not find the 'severity' column of 'hr_warnings' in the schema cache"
+    },
+    "expiry": {
+      "ok": false,
+      "message": "Expiry insert failed"
+    },
+    "history": {
+      "ok": false,
+      "message": "History incomplete"
+    },
+    "managerActionCentre": {
+      "ok": false,
+      "message": "MAC warnings empty"
+    },
+    "refreshPersistence": {
+      "ok": true,
+      "message": "Re-read after writes",
+      "ids": []
+    }
+  },
+  "phase2_leaveBalances": {
+    "rootCause": {
+      "ok": true,
+      "message": "No leave_balances row on employee create — fixed via lib/leave-balance-seed.ts + sql/039 trigger"
+    },
+    "existingEmployee": {
+      "ok": false,
+      "message": "No balances for first employee — apply sql/039 or create via app",
+      "balancesAfterEmp": null
+    },
+    "newEmployeeSeed": {
+      "ok": false,
+      "message": "Seed failed",
+      "newEmpBalances": null
+    },
+    "afterLeaveApply": {
+      "ok": false,
+      "message": "No balance after apply"
+    },
+    "afterLeaveApprove": {
+      "ok": false,
+      "message": "No balance after approve"
+    },
+    "accrualJob": {
+      "ok": false,
+      "message": "No scheduled accrual job in repo — days_due_live computed by leave_balances_live view"
+    }
+  },
+  "phase4_transferTermination": {
+    "terminationMovement": {
+      "ok": false,
+      "message": "Movement insert failed"
+    },
+    "employeeInactive": {
+      "ok": true,
+      "message": "Terminated employee inactive"
+    },
+    "storeTransfer": {
+      "ok": false,
+      "message": "Transfer not applied",
+      "default_store_id": null,
+      "active": true
+    },
+    "uiVerification": {
+      "ok": false,
+      "message": "Workforce Movement apply UI not run in this script"
+    }
+  },
+  "phase5_payrollReadiness": {
+    "unresolvedException": {
+      "ok": true,
+      "message": "Open exception created for block test",
+      "id": "ba4e21d5-f740-43ec-88bc-0a15717981cb"
+    },
+    "preflightLogic": {
+      "ok": true,
+      "message": "Blockers detected in scoped queries",
+      "blockers": 1
+    },
+    "hoursOvertimeHolidayNight": {
+      "ok": false,
+      "message": "Hours/overtime/holiday/night rules not exercised — requires payroll_hours + roster fixtures"
+    },
+    "apiPreflight": {
+      "ok": false,
+      "message": "Run authenticated GET /api/payroll/preflight?companyId=... in browser QA"
+    }
+  },
+  "phase6_dashboard": {
+    "emptyCompanyEmployees": {
+      "ok": true,
+      "message": "New company has zero employees"
+    },
+    "emptyCompanyStores": {
+      "ok": true,
+      "message": "New company has zero stores"
+    },
+    "emptyStateUi": {
+      "ok": false,
+      "message": "Browser verification required — isEmptyWorkspace in VyronCoreCostStyleCommandCentre"
+    },
+    "noFakeMetrics": {
+      "ok": true,
+      "message": "Estimated leakage removed in Sprint 3 — live counts only"
+    }
+  },
+  "browserQa": {
+    "note": "Run scripts/sprint-4-browser.mjs separately"
+  },
+  "errors": [],
+  "cleanup": {
+    "companyId": "c94ba171-3b40-44ed-aad4-281c2af1cab5",
+    "emptyCompanyId": "47e4fd39-2a4b-4284-8833-17d0641085d8",
+    "email": "sprint4-1781033779752@vyron-qa.invalid"
+  }
+}

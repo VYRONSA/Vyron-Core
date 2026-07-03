@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CalendarDays,
@@ -11,6 +11,7 @@ import {
   RefreshCcw,
   Search,
 } from "lucide-react";
+import { getCompanyAccess } from "../lib/company-access";
 import { supabase } from "../lib/supabase";
 
 type ReportTab = "leave" | "hr" | "clocking";
@@ -173,7 +174,8 @@ function tabTitle(tab: ReportTab) {
   return "Clocking History";
 }
 
-export default function HistoryReportsPanel() {
+export default function HistoryReportsPanel({ companyId: companyIdProp }: { companyId?: string }) {
+  const [resolvedCompanyId, setResolvedCompanyId] = useState(companyIdProp || "");
   const [activeTab, setActiveTab] = useState<ReportTab>("leave");
   const [startDate, setStartDate] = useState(monthStartIsoDate());
   const [endDate, setEndDate] = useState(todayIsoDate());
@@ -189,6 +191,32 @@ export default function HistoryReportsPanel() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolveCompany() {
+      if (companyIdProp) {
+        setResolvedCompanyId(companyIdProp);
+        return;
+      }
+
+      const { access, error: accessError } = await getCompanyAccess(supabase);
+      if (cancelled) return;
+
+      if (accessError || !access?.company_id) {
+        setError(accessError || "No company access.");
+        return;
+      }
+
+      setResolvedCompanyId(access.company_id);
+    }
+
+    resolveCompany();
+    return () => {
+      cancelled = true;
+    };
+  }, [companyIdProp]);
 
   const employeeById = useMemo(() => {
     const map = new Map<string, EmployeeRow>();
@@ -312,19 +340,27 @@ export default function HistoryReportsPanel() {
     filteredHrWarnings.length + filteredHrCases.length + filteredHrDocuments.length;
 
   async function loadReports() {
+    if (!resolvedCompanyId) {
+      setError("No company access.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
+    const companyId = resolvedCompanyId;
     const dateFrom = `${startDate}T00:00:00+02:00`;
     const dateTo = `${endDate}T23:59:59+02:00`;
 
     const [employeesResult, storesResult] = await Promise.all([
       supabase
         .from("employees")
-        .select("id,employee_number,first_name,last_name"),
+        .select("id,employee_number,first_name,last_name")
+        .eq("company_id", companyId),
       supabase
         .from("stores")
-        .select("id,name"),
+        .select("id,name")
+        .eq("company_id", companyId),
     ]);
 
     if (employeesResult.data) {
@@ -339,6 +375,7 @@ export default function HistoryReportsPanel() {
       const { data, error: leaveError } = await supabase
         .from("leave_requests")
         .select("*")
+        .eq("company_id", companyId)
         .or(`and(start_date.gte.${startDate},start_date.lte.${endDate}),and(end_date.gte.${startDate},end_date.lte.${endDate}),and(start_date.lte.${startDate},end_date.gte.${endDate})`)
         .order("start_date", { ascending: false });
 
@@ -356,16 +393,19 @@ export default function HistoryReportsPanel() {
         supabase
           .from("hr_warnings")
           .select("*")
+          .eq("company_id", companyId)
           .gte("incident_date", startDate)
           .lte("incident_date", endDate)
           .order("incident_date", { ascending: false }),
         supabase
           .from("hr_cases")
           .select("*")
+          .eq("company_id", companyId)
           .order("case_type", { ascending: true }),
         supabase
           .from("hr_documents")
           .select("*")
+          .eq("company_id", companyId)
           .gte("created_at", dateFrom)
           .lte("created_at", dateTo)
           .order("created_at", { ascending: false }),
@@ -398,6 +438,7 @@ export default function HistoryReportsPanel() {
       const { data, error: clockError } = await supabase
         .from("clock_events")
         .select("*")
+        .eq("company_id", companyId)
         .gte("event_time", dateFrom)
         .lte("event_time", dateTo)
         .order("event_time", { ascending: false });

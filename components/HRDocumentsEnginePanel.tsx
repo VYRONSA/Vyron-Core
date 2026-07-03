@@ -4,14 +4,21 @@ import React, { useMemo, useState } from "react";
 import { Archive, Download, FileText, FolderPlus, Search, Trash2, Upload } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
-const DEMO_COMPANY_ID = "11111111-1111-1111-1111-111111111111";
 const fallbackCategories = ["Contracts", "Offer Letters", "Warnings", "Disciplinaries", "Staff Loans", "Job Descriptions", "Increase Letters", "Medical", "Training", "Policies", "Other"];
 
 function employeeName(employee:any){return employee ? `${employee.first_name || ""} ${employee.last_name || ""}`.trim() || employee.employee_number || "Employee" : "Employee";}
 function cleanFileSize(value?:number|null){if(!value)return "Unknown size"; if(value<1024)return `${value} B`; if(value<1024*1024)return `${Math.round(value/1024)} KB`; return `${(value/1024/1024).toFixed(2)} MB`;}
 function normalise(value:string){return String(value || "").toLowerCase().replaceAll(" ","_");}
 
-export default function HRDocumentsEnginePanel({employees=[], employeeDocuments=[], documentCategories=[], companyId=DEMO_COMPANY_ID, onUpdated}:any){
+export default function HRDocumentsEnginePanel({employees=[], employeeDocuments=[], documentCategories=[], companyId, onUpdated}:any){
+  if (!companyId) {
+    return (
+      <div className="rounded-2xl bg-amber-50 p-5 text-sm font-bold text-amber-800">
+        Company context is required before documents can be loaded.
+      </div>
+    );
+  }
+
   const activeEmployees = employees.filter((e:any)=>e.active !== false);
   const categories = documentCategories.length > 0 ? documentCategories : fallbackCategories.map((name,index)=>({id:name,name,sort_order:index+1,system_category:true}));
   const [selectedEmployeeId,setSelectedEmployeeId]=useState(activeEmployees[0]?.id || "");

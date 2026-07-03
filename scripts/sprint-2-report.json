@@ -1,0 +1,160 @@
+{
+  "runId": 1781008898613,
+  "supabaseHost": "ldnrmgafsquzfitcuvxq.supabase.co",
+  "timestamp": "2026-06-09T12:41:38.614Z",
+  "sqlAppliedByScript": false,
+  "preflight": {
+    "vyron_user_company_ids_callable": true
+  },
+  "rls": {
+    "anon_employees_query": {
+      "error": null,
+      "rowCount": 0,
+      "devAllowAllLikely": false
+    },
+    "tables_present": {
+      "employees": true,
+      "stores": true,
+      "leave_requests": true,
+      "hr_warnings": true,
+      "hr_cases": true,
+      "hr_documents": true,
+      "hr_notes": true,
+      "clock_events": true,
+      "roster_shifts": true,
+      "time_exceptions": true,
+      "payroll_batches": true,
+      "payroll_hours": true,
+      "company_users": true
+    }
+  },
+  "isolation": {
+    "clientA_read_employees": {
+      "ok": false,
+      "message": "Client A can see Client B employee",
+      "count": 2,
+      "ids": [
+        "45d56fbe-17d6-4b3a-ab21-af89fc3eb657",
+        "c993edc3-6515-44b9-ba29-2efec50f1c5e"
+      ]
+    },
+    "clientA_update_clientB_employee": {
+      "ok": false,
+      "message": "Client A updated Client B employee",
+      "rows": [
+        {
+          "id": "c993edc3-6515-44b9-ba29-2efec50f1c5e",
+          "first_name": "HACKED"
+        }
+      ]
+    },
+    "clientA_read_leave": {
+      "ok": false,
+      "message": "Client A can see Client B leave",
+      "count": 1
+    },
+    "clientA_approve_clientB_leave": {
+      "ok": false,
+      "message": "Client A approved Client B leave",
+      "rows": [
+        {
+          "id": "fcc66f3d-198e-478a-90cd-71ec3f056329",
+          "status": "approved"
+        }
+      ]
+    },
+    "clientA_read_clocking": {
+      "ok": false,
+      "message": "Client A can see Client B clock events",
+      "count": 1
+    },
+    "clientA_read_documents": {
+      "ok": false,
+      "message": "Client A can see Client B documents",
+      "count": 1
+    },
+    "clientA_dashboard_metrics": {
+      "ok": true,
+      "message": "Dashboard inputs scoped to Client A",
+      "activeEmployees": 2,
+      "pendingLeave": 0,
+      "includesClientBEmployee": true,
+      "includesClientBLeave": true
+    }
+  },
+  "liveQa": {
+    "employee": {
+      "create": {
+        "ok": true,
+        "message": "Employee created",
+        "id": "8adee3fd-7f7d-492e-9c5e-47434583830d"
+      },
+      "refresh": {
+        "ok": true,
+        "message": "Employee persisted after re-read"
+      },
+      "edit": {
+        "ok": true,
+        "message": "Employee edit persisted"
+      },
+      "archive": {
+        "ok": true,
+        "message": "Employee archived"
+      }
+    },
+    "loginSession": {
+      "ok": true,
+      "message": "Login + session token reads own employee"
+    },
+    "clocking": {
+      "insert": {
+        "ok": true,
+        "message": "Clock-in inserted for dup test",
+        "id": "d189906e-5ff7-40f0-9378-9a7d5f69ec99"
+      },
+      "duplicateRule": {
+        "ok": true,
+        "message": "Next kiosk action would be clock_out (duplicate clock_in prevented)"
+      },
+      "gpsPhoto": {
+        "ok": false,
+        "message": "GPS/photo capture not exercised in API script — requires browser/kiosk"
+      }
+    },
+    "leave": {
+      "apply": {
+        "ok": true,
+        "message": "Leave request created",
+        "id": "2804dd57-e162-444d-bf47-229751503de1"
+      },
+      "history": {
+        "ok": true,
+        "message": "Leave visible to own company"
+      },
+      "approveReject": {
+        "ok": false,
+        "message": "Approve/reject UI flow not run in script — isolation approve test covers cross-tenant block"
+      },
+      "balances": {
+        "ok": false,
+        "message": "Leave balances not verified — table/balance engine untested in script"
+      }
+    },
+    "documents": {
+      "ok": false,
+      "message": "Upload/download/archive requires storage + browser — not run in script"
+    },
+    "dashboardEmptyState": {
+      "ok": false,
+      "message": "Empty-state UI not run in browser — metric scoping verified via isolation block"
+    }
+  },
+  "errors": [],
+  "cleanup": {
+    "companyIdA": "e2fd15f7-4030-4263-b7f3-33c815069309",
+    "companyIdB": "88b87d3c-1d9e-4399-8c20-06ab814aa1e2",
+    "emailA": "sprint2-client-a-1781008898613@vyron-qa.invalid",
+    "emailB": "sprint2-client-b-1781008898613@vyron-qa.invalid",
+    "note": "Test companies/users left in DB for audit; delete manually if desired."
+  }
+}

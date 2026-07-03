@@ -1,11 +1,15 @@
 "use client";
 
+import MobileOfflineSyncBar from "@/components/mobile-workforce/MobileOfflineSyncBar";
+
+/** Legacy route module — delegates to Batch 12 offline sync bar. */
 export default function OfflineMobileWorkforceMode() {
   return (
-    <div className="rounded-[32px] bg-white p-8 shadow-xl">
-      <h1 className="text-4xl font-black">OfflineMobileWorkforceMode</h1>
-      <p className="mt-4 font-bold text-slate-500">
-        Enterprise scale expansion module batch 112.
+    <div className="space-y-4">
+      <MobileOfflineSyncBar />
+      <p className="text-sm text-slate-500">
+        Offline queue stores clock, travel, job events, photos and incidents locally. Actions sync
+        automatically when the device reconnects.
       </p>
     </div>
   );

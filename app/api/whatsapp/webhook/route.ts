@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdminClient, getSupabasePublicConfig } from "@/lib/server-api-auth";
+import {
+  parseWhatsAppCommand,
+  processWhatsAppWorkforceCommand,
+  resolveWhatsAppManager,
+  sendWhatsAppWorkforceReply,
+} from "@/lib/whatsapp-workforce-command";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -113,6 +119,40 @@ export async function POST(request: NextRequest) {
     }
 
     const supabaseAdmin = getSupabaseAdminClient();
+    const workforceIntent = parseWhatsAppCommand(textBody);
+
+    if (workforceIntent === "blocked") {
+      const blockedReply =
+        "That command is not allowed. Destructive and payroll export commands are blocked.";
+      await sendWhatsAppWorkforceReply(fromPhone, blockedReply);
+      return NextResponse.json({
+        ok: false,
+        workforceCommand: true,
+        blocked: true,
+        reply: blockedReply,
+      });
+    }
+
+    const manager = await resolveWhatsAppManager(supabaseAdmin, fromPhone);
+    if (manager && workforceIntent !== "unknown") {
+      const commandResult = await processWhatsAppWorkforceCommand(supabaseAdmin, {
+        phone: fromPhone,
+        messageText: textBody,
+        metaMessageId: messageId,
+        companyId: manager.companyId,
+        managerEmail: manager.managerEmail || undefined,
+      });
+      const sendResult = await sendWhatsAppWorkforceReply(fromPhone, commandResult.reply);
+      return NextResponse.json({
+        ok: commandResult.success,
+        workforceCommand: true,
+        intent: commandResult.intent,
+        reply: commandResult.reply,
+        mockMode: commandResult.mockMode,
+        sendResult,
+      });
+    }
+
     const { data: employees, error: employeeError } = await supabaseAdmin
       .from("employees")
       .select("id, first_name, last_name, phone")

@@ -13,6 +13,7 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
+import { getCompanyAccess } from "../lib/company-access";
 import { supabase } from "../lib/supabase";
 
 type EmployeeRow = {
@@ -178,7 +179,8 @@ function Field({
   );
 }
 
-export default function WorkforceMovementPanel() {
+export default function WorkforceMovementPanel({ companyId: companyIdProp }: { companyId?: string }) {
+  const [resolvedCompanyId, setResolvedCompanyId] = useState(companyIdProp || "");
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
   const [stores, setStores] = useState<StoreRow[]>([]);
   const [movements, setMovements] = useState<EmployeeMovementRow[]>([]);
@@ -231,8 +233,36 @@ export default function WorkforceMovementPanel() {
   );
 
   useEffect(() => {
-    loadData();
-  }, []);
+    let cancelled = false;
+
+    async function resolveCompany() {
+      if (companyIdProp) {
+        setResolvedCompanyId(companyIdProp);
+        return;
+      }
+
+      const { access, error: accessError } = await getCompanyAccess(supabase);
+      if (cancelled) return;
+
+      if (accessError || !access?.company_id) {
+        setError(accessError || "No company access.");
+        setLoading(false);
+        return;
+      }
+
+      setResolvedCompanyId(access.company_id);
+    }
+
+    resolveCompany();
+    return () => {
+      cancelled = true;
+    };
+  }, [companyIdProp]);
+
+  useEffect(() => {
+    if (!resolvedCompanyId) return;
+    loadData(resolvedCompanyId);
+  }, [resolvedCompanyId]);
 
   useEffect(() => {
     if (!selectedEmployee) return;
@@ -252,7 +282,7 @@ export default function WorkforceMovementPanel() {
     setInstructionText(movementDescription);
   }, [selectedEmployeeId, movementType, toStoreId, effectiveDate, endDate]);
 
-  async function loadData() {
+  async function loadData(companyId: string) {
     setLoading(true);
     setError(null);
 
@@ -260,19 +290,23 @@ export default function WorkforceMovementPanel() {
       supabase
         .from("employees")
         .select("id,company_id,employee_number,first_name,last_name,job_title,default_store_id,active")
+        .eq("company_id", companyId)
         .order("first_name", { ascending: true }),
       supabase
         .from("stores")
         .select("id,name,city,region,status")
+        .eq("company_id", companyId)
         .order("name", { ascending: true }),
       supabase
         .from("employee_movements")
         .select("*")
+        .eq("company_id", companyId)
         .order("effective_date", { ascending: false })
         .limit(100),
       supabase
         .from("employee_status_history")
         .select("*")
+        .eq("company_id", companyId)
         .order("effective_date", { ascending: false })
         .limit(100),
     ]);
@@ -397,7 +431,7 @@ export default function WorkforceMovementPanel() {
 
     setMessage("Movement instruction saved. You can apply it now or keep it scheduled.");
     setSaving(false);
-    await loadData();
+    if (resolvedCompanyId) await loadData(resolvedCompanyId);
   }
 
   async function applyMovement(movement: EmployeeMovementRow) {
@@ -406,23 +440,29 @@ export default function WorkforceMovementPanel() {
     setMessage(null);
 
     try {
+      const movementCompanyId = movement.company_id || resolvedCompanyId || "";
+
       if (movement.movement_type === "transfer" && movement.to_store_id) {
         const { error: employeeUpdateError } = await supabase
           .from("employees")
           .update({
             default_store_id: movement.to_store_id,
           })
-          .eq("id", movement.employee_id);
+          .eq("id", movement.employee_id)
+          .eq("company_id", movementCompanyId);
 
         if (employeeUpdateError) throw new Error(employeeUpdateError.message);
 
-        const { error: rosterUpdateError } = await supabase
+        let rosterUpdateQuery = supabase
           .from("roster_shifts")
           .update({
             store_id: movement.to_store_id,
           })
           .eq("employee_id", movement.employee_id)
           .gte("shift_date", movement.effective_date);
+        if (movementCompanyId) rosterUpdateQuery = rosterUpdateQuery.eq("company_id", movementCompanyId);
+
+        const { error: rosterUpdateError } = await rosterUpdateQuery;
 
         if (rosterUpdateError) throw new Error(rosterUpdateError.message);
       }
@@ -433,17 +473,21 @@ export default function WorkforceMovementPanel() {
           .update({
             active: false,
           })
-          .eq("id", movement.employee_id);
+          .eq("id", movement.employee_id)
+          .eq("company_id", movementCompanyId);
 
         if (employeeUpdateError) throw new Error(employeeUpdateError.message);
 
-        const { error: rosterUpdateError } = await supabase
+        let terminationRosterQuery = supabase
           .from("roster_shifts")
           .update({
             status: "cancelled",
           })
           .eq("employee_id", movement.employee_id)
           .gte("shift_date", movement.effective_date);
+        if (movementCompanyId) terminationRosterQuery = terminationRosterQuery.eq("company_id", movementCompanyId);
+
+        const { error: rosterUpdateError } = await terminationRosterQuery;
 
         if (rosterUpdateError) throw new Error(rosterUpdateError.message);
       }
@@ -456,6 +500,7 @@ export default function WorkforceMovementPanel() {
           })
           .eq("employee_id", movement.employee_id)
           .gte("shift_date", movement.effective_date);
+        if (movementCompanyId) query = query.eq("company_id", movementCompanyId);
 
         if (movement.end_date) {
           query = query.lte("shift_date", movement.end_date);
@@ -501,7 +546,7 @@ export default function WorkforceMovementPanel() {
       if (movementUpdateError) throw new Error(movementUpdateError.message);
 
       setMessage("Movement applied successfully. Future rosters were updated where applicable.");
-      await loadData();
+      if (resolvedCompanyId) await loadData(resolvedCompanyId);
     } catch (applyError: any) {
       setError(applyError?.message || "Could not apply movement.");
     }
@@ -528,7 +573,7 @@ export default function WorkforceMovementPanel() {
     }
 
     setMessage("Movement cancelled.");
-    await loadData();
+    if (resolvedCompanyId) await loadData(resolvedCompanyId);
     setApplyingId(null);
   }
 
@@ -551,7 +596,7 @@ export default function WorkforceMovementPanel() {
           </div>
 
           <button
-            onClick={loadData}
+            onClick={() => resolvedCompanyId && loadData(resolvedCompanyId)}
             className="flex w-fit items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-bold text-slate-950"
           >
             <RefreshCcw className="h-4 w-4" />

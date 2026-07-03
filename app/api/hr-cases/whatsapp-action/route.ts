@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseAdminClient, getSupabasePublicConfig } from "@/lib/server-api-auth";
+import {
+  assertCompanyWorkspaceAccess,
+  authenticateApiRequest,
+  getSupabaseAdminClient,
+  getSupabasePublicConfig,
+} from "@/lib/server-api-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +38,11 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await authenticateApiRequest(request.headers.get("authorization"));
+    if (!auth.ok) {
+      return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status });
+    }
+
     const body = await request.json();
 
     const hrCaseId = String(body.hrCaseId || "").trim();
@@ -48,6 +58,29 @@ export async function POST(request: NextRequest) {
 
     if (!phone) {
       return NextResponse.json({ ok: false, error: "Missing employee phone number." }, { status: 400 });
+    }
+
+    const { data: hrCase, error: hrCaseError } = await auth.supabase
+      .from("hr_cases")
+      .select("id,company_id")
+      .eq("id", hrCaseId)
+      .maybeSingle();
+
+    if (hrCaseError) {
+      return NextResponse.json({ ok: false, error: hrCaseError.message }, { status: 500 });
+    }
+
+    if (!hrCase?.company_id) {
+      return NextResponse.json({ ok: false, error: "HR case not found." }, { status: 404 });
+    }
+
+    const access = await assertCompanyWorkspaceAccess(
+      auth.supabase,
+      auth.email,
+      String(hrCase.company_id)
+    );
+    if (!access.ok) {
+      return NextResponse.json({ ok: false, error: access.message }, { status: access.status });
     }
 
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || "";
@@ -115,7 +148,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { error: updateError } = await getSupabaseAdminClient()
+    const { error: updateError } = await auth.supabase
       .from("hr_cases")
       .update({
         status,
@@ -123,7 +156,8 @@ export async function POST(request: NextRequest) {
         employee_response_required: true,
         validity_status: "waiting_for_employee",
       })
-      .eq("id", hrCaseId);
+      .eq("id", hrCaseId)
+      .eq("company_id", hrCase.company_id);
 
     const logError = await logMessage({
       direction: "outbound",

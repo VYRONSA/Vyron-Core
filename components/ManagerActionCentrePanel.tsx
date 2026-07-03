@@ -11,6 +11,8 @@ import {
   ShieldAlert,
   X,
 } from "lucide-react";
+import { getCompanyAccess } from "../lib/company-access";
+import { appLeaveTypeToDb, normalizeLeaveBalanceRow } from "../lib/leave-balance-adapter";
 import { supabase } from "../lib/supabase";
 
 type LeaveRequest = {
@@ -90,6 +92,36 @@ type LeaveBalanceLive = {
   pending_days: number;
   cycle_leave_entitlement_days: number;
 };
+
+type HrCaseRow = {
+  id: string;
+  employee_id: string;
+  case_type: string;
+  title?: string | null;
+  description?: string | null;
+  status?: string | null;
+  created_at?: string;
+};
+
+type HrWarningRow = {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  warning_type: string;
+  severity: string;
+  status: string;
+  description: string;
+  created_at: string;
+};
+
+function hrCaseIsOpen(item: HrCaseRow) {
+  return (item.status || "open") !== "closed";
+}
+
+function hrWarningIsOpen(item: HrWarningRow) {
+  const status = (item.status || "active").toLowerCase();
+  return status !== "expired" && status !== "closed";
+}
 
 const actionableNotificationTypes = new Set([
   "hr_warning",
@@ -242,15 +274,20 @@ function LinkIcon() {
 
 export default function ManagerActionCentrePanel({
   onNavigate,
+  companyId: companyIdProp,
 }: {
   onNavigate?: (screen: string) => void;
+  companyId?: string;
 }) {
+  const [resolvedCompanyId, setResolvedCompanyId] = useState(companyIdProp || "");
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [notifications, setNotifications] = useState<EmployeeNotification[]>([]);
   const [exceptions, setExceptions] = useState<ExceptionRow[]>([]);
   const [payrollChecks, setPayrollChecks] = useState<PayrollClockCheck[]>([]);
   const [generatedDocuments, setGeneratedDocuments] = useState<GeneratedDocument[]>([]);
   const [signingLinks, setSigningLinks] = useState<SigningLink[]>([]);
+  const [hrCases, setHrCases] = useState<HrCaseRow[]>([]);
+  const [hrWarnings, setHrWarnings] = useState<HrWarningRow[]>([]);
   const [selectedLeave, setSelectedLeave] = useState<LeaveRequest | null>(null);
   const [selectedLeaveBalance, setSelectedLeaveBalance] = useState<LeaveBalanceLive | null>(null);
   const [feedback, setFeedback] = useState("");
@@ -294,6 +331,10 @@ export default function ManagerActionCentrePanel({
     [signingLinks]
   );
 
+  const openHrCases = useMemo(() => hrCases.filter(hrCaseIsOpen), [hrCases]);
+
+  const openHrWarnings = useMemo(() => hrWarnings.filter(hrWarningIsOpen), [hrWarnings]);
+
   const selectedLeaveDays = selectedLeave
     ? leaveDays(selectedLeave.start_date, selectedLeave.end_date)
     : 0;
@@ -303,48 +344,104 @@ export default function ManagerActionCentrePanel({
     Number(selectedLeaveBalance.days_due_live || 0) >= selectedLeaveDays ||
     normaliseLeaveType(selectedLeave?.leave_type) !== "annual_leave";
 
-  async function loadActionCentre() {
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolveCompany() {
+      if (companyIdProp) {
+        setResolvedCompanyId(companyIdProp);
+        return;
+      }
+
+      const { access, error: accessError } = await getCompanyAccess(supabase);
+      if (cancelled) return;
+
+      if (accessError || !access?.company_id) {
+        setError(accessError || "No company access.");
+        return;
+      }
+
+      setResolvedCompanyId(access.company_id);
+    }
+
+    resolveCompany();
+    return () => {
+      cancelled = true;
+    };
+  }, [companyIdProp]);
+
+  async function loadActionCentre(companyId: string) {
     setLoading(true);
     setError(null);
 
-    const [leaveResult, notificationResult, exceptionsResult, payrollResult, documentsResult, signingLinksResult] =
+    const employeesRes = await supabase
+      .from("employees")
+      .select("id")
+      .eq("company_id", companyId);
+    const employeeIds = (employeesRes.data || []).map((row) => row.id as string);
+
+    const notificationQuery =
+      employeeIds.length > 0
+        ? supabase
+            .from("employee_notifications")
+            .select("*")
+            .in("employee_id", employeeIds)
+            .in("notification_type", [
+              "hr_warning",
+              "hr_document",
+              "clocking_feedback",
+              "payroll_feedback",
+              "general",
+              "manager_message",
+            ])
+            .in("delivery_status", ["pending", "drafted", "failed"])
+            .order("created_at", { ascending: false })
+            .limit(20)
+        : Promise.resolve({ data: [], error: null });
+
+    const [leaveResult, notificationResult, exceptionsResult, payrollResult, documentsResult, signingLinksResult, hrCasesResult, hrWarningsResult] =
       await Promise.all([
         supabase
           .from("leave_requests")
           .select("*")
+          .eq("company_id", companyId)
           .order("created_at", { ascending: false })
           .limit(50),
+        notificationQuery,
         supabase
-          .from("employee_notifications").select("*")
-          .in("notification_type", [
-            "hr_warning",
-            "hr_document",
-            "clocking_feedback",
-            "payroll_feedback",
-            "general",
-            "manager_message",
-          ])
-          .in("delivery_status", ["pending", "drafted", "failed"])
-          .order("created_at", { ascending: false })
-          .limit(20),
-        supabase
-          .from("exceptions")
+          .from("time_exceptions")
           .select("*")
+          .eq("company_id", companyId)
           .order("created_at", { ascending: false })
           .limit(20),
         supabase
           .from("payroll_clock_checks")
           .select("*")
+          .eq("company_id", companyId)
           .order("shift_date", { ascending: false })
           .limit(20),
         supabase
           .from("employee_generated_documents")
           .select("id,employee_id,document_title,document_type,signature_status,signed_at,created_at")
+          .eq("company_id", companyId)
           .order("created_at", { ascending: false })
           .limit(20),
         supabase
           .from("document_signing_links")
           .select("id,employee_id,document_id,status,expires_at,opened_at,signed_at,created_at")
+          .eq("company_id", companyId)
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("hr_cases")
+          .select("id,employee_id,case_type,title,description,status,created_at")
+          .eq("company_id", companyId)
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("hr_warnings")
+          .select("*")
+          .eq("company_id", companyId)
           .order("created_at", { ascending: false })
           .limit(20),
       ]);
@@ -377,6 +474,14 @@ export default function ManagerActionCentrePanel({
       setSigningLinks(signingLinksResult.data as SigningLink[]);
     }
 
+    if (hrCasesResult.data) {
+      setHrCases(hrCasesResult.data as HrCaseRow[]);
+    }
+
+    if (hrWarningsResult.data) {
+      setHrWarnings(hrWarningsResult.data as HrWarningRow[]);
+    }
+
     setLoading(false);
   }
 
@@ -385,24 +490,36 @@ export default function ManagerActionCentrePanel({
 
     if (!leave.employee_id) return;
 
-    const leaveType = normaliseLeaveType(leave.leave_type);
+    const leaveType = appLeaveTypeToDb(normaliseLeaveType(leave.leave_type));
 
-    const { data } = await supabase
+    let balanceQuery = supabase
       .from("leave_balances_live")
       .select("*")
       .eq("employee_id", leave.employee_id)
       .eq("leave_type", leaveType)
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
+    if (resolvedCompanyId) balanceQuery = balanceQuery.eq("company_id", resolvedCompanyId);
+
+    const { data } = await balanceQuery.maybeSingle();
 
     if (data) {
-      setSelectedLeaveBalance(data as LeaveBalanceLive);
+      const normalized = normalizeLeaveBalanceRow(data as Record<string, unknown>);
+      setSelectedLeaveBalance({
+        ...normalized,
+        employee_name: normalized.employee_name || leave.employee_name || "",
+        cycle_leave_entitlement_days: normalized.cycle_leave_entitlement_days || 0,
+        days_accrued_live: normalized.days_accrued_live,
+        days_due_live: normalized.days_due_live,
+        days_taken: normalized.days_taken,
+        pending_days: normalized.pending_days,
+      } as LeaveBalanceLive);
     }
   }
 
   useEffect(() => {
-    loadActionCentre();
-  }, []);
+    if (!resolvedCompanyId) return;
+    loadActionCentre(resolvedCompanyId);
+  }, [resolvedCompanyId]);
 
   function go(screen: string) {
     if (onNavigate) onNavigate(screen);
@@ -435,7 +552,8 @@ export default function ManagerActionCentrePanel({
         status,
         manager_feedback: feedback.trim() || null,
       })
-      .eq("id", selectedLeave.id);
+      .eq("id", selectedLeave.id)
+      .eq("company_id", resolvedCompanyId || "");
 
     if (updateError) {
       setError(updateError.message);
@@ -446,7 +564,7 @@ export default function ManagerActionCentrePanel({
     setSelectedLeave(null);
     setSelectedLeaveBalance(null);
     setFeedback("");
-    await loadActionCentre();
+    if (resolvedCompanyId) await loadActionCentre(resolvedCompanyId);
     setActionSaving(false);
   }
 
@@ -469,7 +587,7 @@ export default function ManagerActionCentrePanel({
           </div>
 
           <button
-            onClick={loadActionCentre}
+            onClick={() => resolvedCompanyId && loadActionCentre(resolvedCompanyId)}
             className="flex w-fit items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-bold text-slate-950"
           >
             <RefreshCcw className="h-4 w-4" />
@@ -479,7 +597,7 @@ export default function ManagerActionCentrePanel({
       </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-6">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <button onClick={() => go("Leave Approvals")} className="text-left">
           <ActionCard
             title="Pending Leave"
@@ -537,6 +655,26 @@ export default function ManagerActionCentrePanel({
             subtitle="Active WhatsApp links"
             tone="border-emerald-200 bg-emerald-50 text-emerald-900"
             icon={<LinkIcon />}
+          />
+        </button>
+
+        <button onClick={() => go("HR Cases")} className="text-left">
+          <ActionCard
+            title="HR Cases"
+            value={String(openHrCases.length)}
+            subtitle="Open disciplinary cases"
+            tone="border-indigo-200 bg-indigo-50 text-indigo-900"
+            icon={<ShieldAlert className="h-6 w-6 text-indigo-700" />}
+          />
+        </button>
+
+        <button onClick={() => go("HR Warnings")} className="text-left">
+          <ActionCard
+            title="HR Warnings"
+            value={String(openHrWarnings.length)}
+            subtitle="Active warnings"
+            tone="border-violet-200 bg-violet-50 text-violet-900"
+            icon={<Bell className="h-6 w-6 text-violet-700" />}
           />
         </button>
       </section>
@@ -759,6 +897,87 @@ export default function ManagerActionCentrePanel({
               </div>
             </>
           )}
+        </div>
+      </section>
+
+      <section className="grid gap-8 xl:grid-cols-3">
+        <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-[0.35em] text-rose-600">
+                Exceptions
+              </div>
+              <h3 className="mt-2 text-2xl font-bold text-slate-950">Open Time Exceptions</h3>
+            </div>
+            <button onClick={() => go("Exceptions")} className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-white">
+              Open
+            </button>
+          </div>
+          <div className="mt-5 space-y-3">
+            {openExceptions.length === 0 ? (
+              <div className="rounded-2xl bg-emerald-50 p-5 text-sm font-semibold text-emerald-700">
+                No open time exceptions.
+              </div>
+            ) : (
+              openExceptions.slice(0, 5).map((item) => (
+                <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="font-bold text-slate-950">{formatText(item.exception_type)}</div>
+                  <div className="mt-1 text-xs font-semibold text-slate-500">{item.severity} · {formatText(item.status)}</div>
+                  <div className="mt-2 text-sm text-slate-600">{item.description || "No description."}</div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-[0.35em] text-indigo-600">HR Cases</div>
+              <h3 className="mt-2 text-2xl font-bold text-slate-950">Open Cases</h3>
+            </div>
+            <button onClick={() => go("HR Cases")} className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-white">
+              Open
+            </button>
+          </div>
+          <div className="mt-5 space-y-3">
+            {openHrCases.length === 0 ? (
+              <div className="rounded-2xl bg-emerald-50 p-5 text-sm font-semibold text-emerald-700">No open HR cases.</div>
+            ) : (
+              openHrCases.slice(0, 5).map((item) => (
+                <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="font-bold text-slate-950">{item.title || formatText(item.case_type)}</div>
+                  <div className="mt-1 text-xs font-semibold text-slate-500">{formatText(item.status)}</div>
+                  <div className="mt-2 text-sm text-slate-600">{item.description || "No description."}</div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-[0.35em] text-violet-600">Warnings</div>
+              <h3 className="mt-2 text-2xl font-bold text-slate-950">Active Warnings</h3>
+            </div>
+            <button onClick={() => go("HR Warnings")} className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-white">
+              Open
+            </button>
+          </div>
+          <div className="mt-5 space-y-3">
+            {openHrWarnings.length === 0 ? (
+              <div className="rounded-2xl bg-emerald-50 p-5 text-sm font-semibold text-emerald-700">No active HR warnings.</div>
+            ) : (
+              openHrWarnings.slice(0, 5).map((item) => (
+                <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="font-bold text-slate-950">{item.employee_name || item.employee_id}</div>
+                  <div className="mt-1 text-xs font-semibold text-slate-500">{formatText(item.warning_type)} · {item.severity}</div>
+                  <div className="mt-2 text-sm text-slate-600">{item.description || "No description."}</div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </section>
 

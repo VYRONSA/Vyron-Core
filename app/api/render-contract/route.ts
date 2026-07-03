@@ -1,7 +1,12 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
+import {
+  assertCompanyWorkspaceAccess,
+  authenticateApiRequest,
+} from "@/lib/server-api-auth";
+
+export const runtime = "nodejs";
 
 function cleanFileName(value: string) {
   return value
@@ -26,16 +31,21 @@ export async function GET() {
     ok: true,
     route: "render-contract",
     message: "DOCX render route is available.",
-    hasSupabaseUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
-    hasSupabaseAnonKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+    authRequired: true,
   });
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const auth = await authenticateApiRequest(request.headers.get("authorization"));
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.message }, { status: auth.status });
+    }
+
     const body = await request.json();
 
     const documentId = String(body.documentId || "");
+    const companyId = String(body.companyId || "").trim();
     const templateBucket = String(body.templateBucket || "");
     const templatePath = String(body.templatePath || "");
     const outputTitle = String(body.outputTitle || "generated-contract");
@@ -46,23 +56,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "documentId is required." }, { status: 400 });
     }
 
+    if (!companyId) {
+      return NextResponse.json({ error: "companyId is required." }, { status: 400 });
+    }
+
+    const access = await assertCompanyWorkspaceAccess(auth.supabase, auth.email, companyId);
+    if (!access.ok) {
+      return NextResponse.json({ error: access.message }, { status: access.status });
+    }
+
     if (!templateBucket || !templatePath) {
       return NextResponse.json({ error: "Template bucket and path are required." }, { status: 400 });
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const { data: documentRow, error: documentError } = await auth.supabase
+      .from("employee_generated_documents")
+      .select("id,company_id,employee_id")
+      .eq("id", documentId)
+      .eq("company_id", companyId)
+      .maybeSingle();
 
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json(
-        { error: "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY." },
-        { status: 500 }
-      );
+    if (documentError) {
+      return NextResponse.json({ error: documentError.message }, { status: 500 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    if (!documentRow) {
+      return NextResponse.json({ error: "Document not found for this company." }, { status: 404 });
+    }
 
-    const { data: templateBlob, error: downloadError } = await supabase.storage
+    const { data: templateBlob, error: downloadError } = await auth.supabase.storage
       .from(templateBucket)
       .download(templatePath);
 
@@ -70,7 +92,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            `${downloadError?.message || "Could not download DOCX template."} Bucket: ${templateBucket}. Path: ${templatePath}. This usually means the template database record points to a file that no longer exists in Supabase Storage.`,
+            `${downloadError?.message || "Could not download DOCX template."} Bucket: ${templateBucket}. Path: ${templatePath}.`,
         },
         { status: 500 }
       );
@@ -90,12 +112,13 @@ export async function POST(request: Request) {
 
     try {
       doc.render(values);
-    } catch (renderError: any) {
+    } catch (renderError: unknown) {
+      const err = renderError as { properties?: { errors?: Array<{ properties?: { explanation?: string }; message?: string }> }; message?: string };
       const explanation =
-        renderError?.properties?.errors
-          ?.map((item: any) => item?.properties?.explanation || item?.message)
+        err?.properties?.errors
+          ?.map((item) => item?.properties?.explanation || item?.message)
           ?.join(" | ") ||
-        renderError?.message ||
+        err?.message ||
         "DOCX placeholder rendering failed.";
 
       return NextResponse.json(
@@ -113,7 +136,7 @@ export async function POST(request: Request) {
 
     const outputPath = `${employeeId}/${documentId}/${Date.now()}-${cleanFileName(outputTitle)}.docx`;
 
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await auth.supabase.storage
       .from("hr-signed-documents")
       .upload(outputPath, renderedBuffer, {
         contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -124,7 +147,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: uploadError.message }, { status: 500 });
     }
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await auth.supabase
       .from("employee_generated_documents")
       .update({
         file_bucket: "hr-signed-documents",
@@ -132,7 +155,8 @@ export async function POST(request: Request) {
         generated_word_html:
           "Generated from actual uploaded DOCX template. Download/open the DOCX file for exact layout.",
       })
-      .eq("id", documentId);
+      .eq("id", documentId)
+      .eq("company_id", companyId);
 
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
@@ -143,10 +167,8 @@ export async function POST(request: Request) {
       file_bucket: "hr-signed-documents",
       file_path: outputPath,
     });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error?.message || "Unexpected DOCX render error." },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unexpected DOCX render error.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

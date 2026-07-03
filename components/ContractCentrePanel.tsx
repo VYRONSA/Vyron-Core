@@ -4,8 +4,6 @@ import React, { useMemo, useState } from "react";
 import { Download, FileText, Search, Trash2, Upload } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
-const DEMO_COMPANY_ID = "11111111-1111-1111-1111-111111111111";
-
 function employeeName(e: any) {
   return e ? `${e.first_name || ""} ${e.last_name || ""}`.trim() || e.employee_number || "Employee" : "Employee";
 }
@@ -51,9 +49,17 @@ const documentTypes = [
 export default function ContractCentrePanel({
   employees = [],
   employeeDocuments = [],
-  companyId = DEMO_COMPANY_ID,
+  companyId,
   onUpdated,
 }: any) {
+  if (!companyId) {
+    return (
+      <div className="rounded-2xl bg-amber-50 p-5 text-sm font-bold text-amber-800">
+        Company context is required before documents can be loaded.
+      </div>
+    );
+  }
+
   const activeEmployees = employees.filter((e: any) => e.active !== false);
 
   const [employeeId, setEmployeeId] = useState(activeEmployees[0]?.id || "");

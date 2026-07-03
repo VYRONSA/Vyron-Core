@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
+import { getCompanyAccess } from "../lib/company-access";
 import { supabase } from "../lib/supabase";
 
 type ClockEventRow = {
@@ -122,7 +123,8 @@ function StatCard({
   );
 }
 
-export default function ClockReviewPanel() {
+export default function ClockReviewPanel({ companyId: companyIdProp }: { companyId?: string }) {
+  const [resolvedCompanyId, setResolvedCompanyId] = useState(companyIdProp || "");
   const [clockEvents, setClockEvents] = useState<ClockEventRow[]>([]);
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
   const [stores, setStores] = useState<StoreRow[]>([]);
@@ -171,10 +173,37 @@ export default function ClockReviewPanel() {
   );
 
   useEffect(() => {
-    loadReviewData();
-  }, []);
+    let cancelled = false;
 
-  async function loadReviewData() {
+    async function resolveCompany() {
+      if (companyIdProp) {
+        setResolvedCompanyId(companyIdProp);
+        return;
+      }
+
+      const { access, error: accessError } = await getCompanyAccess(supabase);
+      if (cancelled) return;
+
+      if (accessError || !access?.company_id) {
+        setError(accessError || "No company access.");
+        return;
+      }
+
+      setResolvedCompanyId(access.company_id);
+    }
+
+    resolveCompany();
+    return () => {
+      cancelled = true;
+    };
+  }, [companyIdProp]);
+
+  useEffect(() => {
+    if (!resolvedCompanyId) return;
+    loadReviewData(resolvedCompanyId);
+  }, [resolvedCompanyId]);
+
+  async function loadReviewData(companyId: string) {
     setLoading(true);
     setError(null);
 
@@ -182,15 +211,18 @@ export default function ClockReviewPanel() {
       supabase
         .from("clock_events")
         .select("*")
+        .eq("company_id", companyId)
         .order("event_time", { ascending: false })
         .limit(100),
       supabase
         .from("employees")
         .select("id,employee_number,first_name,last_name")
+        .eq("company_id", companyId)
         .order("first_name", { ascending: true }),
       supabase
         .from("stores")
         .select("id,name")
+        .eq("company_id", companyId)
         .order("name", { ascending: true }),
     ]);
 
@@ -270,7 +302,7 @@ export default function ClockReviewPanel() {
           </div>
 
           <button
-            onClick={loadReviewData}
+            onClick={() => resolvedCompanyId && loadReviewData(resolvedCompanyId)}
             className="flex w-fit items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-bold text-slate-950"
           >
             <RefreshCcw className="h-4 w-4" />

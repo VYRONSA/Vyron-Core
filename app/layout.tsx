@@ -1,11 +1,31 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://www.vyroncore.com";
+
 export const metadata: Metadata = {
   title: "VYRON CORE",
   description:
     "AI-powered workforce management, HR, clocking, rostering, payroll readiness and workforce intelligence platform.",
+  metadataBase: new URL(siteUrl),
   applicationName: "VYRON CORE",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "VYRON CORE",
+    description:
+      "AI-powered workforce management, HR, clocking, rostering, payroll readiness and workforce intelligence platform.",
+    type: "website",
+    url: "/",
+    siteName: "VYRON CORE",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "VYRON CORE",
+    description:
+      "AI-powered workforce management, HR, clocking, rostering, payroll readiness and workforce intelligence platform.",
+  },
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [

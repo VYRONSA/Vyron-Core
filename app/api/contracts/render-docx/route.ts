@@ -1,7 +1,10 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
+import {
+  assertCompanyWorkspaceAccess,
+  authenticateApiRequest,
+} from "@/lib/server-api-auth";
 
 export const runtime = "nodejs";
 
@@ -32,22 +35,28 @@ function normaliseValues(values: Record<string, unknown>) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as RenderRequest;
+    const auth = await authenticateApiRequest(request.headers.get("authorization"));
+    if (!auth.ok) {
+      return new NextResponse(auth.message, { status: auth.status });
+    }
+
+    const body = (await request.json()) as RenderRequest & { companyId?: string };
+    const companyId = String(body.companyId || "").trim();
+
+    if (!companyId) {
+      return new NextResponse("companyId is required.", { status: 400 });
+    }
+
+    const access = await assertCompanyWorkspaceAccess(auth.supabase, auth.email, companyId);
+    if (!access.ok) {
+      return new NextResponse(access.message, { status: access.status });
+    }
 
     if (!body.templateBucket || !body.templatePath) {
       return new NextResponse("Missing template bucket or path.", { status: 400 });
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return new NextResponse("Missing Supabase environment variables.", { status: 500 });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-    const { data, error } = await supabase.storage
+    const { data, error } = await auth.supabase.storage
       .from(body.templateBucket)
       .download(body.templatePath);
 

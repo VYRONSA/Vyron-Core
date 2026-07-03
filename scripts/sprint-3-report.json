@@ -1,0 +1,199 @@
+{
+  "runId": 1781025705036,
+  "supabaseHost": "ldnrmgafsquzfitcuvxq.supabase.co",
+  "timestamp": "2026-06-09T17:21:45.037Z",
+  "modules": {
+    "employeeManagement": {
+      "create": {
+        "ok": true,
+        "message": "Create employee",
+        "id": "879edd96-dd18-4703-9ff8-b97a17f02c20"
+      },
+      "companyIsolation": {
+        "ok": true,
+        "message": "Created employee has correct company_id"
+      },
+      "edit": {
+        "ok": true,
+        "message": "Edit persisted"
+      },
+      "archive": {
+        "ok": true,
+        "message": "Archive persisted"
+      },
+      "search": {
+        "ok": true,
+        "message": "Search is client-side filter — DB read scoped",
+        "employeeCount": 2
+      },
+      "transferTerminate": {
+        "ok": false,
+        "message": "Transfer/terminate UI not exercised in script — Workforce Movement panel"
+      }
+    },
+    "clocking": {
+      "clockIn": {
+        "ok": true,
+        "message": "Clock-in saved",
+        "id": "b326a48b-d337-4131-94fb-4d9850df2694"
+      },
+      "gpsCapture": {
+        "ok": true,
+        "message": "GPS fields persisted"
+      },
+      "photoCapture": {
+        "ok": true,
+        "message": "Photo URL persisted"
+      },
+      "duplicateClockInRule": {
+        "ok": true,
+        "message": "Last event clock_in — UI blocks second clock-in"
+      },
+      "clockOut": {
+        "ok": true,
+        "message": "Clock-out after clock-in",
+        "id": "8f9a0afd-0489-4517-b355-8a0a14383682"
+      },
+      "companyIsolation": {
+        "ok": true,
+        "message": "Clock events scoped to company"
+      },
+      "browserKiosk": {
+        "ok": false,
+        "message": "PIN kiosk UI not run in script"
+      }
+    },
+    "leave": {
+      "apply": {
+        "ok": true,
+        "message": "Leave apply",
+        "id": "21d117a5-7675-4e6b-9dcc-bb93758fbaa4"
+      },
+      "approve": {
+        "ok": true,
+        "message": "Approve persisted",
+        "feedback": "Approved in sprint3 test"
+      },
+      "cancel": {
+        "ok": true,
+        "message": "Cancel persisted"
+      },
+      "history": {
+        "ok": true,
+        "message": "Leave history readable",
+        "count": 2
+      },
+      "balances": {
+        "ok": false,
+        "message": "No leave balances for employee — may need accrual engine"
+      }
+    },
+    "exceptions": {
+      "create": {
+        "ok": true,
+        "message": "time_exceptions insert",
+        "id": "700ba39d-cc3e-4915-b025-226bf1a0d0c3"
+      },
+      "dismiss": {
+        "ok": true,
+        "message": "Dismiss persisted"
+      },
+      "approve": {
+        "ok": true,
+        "message": "Approve persisted"
+      },
+      "openCount": {
+        "ok": true,
+        "message": "Open exceptions queryable",
+        "count": 0
+      },
+      "payrollBlock": {
+        "ok": false,
+        "message": "Payroll blocking UI not exercised in script — verify via Payroll Prep screen"
+      }
+    },
+    "managerActionCentre": {
+      "leaveQueue": {
+        "ok": true,
+        "message": "Leave approvals loadable",
+        "pending": 0
+      },
+      "exceptions": {
+        "ok": true,
+        "message": "Exceptions loadable",
+        "count": 2
+      },
+      "hrCases": {
+        "ok": true,
+        "message": "HR cases loadable",
+        "id": "fe7b339b-2aff-4453-8d8b-ccc42a4fb293",
+        "open": 1
+      },
+      "warnings": {
+        "ok": false,
+        "message": "HR warning insert failed",
+        "error": "Could not find the 'incident_date' column of 'hr_warnings' in the schema cache"
+      },
+      "refreshPersistence": {
+        "ok": true,
+        "message": "Re-query after writes succeeded"
+      }
+    },
+    "dashboardMetrics": {
+      "employees": {
+        "ok": true,
+        "message": "Employee count",
+        "active": 1
+      },
+      "stores": {
+        "ok": true,
+        "message": "Store count",
+        "count": 0
+      },
+      "leave": {
+        "ok": true,
+        "message": "Pending leave count",
+        "pending": 0
+      },
+      "warnings": {
+        "ok": true,
+        "message": "Warnings count",
+        "active": 0
+      },
+      "cases": {
+        "ok": true,
+        "message": "Cases count",
+        "open": 1
+      },
+      "exceptions": {
+        "ok": true,
+        "message": "Exceptions count",
+        "open": 0
+      },
+      "noFakeNumbers": {
+        "ok": true,
+        "message": "Dashboard uses live Supabase counts — estimated leakage removed in Sprint 3"
+      },
+      "emptyState": {
+        "ok": false,
+        "message": "Empty-state UI not run in browser"
+      }
+    }
+  },
+  "legacyExceptionsTable": {
+    "exists": true,
+    "queryable": {
+      "ok": true,
+      "message": "Legacy exceptions table still exists in DB (app must not use it)"
+    }
+  },
+  "browserQa": {
+    "note": "Not run — requires manual kiosk/manager browser session"
+  },
+  "errors": [],
+  "cleanup": {
+    "companyId": "d32fdef5-ced3-4f9e-b02f-fa2ae974c0f9",
+    "email": "sprint3-ops-1781025705036@vyron-qa.invalid",
+    "note": "Sprint3 test data left for audit"
+  }
+}

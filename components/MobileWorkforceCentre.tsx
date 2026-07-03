@@ -24,16 +24,16 @@ export default function MobileWorkforceCentre() {
         </div>
         <div className="rounded-[28px] bg-gradient-to-br from-blue-600 to-cyan-400 p-5 text-white">
           <div className="text-xs font-black uppercase tracking-[0.28em] text-cyan-50">Mobile readiness</div>
-          <div className="mt-2 text-4xl font-black">62%</div>
+          <div className="mt-2 text-4xl font-black">Live</div>
         </div>
       </div>
 
       <div className="mt-8 grid gap-5 md:grid-cols-4">
         {[
-          ["Photo Clocking", "Ready", <Camera key="1" className="h-6 w-6" />],
-          ["GPS", "Ready", <MapPin key="2" className="h-6 w-6" />],
-          ["Manager App", "Next", <UserCheck key="3" className="h-6 w-6" />],
-          ["Push Alerts", "Planned", <MessageSquare key="4" className="h-6 w-6" />],
+          ["Photo Evidence", "Ready", <Camera key="1" className="h-6 w-6" />],
+          ["GPS Validation", "Ready", <MapPin key="2" className="h-6 w-6" />],
+          ["Offline Sync", "Ready", <UserCheck key="3" className="h-6 w-6" />],
+          ["Push Alerts", "Ready", <MessageSquare key="4" className="h-6 w-6" />],
         ].map(([title, value, icon]) => (
           <article key={String(title)} className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
             <div className="w-fit rounded-2xl bg-cyan-100 p-3 text-cyan-700">{icon}</div>
