@@ -1,1 +1,1 @@
-export { default } from "@/components/KioskLeaveRedirect";
+export { default } from "../leave/page";

@@ -18,6 +18,7 @@ import {
   formatClientSafeError,
   resolveKioskCompanyId,
 } from "@/lib/kiosk-company-context";
+import { forecastBalance } from "@/lib/leave-enterprise";
 import { normalizeLeaveBalanceRow } from "@/lib/leave-balance-adapter";
 import { supabase } from "@/lib/supabase";
 
@@ -41,7 +42,38 @@ type LeaveRequestRow = {
   end_date: string;
   reason: string | null;
   status: string;
+  workflow_stage: string | null;
+  submitted_at: string | null;
+  manager_approved_at: string | null;
+  hr_approved_at: string | null;
+  rejected_at: string | null;
+  cancelled_at: string | null;
+  completed_at: string | null;
   manager_feedback: string | null;
+  created_at: string;
+};
+
+type LeaveTypeConfigRow = {
+  id: string;
+  leave_type_code: string;
+  leave_type_name: string;
+  monthly_accrual_days: number;
+  carry_forward_limit_days: number;
+  carry_forward_expiry_months: number;
+  maximum_balance_days: number | null;
+  requires_attachment: boolean;
+  requires_medical_certificate: boolean;
+};
+
+type LeaveDocumentRow = {
+  id: string;
+  employee_id: string | null;
+  employee_name: string | null;
+  document_title: string | null;
+  document_type: string | null;
+  file_url: string | null;
+  archive_status: string | null;
+  leave_request_id: string | null;
   created_at: string;
 };
 
@@ -164,6 +196,15 @@ export default function LeavePage() {
 
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequestRow[]>([]);
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalanceLiveRow[]>([]);
+  const [leaveTypes, setLeaveTypes] = useState<LeaveTypeConfigRow[]>([]);
+  const [leaveDocuments, setLeaveDocuments] = useState<LeaveDocumentRow[]>([]);
+
+  const [forecastMonths, setForecastMonths] = useState("6");
+  const [projectedLeavePerMonth, setProjectedLeavePerMonth] = useState("1.5");
+
+  const [documentTitle, setDocumentTitle] = useState("");
+  const [documentType, setDocumentType] = useState("supporting_document");
+  const [documentUrl, setDocumentUrl] = useState("");
   const [loadingEmployees, setLoadingEmployees] = useState(true);
   const [checkingPin, setCheckingPin] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -191,22 +232,55 @@ export default function LeavePage() {
   const calculatedDays = leaveDays(startDate, endDate);
 
   const pendingCount = useMemo(
-    () => leaveRequests.filter((leave) => leave.status === "pending").length,
+    () =>
+      leaveRequests.filter(
+        (leave) => leave.status === "pending" || leave.workflow_stage === "submitted"
+      ).length,
     [leaveRequests]
   );
 
   const approvedCount = useMemo(
-    () => leaveRequests.filter((leave) => leave.status === "approved").length,
+    () =>
+      leaveRequests.filter(
+        (leave) => leave.status === "approved" || leave.workflow_stage === "hr_approved"
+      ).length,
     [leaveRequests]
   );
 
   const otherCount = useMemo(
     () =>
       leaveRequests.filter(
-        (leave) => leave.status === "declined" || leave.status === "amended"
+        (leave) =>
+          ["declined", "amended", "cancelled", "completed"].includes(leave.status) ||
+          ["rejected", "cancelled", "completed"].includes(String(leave.workflow_stage || ""))
       ).length,
     [leaveRequests]
   );
+
+  const managerApprovedCount = useMemo(
+    () => leaveRequests.filter((leave) => leave.workflow_stage === "manager_approved").length,
+    [leaveRequests]
+  );
+
+  const negativeForecastCount = useMemo(() => {
+    const months = Math.max(1, Number(forecastMonths || "6"));
+    const projectedUse = Math.max(0, Number(projectedLeavePerMonth || "1.5"));
+
+    let warningCount = 0;
+    for (const balance of leaveBalances) {
+      let running = Number(balance.days_due_live || 0) - Number(balance.pending_days || 0);
+      const monthlyAccrual = Number(balance.monthly_accrual_days || 0);
+
+      for (let month = 1; month <= months; month += 1) {
+        running += monthlyAccrual;
+        running -= projectedUse;
+      }
+
+      if (running < 0) warningCount += 1;
+    }
+
+    return warningCount;
+  }, [leaveBalances, forecastMonths, projectedLeavePerMonth]);
 
   const annualLeaveWarning =
     leaveType === "annual_leave" &&
@@ -225,6 +299,7 @@ export default function LeavePage() {
       setError(resolved.error);
       return;
     }
+    await loadLeaveTypes(resolved.companyId);
     await loadEmployees(resolved.companyId);
   }
 
@@ -280,7 +355,7 @@ export default function LeavePage() {
   async function loadLeaveRequestsForEmployee(targetEmployee: EmployeeRow) {
     let leaveQuery = supabase
       .from("leave_requests")
-      .select("*")
+      .select("id,employee_id,employee_name,leave_type,start_date,end_date,reason,status,workflow_stage,submitted_at,manager_approved_at,hr_approved_at,rejected_at,cancelled_at,completed_at,manager_feedback,created_at")
       .eq("employee_id", targetEmployee.id)
       .order("created_at", { ascending: false })
       .limit(50);
@@ -294,6 +369,21 @@ export default function LeavePage() {
     }
 
     setLeaveRequests((data || []) as LeaveRequestRow[]);
+  }
+
+  async function loadLeaveTypes(activeCompanyId: string) {
+    const { data, error: leaveTypeError } = await supabase
+      .from("leave_types_config")
+      .select("id,leave_type_code,leave_type_name,monthly_accrual_days,carry_forward_limit_days,carry_forward_expiry_months,maximum_balance_days,requires_attachment,requires_medical_certificate")
+      .eq("company_id", activeCompanyId)
+      .eq("status", "active")
+      .order("leave_type_name", { ascending: true });
+
+    if (leaveTypeError) {
+      return;
+    }
+
+    setLeaveTypes((data || []) as LeaveTypeConfigRow[]);
   }
 
   async function loadLeaveBalancesForEmployee(targetEmployee: EmployeeRow) {
@@ -314,6 +404,29 @@ export default function LeavePage() {
     setLeaveBalances(
       (data || []).map((row) => normalizeLeaveBalanceRow(row as Record<string, unknown>)) as LeaveBalanceLiveRow[]
     );
+  }
+
+  async function loadLeaveDocumentsForEmployee(targetEmployee: EmployeeRow) {
+    let documentQuery = supabase
+      .from("hr_documents")
+      .select("id,employee_id,employee_name,document_title,document_type,file_url,archive_status,leave_request_id,created_at")
+      .eq("employee_id", targetEmployee.id)
+      .in("document_type", ["leave", "leave_form", "medical_certificate", "supporting_document"])
+      .order("created_at", { ascending: false })
+      .limit(60);
+
+    if (companyId) {
+      documentQuery = documentQuery.eq("company_id", companyId);
+    }
+
+    const { data, error: documentsError } = await documentQuery;
+
+    if (documentsError) {
+      setError(documentsError.message);
+      return;
+    }
+
+    setLeaveDocuments((data || []) as LeaveDocumentRow[]);
   }
 
   async function verifyEmployeePin() {
@@ -362,6 +475,7 @@ export default function LeavePage() {
     setLookupMessage("PIN verified. You can apply for leave and view your leave status.");
     await loadLeaveRequestsForEmployee(selectedEmployee);
     await loadLeaveBalancesForEmployee(selectedEmployee);
+    await loadLeaveDocumentsForEmployee(selectedEmployee);
     setCheckingPin(false);
   }
 
@@ -372,7 +486,7 @@ export default function LeavePage() {
     setReason("");
   }
 
-  async function submitLeave() {
+  async function submitLeaveWithStage(stage: "draft" | "submitted") {
     setError(null);
     setSubmitMessage(null);
 
@@ -400,6 +514,9 @@ export default function LeavePage() {
 
     setSubmitting(true);
 
+    const selectedLeaveType =
+      leaveTypes.find((item) => item.leave_type_code === leaveType) || null;
+
     const activeCompanyId = companyId || employee.company_id;
     if (!activeCompanyId) {
       setError("Company context missing. Cannot submit leave request.");
@@ -415,7 +532,13 @@ export default function LeavePage() {
       start_date: startDate,
       end_date: endDate,
       reason: reason.trim() || null,
-      status: "pending",
+      status: stage === "draft" ? "pending" : "pending",
+      workflow_stage: stage,
+      submitted_at: stage === "submitted" ? new Date().toISOString() : null,
+      requested_days: calculatedDays,
+      requires_attachment: Boolean(selectedLeaveType?.requires_attachment),
+      requires_medical_certificate: Boolean(selectedLeaveType?.requires_medical_certificate),
+      has_required_attachment: false,
       manager_feedback: null,
     });
 
@@ -425,11 +548,84 @@ export default function LeavePage() {
       return;
     }
 
-    setSubmitMessage("Leave application submitted successfully.");
+    setSubmitMessage(
+      stage === "draft"
+        ? "Leave request saved as draft."
+        : "Leave application submitted successfully."
+    );
     resetApplicationFields();
     await loadLeaveRequestsForEmployee(employee);
     await loadLeaveBalancesForEmployee(employee);
+    await loadLeaveDocumentsForEmployee(employee);
     setSubmitting(false);
+  }
+
+  async function submitLeave() {
+    await submitLeaveWithStage("submitted");
+  }
+
+  async function saveDraftLeave() {
+    await submitLeaveWithStage("draft");
+  }
+
+  async function saveLeaveDocument() {
+    setError(null);
+    setSubmitMessage(null);
+
+    if (!authenticated || !employee) {
+      setError("Verify employee code and PIN first.");
+      return;
+    }
+
+    if (!documentTitle.trim()) {
+      setError("Document title is required.");
+      return;
+    }
+
+    const { error: insertError } = await supabase.from("hr_documents").insert({
+      company_id: companyId || employee.company_id,
+      employee_id: employee.id,
+      employee_name: fullName(employee),
+      document_type: documentType,
+      document_title: documentTitle.trim(),
+      document_notes: "Uploaded via Employee Leave Centre.",
+      file_name: `${documentType}-${Date.now()}`,
+      file_url: documentUrl.trim() || null,
+      file_bucket: null,
+      file_path: null,
+      status: "active",
+      archive_status: "active",
+      uploaded_by: "employee",
+    });
+
+    if (insertError) {
+      setError(insertError.message);
+      return;
+    }
+
+    setDocumentTitle("");
+    setDocumentUrl("");
+    setSubmitMessage("Leave document saved.");
+    await loadLeaveDocumentsForEmployee(employee);
+  }
+
+  async function archiveLeaveDocument(documentId: string) {
+    if (!authenticated || !employee) return;
+
+    const { error: updateError } = await supabase
+      .from("hr_documents")
+      .update({ archive_status: "archived", updated_at: new Date().toISOString() })
+      .eq("id", documentId)
+      .eq("employee_id", employee.id)
+      .eq("company_id", companyId || employee.company_id || "");
+
+    if (updateError) {
+      setError(updateError.message);
+      return;
+    }
+
+    setSubmitMessage("Document archived.");
+    await loadLeaveDocumentsForEmployee(employee);
   }
 
   function clearScreen() {
@@ -439,9 +635,12 @@ export default function LeavePage() {
     setAuthenticated(false);
     setLeaveRequests([]);
     setLeaveBalances([]);
+    setLeaveDocuments([]);
     setLookupMessage(null);
     setSubmitMessage(null);
     setError(null);
+    setDocumentTitle("");
+    setDocumentUrl("");
     resetApplicationFields();
   }
 
@@ -669,14 +868,24 @@ export default function LeavePage() {
                       }}
                       className="mt-2 w-full rounded-2xl border border-white/80 bg-white/80 shadow-sm backdrop-blur-xl px-4 py-3 text-sm font-semibold text-slate-950 outline-none focus:border-cyan-400"
                     >
-                      <option value="annual_leave">Annual leave</option>
-                      <option value="sick_leave">Sick leave</option>
-                      <option value="family_responsibility_leave">
-                        Family responsibility leave
-                      </option>
-                      <option value="unpaid_leave">Unpaid leave</option>
-                      <option value="study_leave">Study leave</option>
-                      <option value="other">Other</option>
+                      {leaveTypes.length > 0 ? (
+                        leaveTypes.map((typeRow) => (
+                          <option key={typeRow.id} value={typeRow.leave_type_code}>
+                            {typeRow.leave_type_name}
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="annual_leave">Annual leave</option>
+                          <option value="sick_leave">Sick leave</option>
+                          <option value="family_responsibility_leave">
+                            Family responsibility leave
+                          </option>
+                          <option value="unpaid_leave">Unpaid leave</option>
+                          <option value="study_leave">Study leave</option>
+                          <option value="other">Other</option>
+                        </>
+                      )}
                     </select>
                   </label>
 
@@ -754,14 +963,25 @@ export default function LeavePage() {
                     </div>
                   )}
 
-                  <button
-                    onClick={submitLeave}
-                    disabled={submitting || Boolean(annualLeaveWarning)}
-                    className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300 disabled:text-slate-500"
-                  >
-                    <Send className="h-4 w-4" />
-                    {submitting ? "Submitting Leave..." : "Submit Leave Application"}
-                  </button>
+                  <div className="mt-6 grid gap-3 md:grid-cols-2">
+                    <button
+                      onClick={saveDraftLeave}
+                      disabled={submitting}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-100 px-5 py-4 text-sm font-black text-slate-700 disabled:bg-slate-300 disabled:text-slate-500"
+                    >
+                      <Clock3 className="h-4 w-4" />
+                      {submitting ? "Saving..." : "Save Draft"}
+                    </button>
+
+                    <button
+                      onClick={submitLeave}
+                      disabled={submitting || Boolean(annualLeaveWarning)}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300 disabled:text-slate-500"
+                    >
+                      <Send className="h-4 w-4" />
+                      {submitting ? "Submitting Leave..." : "Submit Leave Application"}
+                    </button>
+                  </div>
                 </>
               )}
             </div>
@@ -798,7 +1018,7 @@ export default function LeavePage() {
               </div>
             ) : (
               <>
-                <div className="mt-6 grid gap-3 md:grid-cols-3">
+                <div className="mt-6 grid gap-3 md:grid-cols-5">
                   <div className="rounded-2xl bg-amber-50 p-4 text-amber-800">
                     <div className="text-xs font-black uppercase tracking-[0.2em]">
                       Pending
@@ -813,11 +1033,25 @@ export default function LeavePage() {
                     <div className="mt-2 text-3xl font-black">{approvedCount}</div>
                   </div>
 
+                  <div className="rounded-2xl bg-cyan-50 p-4 text-cyan-800">
+                    <div className="text-xs font-black uppercase tracking-[0.2em]">
+                      Manager Approved
+                    </div>
+                    <div className="mt-2 text-3xl font-black">{managerApprovedCount}</div>
+                  </div>
+
                   <div className="rounded-2xl bg-slate-100 p-4 text-slate-800">
                     <div className="text-xs font-black uppercase tracking-[0.2em]">
                       Other
                     </div>
                     <div className="mt-2 text-3xl font-black">{otherCount}</div>
+                  </div>
+
+                  <div className="rounded-2xl bg-rose-50 p-4 text-rose-800">
+                    <div className="text-xs font-black uppercase tracking-[0.2em]">
+                      Forecast Warnings
+                    </div>
+                    <div className="mt-2 text-3xl font-black">{negativeForecastCount}</div>
                   </div>
                 </div>
 
@@ -885,6 +1119,15 @@ export default function LeavePage() {
                               {leaveDays(leave.start_date, leave.end_date)} day(s)
                             </div>
                           </div>
+
+                          <div className="rounded-2xl bg-white p-4">
+                            <div className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+                              Workflow Stage
+                            </div>
+                            <div className="mt-2 text-sm font-bold text-slate-950">
+                              {formatText(leave.workflow_stage || "submitted")}
+                            </div>
+                          </div>
                         </div>
 
                         {leave.reason && (
@@ -911,6 +1154,145 @@ export default function LeavePage() {
                       </article>
                     ))
                   )}
+                </div>
+
+                <div className="mt-6 rounded-[26px] border border-white/80 bg-white/80 p-5">
+                  <div className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+                    Balance Forecast
+                  </div>
+
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                      Forecast months
+                      <input
+                        value={forecastMonths}
+                        onChange={(event) => setForecastMonths(event.target.value)}
+                        className="mt-2 w-full rounded-2xl border border-white/80 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                      />
+                    </label>
+
+                    <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                      Projected leave/month
+                      <input
+                        value={projectedLeavePerMonth}
+                        onChange={(event) => setProjectedLeavePerMonth(event.target.value)}
+                        className="mt-2 w-full rounded-2xl border border-white/80 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    {leaveBalances.map((balance) => {
+                      const months = Math.max(1, Number(forecastMonths || "6"));
+                      const projectedUse = Math.max(0, Number(projectedLeavePerMonth || "1.5"));
+                      const projection = forecastBalance({
+                        currentDaysDue: Number(balance.days_due_live || 0),
+                        monthlyAccrualDays: Number(balance.monthly_accrual_days || 0),
+                        pendingDays: Number(balance.pending_days || 0),
+                        projectedLeaveDaysPerMonth: projectedUse,
+                        months,
+                      });
+                      const finalProjection = projection[projection.length - 1];
+
+                      return (
+                        <div key={`forecast-${balance.id}`} className="rounded-2xl bg-white p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-sm font-black text-slate-950">
+                              {formatText(balance.leave_type)}
+                            </div>
+                            <div className={`rounded-full px-3 py-1 text-xs font-black ${finalProjection?.negative ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}>
+                              {finalProjection?.negative ? "Negative warning" : "Projected healthy"}
+                            </div>
+                          </div>
+                          <div className="mt-2 text-xs font-semibold text-slate-600">
+                            Current {formatDays(balance.days_due_live)} · Projected {finalProjection ? finalProjection.projectedBalance.toFixed(2) : formatDays(balance.days_due_live)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="mt-6 rounded-[26px] border border-white/80 bg-white/80 p-5">
+                  <div className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+                    Leave Documents
+                  </div>
+
+                  <div className="mt-4 grid gap-3">
+                    <input
+                      value={documentTitle}
+                      onChange={(event) => setDocumentTitle(event.target.value)}
+                      placeholder="Document title"
+                      className="w-full rounded-2xl border border-white/80 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                    />
+
+                    <select
+                      value={documentType}
+                      onChange={(event) => setDocumentType(event.target.value)}
+                      className="w-full rounded-2xl border border-white/80 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                    >
+                      <option value="supporting_document">Supporting Document</option>
+                      <option value="medical_certificate">Medical Certificate</option>
+                      <option value="leave_form">Leave Form</option>
+                    </select>
+
+                    <input
+                      value={documentUrl}
+                      onChange={(event) => setDocumentUrl(event.target.value)}
+                      placeholder="Optional document URL for preview/download"
+                      className="w-full rounded-2xl border border-white/80 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                    />
+
+                    <button
+                      onClick={saveLeaveDocument}
+                      className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-cyan-300"
+                    >
+                      Save Document
+                    </button>
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    {leaveDocuments.length === 0 ? (
+                      <div className="rounded-2xl bg-white p-4 text-xs font-semibold text-slate-500">
+                        No leave documents saved yet.
+                      </div>
+                    ) : (
+                      leaveDocuments.map((document) => (
+                        <div key={document.id} className="rounded-2xl bg-white p-4">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <div className="text-sm font-black text-slate-950">
+                                {document.document_title || "Leave document"}
+                              </div>
+                              <div className="mt-1 text-xs font-semibold text-slate-500">
+                                {formatText(document.document_type)} · {formatDateTime(document.created_at)}
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {document.file_url && (
+                                <a
+                                  href={document.file_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="rounded-full bg-cyan-100 px-3 py-2 text-xs font-black text-cyan-800"
+                                >
+                                  Preview/Download
+                                </a>
+                              )}
+                              {(document.archive_status || "active") !== "archived" && (
+                                <button
+                                  onClick={() => archiveLeaveDocument(document.id)}
+                                  className="rounded-full bg-rose-100 px-3 py-2 text-xs font-black text-rose-800"
+                                >
+                                  Archive
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </>
             )}

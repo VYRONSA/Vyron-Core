@@ -7,6 +7,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isSupabaseMissingTableError } from "@/lib/company-access";
 import { createFieldJob } from "@/lib/field-operations";
 import type { CopilotActionProposal } from "@/lib/workforce-ai-copilot";
+import {
+  orchestrateWorkflow,
+  type WorkflowPipelineStage,
+  type WorkflowTrigger,
+} from "@/lib/workflow-orchestration-engine";
 
 export const AUTOMATION_ACTION_TYPES = [
   "Create Warning",
@@ -26,9 +31,15 @@ export type AutomationActionType = (typeof AUTOMATION_ACTION_TYPES)[number];
 export const AUTOMATION_ACTION_STATUSES = [
   "Draft",
   "Pending Approval",
+  "Assigned",
+  "Awaiting Approval",
   "Approved",
+  "In Progress",
   "Rejected",
   "Completed",
+  "Verified",
+  "Closed",
+  "Cancelled",
   "Failed",
 ] as const;
 
@@ -51,6 +62,19 @@ export type WorkforceAutomationAction = {
   source_module: string;
   reason: string;
   payload_json: Record<string, unknown>;
+  trigger_type?: WorkflowTrigger | null;
+  pipeline_stage?: WorkflowPipelineStage | null;
+  workflow_owner?: string | null;
+  created_by?: string | null;
+  duration_minutes?: number | null;
+  outcome_summary?: string | null;
+  outcome_before_json?: Record<string, unknown> | null;
+  outcome_after_json?: Record<string, unknown> | null;
+  impact_estimate_json?: Record<string, unknown> | null;
+  notification_channels?: string[] | null;
+  task_list_json?: Record<string, unknown>[] | null;
+  approval_roles?: string[] | null;
+  escalation_level?: "Critical" | "High" | "Medium" | "Low" | null;
   error_message: string | null;
   created_at: string;
   approved_at: string | null;
@@ -80,10 +104,63 @@ export type WorkforceAutomationAuditEntry = {
 export type WorkforceAutomationDashboard = {
   pendingAiActions: WorkforceAutomationAction[];
   approvalQueue: WorkforceAutomationAction[];
+  openWorkflows: WorkforceAutomationAction[];
+  criticalWorkflows: WorkforceAutomationAction[];
+  overdueWorkflows: WorkforceAutomationAction[];
   completedActions: WorkforceAutomationAction[];
   failedActions: WorkforceAutomationAction[];
+  metrics: {
+    openCount: number;
+    criticalCount: number;
+    overdueCount: number;
+    completedCount: number;
+    averageResolutionMinutes: number;
+    automationSuccessRatePct: number;
+    businessImpactZAR: number;
+    timeSavedHours: number;
+    payrollRiskReductionPct: number;
+    operationalImprovementScore: number;
+  };
   tablesAvailable: boolean;
 };
+
+function safeN(v: unknown, fallback = 0): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function durationMinutes(createdAt: string, completedAt?: string | null): number {
+  const start = Date.parse(createdAt);
+  const end = completedAt ? Date.parse(completedAt) : Date.now();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return 0;
+  return Math.round((end - start) / 60_000);
+}
+
+function deriveEscalationLevel(
+  impact: number,
+  trigger: WorkflowTrigger | null | undefined,
+): "Critical" | "High" | "Medium" | "Low" {
+  if (impact >= 7000 || trigger === "Payroll Blocked" || trigger === "Compliance Failure") return "Critical";
+  if (impact >= 3500) return "High";
+  if (impact >= 1200) return "Medium";
+  return "Low";
+}
+
+function mapActionTypeToTrigger(actionType: AutomationActionType): WorkflowTrigger {
+  const map: Record<AutomationActionType, WorkflowTrigger> = {
+    "Create Warning": "Warning Issued",
+    "Create HR Case": "HR Case Created",
+    "Approve Leave": "Leave Approved",
+    "Reject Leave": "Leave Rejected",
+    "Assign Employee": "Employee Updated",
+    "Move Employee": "Employee Transferred",
+    "Create Roster Change": "Roster Changed",
+    "Create Field Job": "Workforce Intelligence Alert",
+    "Escalate Exception": "Compliance Failure",
+    "Mark Payroll Item For Review": "Payroll Blocked",
+  };
+  return map[actionType];
+}
 
 function isAutomationMissingTableError(error: { code?: string; message?: string } | null): boolean {
   if (!error) return false;
@@ -147,10 +224,41 @@ export async function prepareAutomationAction(
     reason: string;
     payload: Record<string, unknown>;
     submitToQueue?: boolean;
+    triggerType?: WorkflowTrigger;
+    createdBy?: string;
   }
 ): Promise<{ action: WorkforceAutomationAction | null; error: string | null }> {
   const now = new Date().toISOString();
   const status: AutomationActionStatus = input.submitToQueue ? "Pending Approval" : "Draft";
+  const triggerType = input.triggerType || mapActionTypeToTrigger(input.actionType);
+
+  const orchestration = orchestrateWorkflow({
+    trigger: triggerType,
+    companyId: input.companyId,
+    employeeId: input.employeeId || null,
+    employeeName: (input.payload.employee_name as string | undefined) || null,
+    department: (input.payload.department as string | undefined) || null,
+    managerEmail: (input.payload.manager_email as string | undefined) || null,
+    supervisorEmail: (input.payload.supervisor_email as string | undefined) || null,
+    sourceModule: input.sourceModule || "Workforce AI Copilot",
+    createdBy: input.createdBy || input.preparedByEmail,
+    evidence: {
+      lateMinutes: input.payload.late_minutes,
+      overtimeHours: input.payload.overtime_hours,
+      blockerCount: input.payload.blocker_count,
+      missingClockEvents: input.payload.missing_clock_events,
+      unresolvedCases: input.payload.unresolved_cases,
+      payrollBlockers: input.payload.blocker_count,
+      signalStrength: input.payload.signal_strength,
+      lateArrivals: input.payload.late_arrivals,
+      complianceBreaches: input.payload.compliance_breaches,
+    },
+  });
+  const escalationLevel = deriveEscalationLevel(
+    safeN(orchestration.impactEstimate.financialImpactZAR),
+    triggerType,
+  );
+  const actionOwner = orchestration.owner || input.managerId || input.preparedByEmail;
 
   const { data, error } = await supabase
     .from("workforce_automation_actions")
@@ -164,6 +272,17 @@ export async function prepareAutomationAction(
       source_module: input.sourceModule || "Workforce AI Copilot",
       reason: input.reason,
       payload_json: input.payload,
+      trigger_type: triggerType,
+      pipeline_stage: status === "Pending Approval" ? "Awaiting Approval" : orchestration.stage,
+      workflow_owner: actionOwner,
+      created_by: input.createdBy || input.preparedByEmail,
+      outcome_summary: orchestration.expectedOutcome,
+      outcome_before_json: orchestration.beforeMetrics,
+      impact_estimate_json: orchestration.impactEstimate,
+      notification_channels: orchestration.notifications,
+      task_list_json: orchestration.tasks.map((task) => ({ task, status: "prepared" })),
+      approval_roles: orchestration.approvalsRequired,
+      escalation_level: escalationLevel,
       updated_at: now,
     })
     .select("*")
@@ -186,7 +305,15 @@ export async function prepareAutomationAction(
       status === "Draft"
         ? `${input.actionType} prepared as draft.`
         : `${input.actionType} sent to approval queue.`,
-    metadata: { action_type: input.actionType, status },
+    metadata: {
+      action_type: input.actionType,
+      status,
+      trigger_type: triggerType,
+      workflow_owner: actionOwner,
+      escalation_level: escalationLevel,
+      approvals_required: orchestration.approvalsRequired,
+      expected_outcome: orchestration.expectedOutcome,
+    },
   });
 
   return { action, error: null };
@@ -229,7 +356,12 @@ export async function submitAutomationToQueue(
   const now = new Date().toISOString();
   const { error } = await supabase
     .from("workforce_automation_actions")
-    .update({ status: "Pending Approval", updated_at: now })
+    .update({
+      status: "Pending Approval",
+      pipeline_stage: "Awaiting Approval",
+      workflow_owner: actorEmail,
+      updated_at: now,
+    })
     .eq("id", actionId)
     .eq("company_id", companyId)
     .in("status", ["Draft"]);
@@ -450,11 +582,23 @@ export async function approveAutomationAction(
     .from("workforce_automation_actions")
     .update({
       status: "Approved",
+      pipeline_stage: "Approved",
       manager_id: input.approverEmail,
+      workflow_owner: input.approverEmail,
       approved_at: now,
       updated_at: now,
     })
     .eq("id", action.id);
+
+  await supabase
+    .from("workforce_automation_actions")
+    .update({
+      status: "In Progress",
+      pipeline_stage: "In Progress",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", action.id)
+    .eq("company_id", input.companyId);
 
   await writeAuditLog(supabase, {
     companyId: input.companyId,
@@ -473,13 +617,27 @@ export async function approveAutomationAction(
   );
 
   if (exec.ok) {
+    const nowComplete = new Date().toISOString();
+    const before = (action.outcome_before_json || {}) as Record<string, unknown>;
+    const after = {
+      ...before,
+      resolvedAt: nowComplete,
+      payrollBlockers: Math.max(0, safeN(before.payrollBlockers) - 1),
+      overtimeHours: Math.max(0, safeN(before.overtimeHours) - 0.5),
+      complianceBreaches: Math.max(0, safeN(before.complianceBreaches) - 1),
+    };
+    const dur = durationMinutes(action.created_at, nowComplete);
+
     await supabase
       .from("workforce_automation_actions")
       .update({
-        status: "Completed",
-        completed_at: new Date().toISOString(),
+        status: "Verified",
+        pipeline_stage: "Verified",
+        completed_at: nowComplete,
+        duration_minutes: dur,
+        outcome_after_json: after,
         error_message: null,
-        updated_at: new Date().toISOString(),
+        updated_at: nowComplete,
       })
       .eq("id", action.id);
 
@@ -489,6 +647,10 @@ export async function approveAutomationAction(
       eventType: "completed",
       actorEmail: input.approverEmail,
       message: exec.message,
+      metadata: {
+        duration_minutes: dur,
+        outcome_achieved: true,
+      },
     });
 
     return { ok: true, error: null, message: exec.message };
@@ -498,6 +660,7 @@ export async function approveAutomationAction(
     .from("workforce_automation_actions")
     .update({
       status: "Failed",
+      pipeline_stage: "Cancelled",
       error_message: exec.message,
       updated_at: new Date().toISOString(),
     })
@@ -540,7 +703,9 @@ export async function rejectAutomationAction(
     .from("workforce_automation_actions")
     .update({
       status: "Rejected",
+      pipeline_stage: "Cancelled",
       manager_id: input.approverEmail,
+      workflow_owner: input.approverEmail,
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.actionId)
@@ -603,13 +768,25 @@ export async function retryFailedAutomationAction(
   );
 
   if (exec.ok) {
+    const nowComplete = new Date().toISOString();
+    const before = (action.outcome_before_json || {}) as Record<string, unknown>;
+    const after = {
+      ...before,
+      resolvedAt: nowComplete,
+      retrySucceeded: true,
+    };
+    const dur = durationMinutes(action.created_at, nowComplete);
+
     await supabase
       .from("workforce_automation_actions")
       .update({
-        status: "Completed",
-        completed_at: new Date().toISOString(),
+        status: "Verified",
+        pipeline_stage: "Verified",
+        completed_at: nowComplete,
+        duration_minutes: dur,
+        outcome_after_json: after,
         error_message: null,
-        updated_at: new Date().toISOString(),
+        updated_at: nowComplete,
       })
       .eq("id", action.id);
 
@@ -662,8 +839,23 @@ export async function loadWorkforceAutomationDashboard(
         dashboard: {
           pendingAiActions: [],
           approvalQueue: [],
+          openWorkflows: [],
+          criticalWorkflows: [],
+          overdueWorkflows: [],
           completedActions: [],
           failedActions: [],
+          metrics: {
+            openCount: 0,
+            criticalCount: 0,
+            overdueCount: 0,
+            completedCount: 0,
+            averageResolutionMinutes: 0,
+            automationSuccessRatePct: 0,
+            businessImpactZAR: 0,
+            timeSavedHours: 0,
+            payrollRiskReductionPct: 0,
+            operationalImprovementScore: 0,
+          },
           tablesAvailable: false,
         },
         error: null,
@@ -673,8 +865,23 @@ export async function loadWorkforceAutomationDashboard(
       dashboard: {
         pendingAiActions: [],
         approvalQueue: [],
+        openWorkflows: [],
+        criticalWorkflows: [],
+        overdueWorkflows: [],
         completedActions: [],
         failedActions: [],
+        metrics: {
+          openCount: 0,
+          criticalCount: 0,
+          overdueCount: 0,
+          completedCount: 0,
+          averageResolutionMinutes: 0,
+          automationSuccessRatePct: 0,
+          businessImpactZAR: 0,
+          timeSavedHours: 0,
+          payrollRiskReductionPct: 0,
+          operationalImprovementScore: 0,
+        },
         tablesAvailable: true,
       },
       error: error.message,
@@ -682,6 +889,70 @@ export async function loadWorkforceAutomationDashboard(
   }
 
   const actions = (data || []) as WorkforceAutomationAction[];
+  const openWorkflows = actions.filter(
+    (a) =>
+      ![
+        "Completed",
+        "Verified",
+        "Closed",
+        "Cancelled",
+        "Failed",
+        "Rejected",
+      ].includes(a.status),
+  );
+  const criticalWorkflows = actions.filter((a) => (a.escalation_level || "") === "Critical");
+  const overdueWorkflows = openWorkflows.filter(
+    (a) => durationMinutes(a.created_at, null) > 48 * 60,
+  );
+  const completed = actions.filter((a) => ["Completed", "Verified", "Closed"].includes(a.status));
+  const failed = actions.filter((a) => a.status === "Failed");
+  const avgResolutionMinutes =
+    completed.length > 0
+      ? Math.round(
+          completed.reduce(
+            (sum, a) => sum + (a.duration_minutes || durationMinutes(a.created_at, a.completed_at)),
+            0,
+          ) / completed.length,
+        )
+      : 0;
+  const totalProcessed = completed.length + failed.length;
+  const automationSuccessRatePct =
+    totalProcessed > 0 ? Math.round((completed.length / totalProcessed) * 1000) / 10 : 0;
+  const businessImpactZAR = Math.round(
+    completed.reduce(
+      (sum, a) => sum + safeN((a.impact_estimate_json || {}).financialImpactZAR),
+      0,
+    ),
+  );
+  const timeSavedHours =
+    Math.round(
+      completed.reduce(
+        (sum, a) => sum + safeN((a.impact_estimate_json || {}).timeSavedHours),
+        0,
+      ) * 10,
+    ) / 10;
+  const payrollRiskReductionPct =
+    completed.length > 0
+      ? Math.round(
+          (completed.reduce(
+            (sum, a) => sum + safeN((a.impact_estimate_json || {}).payrollRiskReductionPct),
+            0,
+          ) /
+            completed.length) *
+            10,
+        ) / 10
+      : 0;
+  const operationalImprovementScore =
+    completed.length > 0
+      ? Math.round(
+          (completed.reduce(
+            (sum, a) => sum + safeN((a.impact_estimate_json || {}).operationalImprovementScore),
+            0,
+          ) /
+            completed.length) *
+            10,
+        ) / 10
+      : 0;
   const fromCopilot = (a: WorkforceAutomationAction) =>
     (a.source_module || "").toLowerCase().includes("copilot");
 
@@ -691,8 +962,23 @@ export async function loadWorkforceAutomationDashboard(
         (a) => a.status === "Draft" && fromCopilot(a)
       ),
       approvalQueue: actions.filter((a) => a.status === "Pending Approval"),
-      completedActions: actions.filter((a) => a.status === "Completed"),
+      openWorkflows,
+      criticalWorkflows,
+      overdueWorkflows,
+      completedActions: completed,
       failedActions: actions.filter((a) => a.status === "Failed"),
+      metrics: {
+        openCount: openWorkflows.length,
+        criticalCount: criticalWorkflows.length,
+        overdueCount: overdueWorkflows.length,
+        completedCount: completed.length,
+        averageResolutionMinutes: avgResolutionMinutes,
+        automationSuccessRatePct,
+        businessImpactZAR,
+        timeSavedHours,
+        payrollRiskReductionPct,
+        operationalImprovementScore,
+      },
       tablesAvailable: true,
     },
     error: null,
@@ -700,10 +986,16 @@ export async function loadWorkforceAutomationDashboard(
 }
 
 export function automationStatusClass(status: AutomationActionStatus): string {
+  if (status === "Closed") return "bg-emerald-100 text-emerald-900 border-emerald-200";
+  if (status === "Verified") return "bg-emerald-100 text-emerald-900 border-emerald-200";
   if (status === "Completed") return "bg-emerald-100 text-emerald-900 border-emerald-200";
   if (status === "Failed") return "bg-rose-100 text-rose-900 border-rose-200";
   if (status === "Rejected") return "bg-slate-100 text-slate-700 border-slate-200";
+  if (status === "Cancelled") return "bg-slate-100 text-slate-700 border-slate-200";
+  if (status === "In Progress") return "bg-cyan-100 text-cyan-900 border-cyan-200";
   if (status === "Pending Approval") return "bg-amber-100 text-amber-950 border-amber-200";
+  if (status === "Awaiting Approval") return "bg-amber-100 text-amber-950 border-amber-200";
+  if (status === "Assigned") return "bg-indigo-100 text-indigo-900 border-indigo-200";
   if (status === "Approved") return "bg-cyan-100 text-cyan-900 border-cyan-200";
   return "bg-slate-50 text-slate-700 border-slate-200";
 }

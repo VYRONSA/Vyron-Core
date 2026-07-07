@@ -517,13 +517,14 @@ export default function WorkforceMovementPanel({ companyId: companyIdProp }: { c
           .update({
             active: true,
           })
-          .eq("id", movement.employee_id);
+          .eq("id", movement.employee_id)
+          .eq("company_id", movementCompanyId);
 
         if (employeeUpdateError) throw new Error(employeeUpdateError.message);
       }
 
       if (movement.movement_type === "temporary_assignment" && movement.to_store_id) {
-        const { error: rosterUpdateError } = await supabase
+        let query = supabase
           .from("roster_shifts")
           .update({
             store_id: movement.to_store_id,
@@ -531,6 +532,8 @@ export default function WorkforceMovementPanel({ companyId: companyIdProp }: { c
           .eq("employee_id", movement.employee_id)
           .gte("shift_date", movement.effective_date)
           .lte("shift_date", movement.end_date || movement.effective_date);
+        if (movementCompanyId) query = query.eq("company_id", movementCompanyId);
+        const { error: rosterUpdateError } = await query;
 
         if (rosterUpdateError) throw new Error(rosterUpdateError.message);
       }
@@ -541,7 +544,8 @@ export default function WorkforceMovementPanel({ companyId: companyIdProp }: { c
           status: "applied",
           applied_at: new Date().toISOString(),
         })
-        .eq("id", movement.id);
+        .eq("id", movement.id)
+        .eq("company_id", movementCompanyId);
 
       if (movementUpdateError) throw new Error(movementUpdateError.message);
 
@@ -564,7 +568,8 @@ export default function WorkforceMovementPanel({ companyId: companyIdProp }: { c
       .update({
         status: "cancelled",
       })
-      .eq("id", movement.id);
+      .eq("id", movement.id)
+      .eq("company_id", movement.company_id || resolvedCompanyId);
 
     if (updateError) {
       setError(updateError.message);

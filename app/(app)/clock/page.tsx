@@ -18,6 +18,7 @@ import {
   formatClientSafeError,
   resolveKioskCompanyId,
 } from "@/lib/kiosk-company-context";
+import ClockingAttendanceEnterprisePanel from "@/components/ClockingAttendanceEnterprisePanel";
 import { supabase } from "@/lib/supabase";
 
 type EmployeeRow = {
@@ -581,6 +582,12 @@ export default function ClockPage() {
     }
 
     if (pinCode.trim() !== selectedEmployee.pin_code) {
+      await supabase.from("attendance_pin_failures").insert({
+        company_id: selectedEmployee.company_id || companyId || null,
+        employee_id: selectedEmployee.id,
+        failure_reason: "incorrect_pin",
+        source: "kiosk",
+      });
       setError("Incorrect PIN. Clocking was not saved.");
       setSaving(false);
       return;
@@ -1093,6 +1100,8 @@ export default function ClockPage() {
               )}
             </div>
           </section>
+
+          <ClockingAttendanceEnterprisePanel companyId={companyId} />
         </div>
       </section>
     </main>

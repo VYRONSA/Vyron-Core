@@ -18,6 +18,13 @@ export const PAYROLL_READINESS_CHECK_TYPES = [
   "unresolved_exception",
   "open_field_job",
   "missing_end_day",
+  "pending_attendance_correction",
+  "negative_leave_balance",
+  "duplicate_clock",
+  "unapproved_overtime",
+  "roster_conflict",
+  "missing_supervisor_approval",
+  "pending_shift_approval",
 ] as const;
 
 export type PayrollReadinessCheckType = (typeof PAYROLL_READINESS_CHECK_TYPES)[number];
@@ -42,7 +49,53 @@ export type PayrollReadinessCheck = {
   entityRef: string | null;
   message: string;
   status: "open" | "resolved";
+  requiredAction?: string;
+  manager?: string | null;
+  supervisor?: string | null;
   metadata: Record<string, unknown>;
+};
+
+export type EmployeePayrollReadiness = {
+  employeeId: string;
+  employeeName: string;
+  state: "ready" | "warning" | "blocked";
+  reason: string;
+  requiredAction: string;
+  manager: string | null;
+  supervisor: string | null;
+};
+
+export type PayrollValidationSummary = {
+  scheduledHours: number;
+  workedHours: number;
+  overtimeHours: number;
+  nightShiftHours: number;
+  publicHolidayShifts: number;
+  leaveDays: number;
+  attendanceEvents: number;
+  rosterShifts: number;
+  openExceptions: number;
+};
+
+export type PayrollReadinessTrendPoint = {
+  scoreDate: string;
+  readinessScore: number;
+};
+
+export type PayrollExportReadinessPack = {
+  id: string;
+  platform: "vyron_pay" | "sage" | "payspace" | "vip" | "csv" | "excel";
+  status: "prepared" | "failed";
+  rowsPrepared: number;
+  preparedAt: string;
+};
+
+export type PayrollTimelineEvent = {
+  id: string;
+  eventType: "validation" | "correction" | "approval" | "export" | "history";
+  title: string;
+  detail: string;
+  createdAt: string;
 };
 
 export type PayrollLeakageEvent = {
@@ -101,8 +154,19 @@ export type PayrollIntelligenceDashboard = {
   blockerCount: number;
   warningCount: number;
   readinessChecks: PayrollReadinessCheck[];
+  employeeReadiness: EmployeePayrollReadiness[];
   leakageEvents: PayrollLeakageEvent[];
   totalLeakageZar: number;
+  validationSummary: PayrollValidationSummary;
+  readinessTrend: PayrollReadinessTrendPoint[];
+  storesAtRisk: Array<{ storeId: string; storeName: string; issueCount: number }>;
+  departmentsAtRisk: Array<{ departmentName: string; issueCount: number }>;
+  recurringIssues: Array<{ checkType: PayrollReadinessCheckType; count: number }>;
+  recurringManagers: Array<{ manager: string; issueCount: number }>;
+  complianceScore: number;
+  laborCostVariance: number | null;
+  exportReadinessPacks: PayrollExportReadinessPack[];
+  timeline: PayrollTimelineEvent[];
   forecast: PayrollForecast;
   recommendations: PayrollAiRecommendation[];
   exceptionCount: number;
@@ -115,6 +179,9 @@ const PAYROLL_TABLES = [
   "payroll_readiness_checks",
   "payroll_leakage_events",
   "payroll_forecasts",
+  "payroll_readiness_timeline",
+  "payroll_readiness_notifications",
+  "payroll_export_preparations",
 ] as const;
 
 const DEFAULT_HOURLY_RATE = DEFAULT_FIELD_COST_RATE.labourRatePerHour;
@@ -175,6 +242,8 @@ type PayrollContext = {
   companyId: string;
   scoreDate: string;
   payPeriod: PayrollPayPeriod;
+  stores: { id: string; name: string }[];
+  companyUsers: { user_email: string; role: string; status: string | null }[];
   employees: { id: string; first_name: string; last_name: string; default_store_id: string | null }[];
   payrollClockChecks: {
     employee_id: string;
@@ -218,6 +287,11 @@ type PayrollContext = {
     start_date: string;
     end_date: string;
   }[];
+  leaveBalancesLive: {
+    employee_id: string;
+    employee_name: string | null;
+    days_due_live: number | null;
+  }[];
   timeExceptions: {
     id?: string;
     employee_id: string | null;
@@ -228,6 +302,27 @@ type PayrollContext = {
   journeyDashboard: Awaited<ReturnType<typeof fetchCopilotContext>>["journeyDashboard"];
   costDashboard: Awaited<ReturnType<typeof fetchCopilotContext>>["costDashboard"];
   riskDashboard: Awaited<ReturnType<typeof loadWorkforceRiskDashboard>>["dashboard"];
+  readinessHistory: { score_date: string; readiness_score: number }[];
+  payrollExportLogs: {
+    id: string;
+    export_status: string | null;
+    employee_count: number | null;
+    created_at: string;
+  }[];
+  payrollExportPreparations: {
+    id: string;
+    target_platform: string;
+    preparation_status: string;
+    rows_prepared: number | null;
+    created_at: string;
+  }[];
+  timelineRows: {
+    id: string;
+    event_type: string;
+    title: string;
+    detail: string;
+    created_at: string;
+  }[];
 };
 
 async function fetchPayrollContext(
@@ -244,6 +339,13 @@ async function fetchPayrollContext(
     rosterRes,
     clockRes,
     timeExceptionsRes,
+    storesRes,
+    companyUsersRes,
+    leaveBalancesLiveRes,
+    readinessHistoryRes,
+    payrollExportLogsRes,
+    payrollExportPreparationsRes,
+    timelineRes,
     periodRes,
   ] = await Promise.all([
     fetchCopilotContext(supabase, companyId, scoreDate),
@@ -271,6 +373,42 @@ async function fetchPayrollContext(
       .select("id, employee_id, store_id, status")
       .eq("company_id", companyId)
       .limit(200),
+    supabase
+      .from("stores")
+      .select("id,name")
+      .eq("company_id", companyId),
+    supabase
+      .from("company_users")
+      .select("user_email,role,status")
+      .eq("company_id", companyId),
+    supabase
+      .from("leave_balances_live")
+      .select("employee_id,employee_name,days_due_live")
+      .eq("company_id", companyId),
+    supabase
+      .from("payroll_readiness_scores")
+      .select("score_date,readiness_score")
+      .eq("company_id", companyId)
+      .gte("score_date", daysAgoIso(14))
+      .order("score_date", { ascending: true }),
+    supabase
+      .from("payroll_export_logs")
+      .select("id,export_status,employee_count,created_at")
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false })
+      .limit(20),
+    supabase
+      .from("payroll_export_preparations")
+      .select("id,target_platform,preparation_status,rows_prepared,created_at")
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false })
+      .limit(40),
+    supabase
+      .from("payroll_readiness_timeline")
+      .select("id,event_type,title,detail,created_at")
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false })
+      .limit(40),
     supabase
       .from("payroll_pay_periods")
       .select("id, period_start, period_end, label, status")
@@ -300,23 +438,59 @@ async function fetchPayrollContext(
           status: storedPeriod.status,
         }
       : { id: null, ...payPeriod, status: "open" },
+    stores: (storesRes.data || []) as PayrollContext["stores"],
+    companyUsers: (companyUsersRes.data || []) as PayrollContext["companyUsers"],
     employees: ctx.employees,
     payrollClockChecks: ctx.payrollClockChecks as PayrollContext["payrollClockChecks"],
     payrollHours: (payrollHoursRes.data || []) as PayrollContext["payrollHours"],
     rosterShifts: (rosterRes.data || []) as PayrollContext["rosterShifts"],
     clockEvents: (clockRes.data || []) as PayrollContext["clockEvents"],
     leaveRequests: ctx.leaveRequests as PayrollContext["leaveRequests"],
+    leaveBalancesLive: (leaveBalancesLiveRes.data || []) as PayrollContext["leaveBalancesLive"],
     timeExceptions: (timeExceptionsRes.data || []) as PayrollContext["timeExceptions"],
     fieldSnapshot: ctx.fieldSnapshot,
     journeyDashboard: ctx.journeyDashboard,
     costDashboard: ctx.costDashboard,
     riskDashboard: ctx.riskDashboard,
+    readinessHistory: (readinessHistoryRes.data || []) as PayrollContext["readinessHistory"],
+    payrollExportLogs: (payrollExportLogsRes.data || []) as PayrollContext["payrollExportLogs"],
+    payrollExportPreparations: (payrollExportPreparationsRes.data || []) as PayrollContext["payrollExportPreparations"],
+    timelineRows: (timelineRes.data || []) as PayrollContext["timelineRows"],
   };
 }
 
 export function buildPayrollReadinessChecks(ctx: PayrollContext): PayrollReadinessCheck[] {
   const checks: PayrollReadinessCheck[] = [];
   const { scoreDate } = ctx;
+
+  const managers = ctx.companyUsers
+    .filter((user) => ["manager", "admin", "owner"].includes((user.role || "").toLowerCase()))
+    .map((user) => user.user_email)
+    .filter(Boolean);
+  const supervisors = ctx.companyUsers
+    .filter((user) => ["supervisor", "manager"].includes((user.role || "").toLowerCase()))
+    .map((user) => user.user_email)
+    .filter(Boolean);
+  const defaultManager = managers[0] || null;
+  const defaultSupervisor = supervisors[0] || null;
+
+  const timeClockPairs = new Map<string, number>();
+  for (const ev of ctx.clockEvents) {
+    const minuteKey = `${ev.employee_id}|${ev.event_type}|${ev.event_time.slice(0, 16)}`;
+    timeClockPairs.set(minuteKey, (timeClockPairs.get(minuteKey) || 0) + 1);
+  }
+
+  const shiftsByEmployeeDay = new Map<string, PayrollContext["rosterShifts"]>();
+  for (const shift of ctx.rosterShifts) {
+    const key = `${shift.employee_id}|${shift.shift_date}`;
+    const list = shiftsByEmployeeDay.get(key) || [];
+    list.push(shift);
+    shiftsByEmployeeDay.set(key, list);
+  }
+
+  const leaveBalanceMap = new Map(
+    ctx.leaveBalancesLive.map((item) => [item.employee_id, Number(item.days_due_live || 0)])
+  );
 
   for (const row of ctx.payrollClockChecks) {
     if (row.missing_clock_out) {
@@ -328,6 +502,9 @@ export function buildPayrollReadinessChecks(ctx: PayrollContext): PayrollReadine
         entityRef: row.shift_date,
         message: `${empLabel(ctx.employees, row.employee_id)} missing clock-out on ${row.shift_date}.`,
         status: "open",
+        requiredAction: "Capture missing clock-out and approve attendance correction.",
+        manager: defaultManager,
+        supervisor: defaultSupervisor,
         metadata: { shiftDate: row.shift_date, storeId: row.store_id },
       });
     }
@@ -340,7 +517,27 @@ export function buildPayrollReadinessChecks(ctx: PayrollContext): PayrollReadine
         entityRef: row.shift_date,
         message: `${empLabel(ctx.employees, row.employee_id)} missing clock-in on ${row.shift_date}.`,
         status: "open",
+        requiredAction: "Capture missing clock-in and validate source evidence.",
+        manager: defaultManager,
+        supervisor: defaultSupervisor,
         metadata: { shiftDate: row.shift_date, storeId: row.store_id },
+      });
+    }
+
+    const overtimeMinutes = Number(row.overtime_minutes || 0);
+    if (overtimeMinutes > 0 && (row.payroll_status || "").toLowerCase() !== "approved") {
+      checks.push({
+        id: checkId("unapproved_overtime", `${row.employee_id}-${row.shift_date}`),
+        checkType: "unapproved_overtime",
+        severity: overtimeMinutes > 120 ? "blocker" : "warning",
+        employeeId: row.employee_id,
+        entityRef: row.shift_date,
+        message: `${empLabel(ctx.employees, row.employee_id)} has ${overtimeMinutes} overtime minutes without approval on ${row.shift_date}.`,
+        status: "open",
+        requiredAction: "Approve or reject overtime before payroll export.",
+        manager: defaultManager,
+        supervisor: defaultSupervisor,
+        metadata: { overtimeMinutes, shiftDate: row.shift_date },
       });
     }
   }
@@ -354,12 +551,33 @@ export function buildPayrollReadinessChecks(ctx: PayrollContext): PayrollReadine
       checks.push({
         id: checkId("unapproved_leave", leave.id),
         checkType: "unapproved_leave",
-        severity: "warning",
+        severity: "blocker",
         employeeId: leave.employee_id,
         entityRef: leave.id,
         message: `Unapproved ${leave.leave_type || "leave"} for ${leave.employee_name || empLabel(ctx.employees, leave.employee_id)} (${leave.start_date} → ${leave.end_date}).`,
         status: "open",
+        requiredAction: "Finalize leave decision and sync leave balance.",
+        manager: defaultManager,
+        supervisor: defaultSupervisor,
         metadata: { status: leave.status },
+      });
+    }
+  }
+
+  for (const [employeeId, daysDue] of leaveBalanceMap) {
+    if (daysDue < 0) {
+      checks.push({
+        id: checkId("negative_leave_balance", employeeId),
+        checkType: "negative_leave_balance",
+        severity: "blocker",
+        employeeId,
+        entityRef: employeeId,
+        message: `${empLabel(ctx.employees, employeeId)} has negative leave balance (${daysDue.toFixed(2)} days).`,
+        status: "open",
+        requiredAction: "Resolve negative leave balance before payroll release.",
+        manager: defaultManager,
+        supervisor: defaultSupervisor,
+        metadata: { daysDue },
       });
     }
   }
@@ -379,6 +597,9 @@ export function buildPayrollReadinessChecks(ctx: PayrollContext): PayrollReadine
         entityRef: shift.id,
         message: `Rostered shift on ${shift.shift_date} with no clock-in for ${empLabel(ctx.employees, shift.employee_id)}.`,
         status: "open",
+        requiredAction: "Confirm shift attendance or update roster record.",
+        manager: defaultManager,
+        supervisor: defaultSupervisor,
         metadata: { shiftDate: shift.shift_date },
       });
     } else if (shift.store_id && clockIn.store_id && shift.store_id !== clockIn.store_id) {
@@ -390,7 +611,44 @@ export function buildPayrollReadinessChecks(ctx: PayrollContext): PayrollReadine
         entityRef: shift.id,
         message: `Clock-in store mismatch on ${shift.shift_date} for ${empLabel(ctx.employees, shift.employee_id)}.`,
         status: "open",
+        requiredAction: "Confirm store transfer and manager approval.",
+        manager: defaultManager,
+        supervisor: defaultSupervisor,
         metadata: { rosterStore: shift.store_id, clockStore: clockIn.store_id },
+      });
+    }
+
+    const shiftStatus = (shift.status || "").toLowerCase();
+    if (["scheduled", "draft", "pending", "awaiting_approval"].includes(shiftStatus)) {
+      checks.push({
+        id: checkId("pending_shift_approval", shift.id),
+        checkType: "pending_shift_approval",
+        severity: "warning",
+        employeeId: shift.employee_id,
+        entityRef: shift.id,
+        message: `Shift approval pending for ${empLabel(ctx.employees, shift.employee_id)} on ${shift.shift_date}.`,
+        status: "open",
+        requiredAction: "Approve pending roster shift before payroll cut-off.",
+        manager: defaultManager,
+        supervisor: defaultSupervisor,
+        metadata: { shiftStatus },
+      });
+    }
+
+    const dayShifts = shiftsByEmployeeDay.get(`${shift.employee_id}|${shift.shift_date}`) || [];
+    if (dayShifts.length > 1) {
+      checks.push({
+        id: checkId("roster_conflict", `${shift.employee_id}-${shift.shift_date}`),
+        checkType: "roster_conflict",
+        severity: "blocker",
+        employeeId: shift.employee_id,
+        entityRef: shift.id,
+        message: `Potential roster conflict for ${empLabel(ctx.employees, shift.employee_id)} on ${shift.shift_date}.`,
+        status: "open",
+        requiredAction: "Resolve overlapping or duplicate shifts.",
+        manager: defaultManager,
+        supervisor: defaultSupervisor,
+        metadata: { shiftCount: dayShifts.length },
       });
     }
   }
@@ -408,8 +666,64 @@ export function buildPayrollReadinessChecks(ctx: PayrollContext): PayrollReadine
         ? `Unresolved time exception ${tex.id.slice(0, 8)}…`
         : `Open time exception for ${tex.employee_id ? empLabel(ctx.employees, tex.employee_id) : "unknown employee"}.`,
       status: "open",
+      requiredAction: "Resolve exception before payroll validation can pass.",
+      manager: defaultManager,
+      supervisor: defaultSupervisor,
       metadata: { status: tex.status },
     });
+
+    if ((tex.status || "").toLowerCase().includes("pending") || (tex.status || "").toLowerCase().includes("review")) {
+      checks.push({
+        id: checkId("pending_attendance_correction", entityRef),
+        checkType: "pending_attendance_correction",
+        severity: "blocker",
+        employeeId: tex.employee_id,
+        entityRef: tex.id || null,
+        message: `Pending attendance correction for ${tex.employee_id ? empLabel(ctx.employees, tex.employee_id) : "employee"}.`,
+        status: "open",
+        requiredAction: "Approve or reject attendance correction.",
+        manager: defaultManager,
+        supervisor: defaultSupervisor,
+        metadata: { status: tex.status },
+      });
+    }
+  }
+
+  for (const [minuteKey, count] of timeClockPairs) {
+    if (count <= 1) continue;
+    const [employeeId] = minuteKey.split("|");
+    checks.push({
+      id: checkId("duplicate_clock", minuteKey),
+      checkType: "duplicate_clock",
+      severity: "blocker",
+      employeeId,
+      entityRef: minuteKey,
+      message: `Duplicate clock event detected for ${empLabel(ctx.employees, employeeId)} at ${minuteKey.split("|")[2]}.`,
+      status: "open",
+      requiredAction: "Merge or remove duplicate clock events.",
+      manager: defaultManager,
+      supervisor: defaultSupervisor,
+      metadata: { duplicateCount: count },
+    });
+  }
+
+  for (const row of ctx.payrollHours) {
+    const status = (row.status || "").toLowerCase();
+    if (status !== "approved" && status !== "exported") {
+      checks.push({
+        id: checkId("missing_supervisor_approval", row.employee_id),
+        checkType: "missing_supervisor_approval",
+        severity: "blocker",
+        employeeId: row.employee_id,
+        entityRef: row.employee_id,
+        message: `${empLabel(ctx.employees, row.employee_id)} payroll hours still need supervisor approval.`,
+        status: "open",
+        requiredAction: "Supervisor approval is required before payroll export.",
+        manager: defaultManager,
+        supervisor: defaultSupervisor,
+        metadata: { status: row.status },
+      });
+    }
   }
 
   if (ctx.fieldSnapshot?.tablesAvailable) {
@@ -425,6 +739,9 @@ export function buildPayrollReadinessChecks(ctx: PayrollContext): PayrollReadine
         entityRef: job.jobRef,
         message: `Open field job ${job.jobRef} (${job.status}) may block payroll sign-off.`,
         status: "open",
+        requiredAction: "Close field job before payroll close.",
+        manager: defaultManager,
+        supervisor: defaultSupervisor,
         metadata: { jobTitle: job.title, status: job.status },
       });
     }
@@ -451,6 +768,9 @@ export function buildPayrollReadinessChecks(ctx: PayrollContext): PayrollReadine
           entityRef: scoreDate,
           message: `${empLabel(ctx.employees, employeeId)} started field day without End Day on ${scoreDate}.`,
           status: "open",
+          requiredAction: "Capture missing End Day event.",
+          manager: defaultManager,
+          supervisor: defaultSupervisor,
           metadata: {},
         });
       }
@@ -490,6 +810,178 @@ export function computePayrollReadinessScore(checks: PayrollReadinessCheck[]): {
     blockerCount,
     warningCount,
   };
+}
+
+export function buildEmployeePayrollReadiness(
+  ctx: PayrollContext,
+  checks: PayrollReadinessCheck[]
+): EmployeePayrollReadiness[] {
+  const grouped = new Map<string, PayrollReadinessCheck[]>();
+
+  checks.forEach((check) => {
+    if (!check.employeeId) return;
+    const list = grouped.get(check.employeeId) || [];
+    list.push(check);
+    grouped.set(check.employeeId, list);
+  });
+
+  return ctx.employees.map((employee) => {
+    const employeeChecks = grouped.get(employee.id) || [];
+    const blockers = employeeChecks.filter((item) => item.severity === "blocker");
+    const warnings = employeeChecks.filter((item) => item.severity === "warning");
+
+    if (blockers.length > 0) {
+      return {
+        employeeId: employee.id,
+        employeeName: `${employee.first_name} ${employee.last_name}`,
+        state: "blocked",
+        reason: blockers[0].message,
+        requiredAction: blockers[0].requiredAction || "Resolve payroll blockers.",
+        manager: blockers[0].manager || null,
+        supervisor: blockers[0].supervisor || null,
+      };
+    }
+
+    if (warnings.length > 0) {
+      return {
+        employeeId: employee.id,
+        employeeName: `${employee.first_name} ${employee.last_name}`,
+        state: "warning",
+        reason: warnings[0].message,
+        requiredAction: warnings[0].requiredAction || "Review warning signals.",
+        manager: warnings[0].manager || null,
+        supervisor: warnings[0].supervisor || null,
+      };
+    }
+
+    return {
+      employeeId: employee.id,
+      employeeName: `${employee.first_name} ${employee.last_name}`,
+      state: "ready",
+      reason: "No open payroll readiness issues.",
+      requiredAction: "No action required.",
+      manager: null,
+      supervisor: null,
+    };
+  });
+}
+
+export function buildPayrollValidationSummary(
+  ctx: PayrollContext,
+  checks: PayrollReadinessCheck[]
+): PayrollValidationSummary {
+  const scheduledMinutes = ctx.rosterShifts.reduce((sum, shift) => {
+    if (!shift.planned_start || !shift.planned_end) return sum;
+    const start = new Date(shift.planned_start).getTime();
+    const end = new Date(shift.planned_end).getTime();
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return sum;
+    return sum + Math.round((end - start) / 60000);
+  }, 0);
+
+  const workedHours = ctx.payrollHours.reduce(
+    (sum, row) => sum + Number(row.normal_hours || 0) + Number(row.overtime_hours || 0),
+    0
+  );
+
+  const overtimeHours = ctx.payrollHours.reduce(
+    (sum, row) => sum + Number(row.overtime_hours || 0),
+    0
+  );
+
+  const nightShiftHours = ctx.rosterShifts.reduce((sum, shift) => {
+    if (!shift.planned_start || !shift.planned_end) return sum;
+    const startHour = Number(shift.planned_start.slice(11, 13) || 0);
+    const endHour = Number(shift.planned_end.slice(11, 13) || 0);
+    const isNight = startHour >= 22 || endHour <= 6 || endHour < startHour;
+    if (!isNight) return sum;
+    const start = new Date(shift.planned_start).getTime();
+    const end = new Date(shift.planned_end).getTime();
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return sum;
+    const minutes = end > start ? Math.round((end - start) / 60000) : 480;
+    return sum + minutes / 60;
+  }, 0);
+
+  const publicHolidayShifts = ctx.rosterShifts.filter((shift) => {
+    const day = new Date(`${shift.shift_date}T00:00:00`).getDay();
+    return day === 0;
+  }).length;
+
+  const leaveDays = ctx.leaveRequests.reduce((sum, leave) => {
+    const s = new Date(`${leave.start_date}T00:00:00`).getTime();
+    const e = new Date(`${leave.end_date}T00:00:00`).getTime();
+    if (!Number.isFinite(s) || !Number.isFinite(e) || e < s) return sum;
+    return sum + Math.floor((e - s) / 86400000) + 1;
+  }, 0);
+
+  return {
+    scheduledHours: Math.round((scheduledMinutes / 60) * 10) / 10,
+    workedHours: Math.round(workedHours * 10) / 10,
+    overtimeHours: Math.round(overtimeHours * 10) / 10,
+    nightShiftHours: Math.round(nightShiftHours * 10) / 10,
+    publicHolidayShifts,
+    leaveDays,
+    attendanceEvents: ctx.clockEvents.length,
+    rosterShifts: ctx.rosterShifts.length,
+    openExceptions: checks.filter((item) => item.checkType === "unresolved_exception").length,
+  };
+}
+
+function riskByStore(
+  ctx: PayrollContext,
+  checks: PayrollReadinessCheck[]
+): Array<{ storeId: string; storeName: string; issueCount: number }> {
+  const map = new Map<string, number>();
+
+  checks.forEach((check) => {
+    const storeId = String(check.metadata?.storeId || "");
+    if (!storeId) return;
+    map.set(storeId, (map.get(storeId) || 0) + 1);
+  });
+
+  return ctx.stores
+    .map((store) => ({ storeId: store.id, storeName: store.name, issueCount: map.get(store.id) || 0 }))
+    .filter((item) => item.issueCount > 0)
+    .sort((a, b) => b.issueCount - a.issueCount)
+    .slice(0, 8);
+}
+
+function riskByDepartment(
+  ctx: PayrollContext,
+  checks: PayrollReadinessCheck[]
+): Array<{ departmentName: string; issueCount: number }> {
+  const deptMap = new Map<string, number>();
+  checks.forEach((check) => {
+    const dept = String(check.metadata?.departmentName || "Operations");
+    deptMap.set(dept, (deptMap.get(dept) || 0) + 1);
+  });
+
+  return Array.from(deptMap.entries())
+    .map(([departmentName, issueCount]) => ({ departmentName, issueCount }))
+    .sort((a, b) => b.issueCount - a.issueCount)
+    .slice(0, 8);
+}
+
+function recurringIssueTypes(checks: PayrollReadinessCheck[]) {
+  const counts = new Map<PayrollReadinessCheckType, number>();
+  checks.forEach((check) => {
+    counts.set(check.checkType, (counts.get(check.checkType) || 0) + 1);
+  });
+  return Array.from(counts.entries())
+    .map(([checkType, count]) => ({ checkType, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6);
+}
+
+function recurringManagerIssues(checks: PayrollReadinessCheck[]) {
+  const counts = new Map<string, number>();
+  checks.forEach((check) => {
+    const manager = check.manager || "unassigned";
+    counts.set(manager, (counts.get(manager) || 0) + 1);
+  });
+  return Array.from(counts.entries())
+    .map(([manager, issueCount]) => ({ manager, issueCount }))
+    .sort((a, b) => b.issueCount - a.issueCount)
+    .slice(0, 6);
 }
 
 export function buildPayrollLeakageEvents(ctx: PayrollContext): PayrollLeakageEvent[] {
@@ -762,9 +1254,52 @@ export function buildPayrollRecommendations(
 export function buildPayrollIntelligenceDashboard(ctx: PayrollContext): PayrollIntelligenceDashboard {
   const readinessChecks = buildPayrollReadinessChecks(ctx);
   const { score, band, blockerCount, warningCount } = computePayrollReadinessScore(readinessChecks);
+  const employeeReadiness = buildEmployeePayrollReadiness(ctx, readinessChecks);
   const leakageEvents = buildPayrollLeakageEvents(ctx);
   const totalLeakageZar = leakageEvents.reduce((s, e) => s + e.amountZar, 0);
   const forecast = buildPayrollForecast(ctx, leakageEvents);
+  const validationSummary = buildPayrollValidationSummary(ctx, readinessChecks);
+
+  const readinessTrend = (ctx.readinessHistory || [])
+    .map((row) => ({ scoreDate: row.score_date, readinessScore: Number(row.readiness_score || 0) }))
+    .slice(-14);
+
+  const storesAtRisk = riskByStore(ctx, readinessChecks);
+  const departmentsAtRisk = riskByDepartment(ctx, readinessChecks);
+  const recurringIssues = recurringIssueTypes(readinessChecks);
+  const recurringManagers = recurringManagerIssues(readinessChecks);
+  const complianceScore = Math.max(0, Math.min(100, 100 - blockerCount * 4 - warningCount * 2));
+  const laborCostVariance = forecast.variancePct;
+
+  const prepRows: PayrollExportReadinessPack[] = (ctx.payrollExportPreparations || []).map((row) => ({
+    id: row.id,
+    platform: (["vyron_pay", "sage", "payspace", "vip", "csv", "excel"].includes(row.target_platform)
+      ? row.target_platform
+      : "csv") as PayrollExportReadinessPack["platform"],
+    status: row.preparation_status === "failed" ? "failed" : "prepared",
+    rowsPrepared: Number(row.rows_prepared || 0),
+    preparedAt: row.created_at,
+  }));
+
+  const fallbackRows: PayrollExportReadinessPack[] = (ctx.payrollExportLogs || []).map((row) => ({
+    id: row.id,
+    platform: "csv",
+    status: (row.export_status || "prepared") === "failed" ? "failed" : "prepared",
+    rowsPrepared: Number(row.employee_count || 0),
+    preparedAt: row.created_at,
+  }));
+
+  const exportReadinessPacks = (prepRows.length > 0 ? prepRows : fallbackRows).slice(0, 24);
+
+  const timeline: PayrollTimelineEvent[] = (ctx.timelineRows || []).map((row) => ({
+    id: row.id,
+    eventType: ["validation", "correction", "approval", "export"].includes(row.event_type)
+      ? (row.event_type as PayrollTimelineEvent["eventType"])
+      : "history",
+    title: row.title,
+    detail: row.detail,
+    createdAt: row.created_at,
+  }));
 
   const exceptionChecks = readinessChecks.filter(
     (c) => c.checkType === "unresolved_exception"
@@ -779,8 +1314,19 @@ export function buildPayrollIntelligenceDashboard(ctx: PayrollContext): PayrollI
     blockerCount,
     warningCount,
     readinessChecks,
+    employeeReadiness,
     leakageEvents,
     totalLeakageZar,
+    validationSummary,
+    readinessTrend,
+    storesAtRisk,
+    departmentsAtRisk,
+    recurringIssues,
+    recurringManagers,
+    complianceScore,
+    laborCostVariance,
+    exportReadinessPacks,
+    timeline,
     forecast,
     exceptionCount: exceptionChecks.length,
     riskDashboard: ctx.riskDashboard,
@@ -804,6 +1350,13 @@ export async function syncPayrollIntelligence(
 ): Promise<{ ok: boolean; error: string | null; payPeriodId: string | null }> {
   const now = new Date().toISOString();
   let payPeriodId = dashboard.payPeriod.id;
+
+  const { data: previousScoreRow } = await supabase
+    .from("payroll_readiness_scores")
+    .select("readiness_score,readiness_band")
+    .eq("company_id", dashboard.companyId)
+    .eq("score_date", dashboard.scoreDate)
+    .maybeSingle();
 
   const { data: periodRow, error: periodError } = await supabase
     .from("payroll_pay_periods")
@@ -866,7 +1419,12 @@ export async function syncPayrollIntelligence(
         entity_ref: c.entityRef,
         message: c.message,
         status: c.status,
-        metadata: c.metadata,
+        metadata: {
+          ...c.metadata,
+          requiredAction: c.requiredAction || null,
+          manager: c.manager || null,
+          supervisor: c.supervisor || null,
+        },
         recorded_at: now,
       }))
     );
@@ -916,6 +1474,115 @@ export async function syncPayrollIntelligence(
   );
   if (fcError && !isPayrollMissingTable(fcError)) {
     return { ok: false, error: fcError.message, payPeriodId };
+  }
+
+  const timelineRows: Array<{
+    company_id: string;
+    pay_period_id: string | null;
+    event_type: string;
+    title: string;
+    detail: string;
+    metadata: Record<string, unknown>;
+    created_at: string;
+  }> = [
+    {
+      company_id: dashboard.companyId,
+      pay_period_id: payPeriodId,
+      event_type: "validation",
+      title: "Payroll readiness validated",
+      detail: `Readiness ${dashboard.readinessScore}% (${dashboard.readinessBand}) with ${dashboard.blockerCount} blocker(s) and ${dashboard.warningCount} warning(s).`,
+      metadata: {
+        scoreDate: dashboard.scoreDate,
+        blockerCount: dashboard.blockerCount,
+        warningCount: dashboard.warningCount,
+      },
+      created_at: now,
+    },
+  ];
+
+  const scoreChanged =
+    Number(previousScoreRow?.readiness_score ?? -1) !== dashboard.readinessScore ||
+    String(previousScoreRow?.readiness_band ?? "") !== dashboard.readinessBand;
+
+  if (scoreChanged) {
+    timelineRows.push({
+      company_id: dashboard.companyId,
+      pay_period_id: payPeriodId,
+      event_type: "history",
+      title: "Payroll readiness changed",
+      detail: `Readiness moved from ${previousScoreRow?.readiness_score ?? "n/a"}% to ${dashboard.readinessScore}%.`,
+      metadata: {
+        previousScore: previousScoreRow?.readiness_score ?? null,
+        currentScore: dashboard.readinessScore,
+      },
+      created_at: now,
+    });
+  }
+
+  const correctionCount = dashboard.readinessChecks.filter(
+    (row) => row.checkType === "pending_attendance_correction"
+  ).length;
+  if (correctionCount > 0) {
+    timelineRows.push({
+      company_id: dashboard.companyId,
+      pay_period_id: payPeriodId,
+      event_type: "correction",
+      title: "Attendance corrections pending",
+      detail: `${correctionCount} attendance correction item(s) are pending action.`,
+      metadata: { correctionCount },
+      created_at: now,
+    });
+  }
+
+  const approvalCount = dashboard.readinessChecks.filter(
+    (row) =>
+      row.checkType === "missing_supervisor_approval" ||
+      row.checkType === "pending_shift_approval" ||
+      row.checkType === "unapproved_overtime"
+  ).length;
+  if (approvalCount > 0) {
+    timelineRows.push({
+      company_id: dashboard.companyId,
+      pay_period_id: payPeriodId,
+      event_type: "approval",
+      title: "Approvals pending",
+      detail: `${approvalCount} payroll approval item(s) still require manager/supervisor action.`,
+      metadata: { approvalCount },
+      created_at: now,
+    });
+  }
+
+  const { error: timelineError } = await supabase
+    .from("payroll_readiness_timeline")
+    .insert(timelineRows);
+
+  if (timelineError && !isPayrollMissingTable(timelineError)) {
+    return { ok: false, error: timelineError.message, payPeriodId };
+  }
+
+  if (scoreChanged) {
+    const roleNotifications = ["manager", "supervisor", "hr", "owner"].map((role) => ({
+      company_id: dashboard.companyId,
+      pay_period_id: payPeriodId,
+      recipient_role: role,
+      status: "pending",
+      title: "Payroll readiness changed",
+      body: `Payroll readiness is now ${dashboard.readinessScore}% (${dashboard.readinessBand}).`,
+      metadata: {
+        scoreDate: dashboard.scoreDate,
+        readinessScore: dashboard.readinessScore,
+        readinessBand: dashboard.readinessBand,
+      },
+      created_at: now,
+    }));
+
+    const { error: notificationError } = await supabase
+      .from("payroll_readiness_notifications")
+      .insert(roleNotifications);
+
+    if (notificationError && !isPayrollMissingTable(notificationError)) {
+      return { ok: false, error: notificationError.message, payPeriodId };
+    }
   }
 
   return { ok: true, error: null, payPeriodId };

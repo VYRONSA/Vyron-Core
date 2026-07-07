@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   ClipboardList,
   DollarSign,
+  Download,
   RefreshCcw,
   ShieldAlert,
   Sparkles,
@@ -62,8 +63,21 @@ function checkTypeLabel(type: PayrollReadinessCheck["checkType"]): string {
     unresolved_exception: "Unresolved exception",
     open_field_job: "Open field job",
     missing_end_day: "Missing end-day",
+    pending_attendance_correction: "Pending attendance correction",
+    negative_leave_balance: "Negative leave balance",
+    duplicate_clock: "Duplicate clock",
+    unapproved_overtime: "Unapproved overtime",
+    roster_conflict: "Roster conflict",
+    missing_supervisor_approval: "Missing supervisor approval",
+    pending_shift_approval: "Pending shift approval",
   };
   return labels[type];
+}
+
+function readinessStatePill(state: "ready" | "warning" | "blocked") {
+  if (state === "ready") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (state === "warning") return "border-amber-200 bg-amber-50 text-amber-800";
+  return "border-rose-200 bg-rose-50 text-rose-800";
 }
 
 function leakageTypeLabel(type: PayrollLeakageEvent["leakageType"]): string {
@@ -85,6 +99,7 @@ export default function PayrollIntelligencePanel({
   const [scoreDate, setScoreDate] = useState(todayIsoDate);
   const [loading, setLoading] = useState(true);
   const [syncNote, setSyncNote] = useState<string | null>(null);
+  const [prepareBusy, setPrepareBusy] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<PayrollIntelligenceDashboard | null>(null);
 
   useEffect(() => {
@@ -109,6 +124,59 @@ export default function PayrollIntelligencePanel({
   const exceptionChecks = readinessChecks.filter(
     (c) => c.checkType === "unresolved_exception"
   );
+
+  const employeesReady = dashboard?.employeeReadiness.filter((row) => row.state === "ready").length || 0;
+  const employeesWarning = dashboard?.employeeReadiness.filter((row) => row.state === "warning").length || 0;
+  const employeesBlocked = dashboard?.employeeReadiness.filter((row) => row.state === "blocked").length || 0;
+  const missingClockIns = readinessChecks.filter((row) => row.checkType === "missing_clock_in").length;
+  const missingClockOuts = readinessChecks.filter((row) => row.checkType === "missing_clock_out").length;
+  const pendingLeave = readinessChecks.filter((row) => row.checkType === "unapproved_leave").length;
+  const pendingCorrections = readinessChecks.filter((row) => row.checkType === "pending_attendance_correction").length;
+  const pendingShiftApprovals = readinessChecks.filter((row) => row.checkType === "pending_shift_approval").length;
+
+  async function prepareExportPack(
+    platform: "vyron_pay" | "sage" | "payspace" | "vip" | "csv" | "excel"
+  ) {
+    if (!dashboard) return;
+    setPrepareBusy(platform);
+
+    const rowsPrepared = dashboard.employeeReadiness.filter((row) => row.state !== "blocked").length;
+
+    const { error } = await supabase.from("payroll_export_preparations").insert({
+      company_id: companyId,
+      pay_period_id: dashboard.payPeriod.id,
+      target_platform: platform,
+      preparation_status: "prepared",
+      rows_prepared: rowsPrepared,
+      payload: {
+        scoreDate: dashboard.scoreDate,
+        readinessScore: dashboard.readinessScore,
+        readinessBand: dashboard.readinessBand,
+      },
+    });
+
+    if (error) {
+      setSyncNote(`Export prep note: ${error.message}`);
+      setPrepareBusy(null);
+      return;
+    }
+
+    await supabase.from("payroll_readiness_timeline").insert({
+      company_id: companyId,
+      pay_period_id: dashboard.payPeriod.id,
+      event_type: "export",
+      title: `Export prep generated (${platform.toUpperCase()})`,
+      detail: `${rowsPrepared} validated employee row(s) prepared for ${platform.toUpperCase()} output.`,
+      metadata: {
+        platform,
+        rowsPrepared,
+        scoreDate: dashboard.scoreDate,
+      },
+    });
+
+    setPrepareBusy(null);
+    await load();
+  }
 
   return (
     <div className="space-y-6">
@@ -198,7 +266,7 @@ export default function PayrollIntelligencePanel({
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Blockers</p>
                 <p className="mt-2 text-3xl font-black text-rose-700">{dashboard.blockerCount}</p>
                 <p className="mt-1 text-xs font-medium text-slate-500">
-                  {dashboard.warningCount} warnings
+                  {dashboard.warningCount} warnings · {employeesBlocked} blocked staff
                 </p>
               </article>
               <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -214,15 +282,15 @@ export default function PayrollIntelligencePanel({
               </article>
               <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Expected Payroll
+                  Compliance Score
                 </p>
                 <p className="mt-2 text-3xl font-black text-cyan-800">
-                  {formatZar(dashboard.forecast.expectedPayroll)}
+                  {dashboard.complianceScore}%
                 </p>
                 <p className="mt-1 text-xs font-medium text-slate-500">
-                  {dashboard.forecast.variancePct !== null
-                    ? `${dashboard.forecast.variancePct > 0 ? "+" : ""}${dashboard.forecast.variancePct}% vs model`
-                    : "Variance n/a"}
+                  {dashboard.laborCostVariance !== null
+                    ? `${dashboard.laborCostVariance > 0 ? "+" : ""}${dashboard.laborCostVariance}% labour cost variance`
+                    : "Labour variance n/a"}
                 </p>
               </article>
             </section>
@@ -230,6 +298,20 @@ export default function PayrollIntelligencePanel({
 
           {view === "dashboard" && (
             <>
+              <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                <MetricCard label="Employees ready" value={String(employeesReady)} tone="emerald" />
+                <MetricCard label="Employees blocked" value={String(employeesBlocked)} tone="rose" />
+                <MetricCard label="Exceptions" value={String(exceptionChecks.length)} tone="amber" />
+                <MetricCard label="Missing clock-ins / outs" value={`${missingClockIns} / ${missingClockOuts}`} tone="slate" />
+                <MetricCard label="Ready %" value={`${dashboard.readinessScore}%`} tone="cyan" />
+              </section>
+
+              <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <MetricCard label="Pending leave" value={String(pendingLeave)} tone="amber" />
+                <MetricCard label="Pending corrections" value={String(pendingCorrections)} tone="amber" />
+                <MetricCard label="Pending shift approvals" value={String(pendingShiftApprovals)} tone="amber" />
+              </section>
+
               <section className="grid gap-4 lg:grid-cols-2">
                 <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="mb-4 flex items-center gap-2">
@@ -256,12 +338,150 @@ export default function PayrollIntelligencePanel({
                 </article>
               </section>
 
+              <section className="grid gap-4 lg:grid-cols-2">
+                <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-4 flex items-center gap-2">
+                    <ClipboardList className="h-5 w-5 text-cyan-700" />
+                    <h2 className="text-sm font-black text-slate-900">Validation engine</h2>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <InfoRow label="Scheduled hours" value={String(dashboard.validationSummary.scheduledHours)} />
+                    <InfoRow label="Worked hours" value={String(dashboard.validationSummary.workedHours)} />
+                    <InfoRow label="Overtime hours" value={String(dashboard.validationSummary.overtimeHours)} />
+                    <InfoRow label="Night shift hours" value={String(dashboard.validationSummary.nightShiftHours)} />
+                    <InfoRow label="Public holiday shifts" value={String(dashboard.validationSummary.publicHolidayShifts)} />
+                    <InfoRow label="Leave days" value={String(dashboard.validationSummary.leaveDays)} />
+                    <InfoRow label="Attendance events" value={String(dashboard.validationSummary.attendanceEvents)} />
+                    <InfoRow label="Roster shifts" value={String(dashboard.validationSummary.rosterShifts)} />
+                    <InfoRow label="Open exceptions" value={String(dashboard.validationSummary.openExceptions)} />
+                  </div>
+                </article>
+
+                <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-4 flex items-center gap-2">
+                    <ShieldAlert className="h-5 w-5 text-cyan-700" />
+                    <h2 className="text-sm font-black text-slate-900">Manager payroll centre</h2>
+                  </div>
+                  <div className="space-y-2 text-sm font-semibold text-slate-700">
+                    <p>Outstanding issues: {dashboard.blockerCount + dashboard.warningCount}</p>
+                    <p>Approval queue: {readinessChecks.filter((row) => row.checkType === "missing_supervisor_approval").length}</p>
+                    <p>Exception queue: {exceptionChecks.length}</p>
+                    <p>Bulk resolution candidates: {employeesWarning}</p>
+                  </div>
+                </article>
+              </section>
+
+              <section className="grid gap-4 lg:grid-cols-2">
+                <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-4 flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-cyan-700" />
+                    <h2 className="text-sm font-black text-slate-900">Payroll intelligence</h2>
+                  </div>
+                  <div className="space-y-2 text-sm text-slate-700">
+                    <p>Daily readiness trend points: {dashboard.readinessTrend.length}</p>
+                    <p>Stores at risk: {dashboard.storesAtRisk.length}</p>
+                    <p>Departments at risk: {dashboard.departmentsAtRisk.length}</p>
+                    <p>Recurring issue types: {dashboard.recurringIssues.length}</p>
+                    <p>Recurring managers: {dashboard.recurringManagers.length}</p>
+                    <p>Compliance score: {dashboard.complianceScore}%</p>
+                  </div>
+                </article>
+
+                <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-4 flex items-center gap-2">
+                    <Download className="h-5 w-5 text-cyan-700" />
+                    <h2 className="text-sm font-black text-slate-900">Export readiness (prepare only)</h2>
+                  </div>
+                  <div className="grid gap-2 md:grid-cols-3">
+                    {([
+                      "vyron_pay",
+                      "sage",
+                      "payspace",
+                      "vip",
+                      "csv",
+                      "excel",
+                    ] as const).map((platform) => (
+                      <button
+                        key={platform}
+                        type="button"
+                        onClick={() => void prepareExportPack(platform)}
+                        disabled={prepareBusy === platform}
+                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+                      >
+                        {prepareBusy === platform ? "Preparing..." : `Prepare ${platform.toUpperCase()}`}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs font-semibold text-slate-500">
+                    Last prepared packs: {dashboard.exportReadinessPacks.length}
+                  </p>
+                </article>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex items-center gap-2">
+                  <CalendarRange className="h-5 w-5 text-cyan-700" />
+                  <h2 className="text-sm font-black text-slate-900">Payroll readiness timeline</h2>
+                </div>
+                {dashboard.timeline.length === 0 ? (
+                  <p className="text-sm font-medium text-slate-500">No timeline events yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {dashboard.timeline.slice(0, 12).map((row) => (
+                      <div key={row.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-bold text-slate-900">{row.title}</p>
+                          <p className="text-[10px] font-semibold uppercase text-slate-500">{row.eventType}</p>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-600">{row.detail}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
               <RecommendationsBlock recommendations={dashboard.recommendations} />
             </>
           )}
 
           {view === "readiness" && (
-            <ChecksTable checks={readinessChecks} title="Payroll readiness checks" />
+            <section className="space-y-4">
+              <ChecksTable checks={readinessChecks} title="Payroll readiness checks" />
+
+              <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 className="mb-4 text-sm font-black text-slate-900">Employee payroll readiness</h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-xs font-bold uppercase text-slate-500">
+                        <th className="py-2 pr-3">Employee</th>
+                        <th className="py-2 pr-3">State</th>
+                        <th className="py-2 pr-3">Reason</th>
+                        <th className="py-2 pr-3">Required Action</th>
+                        <th className="py-2 pr-3">Manager</th>
+                        <th className="py-2">Supervisor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dashboard.employeeReadiness.map((row) => (
+                        <tr key={row.employeeId} className="border-b border-slate-50">
+                          <td className="py-3 pr-3 font-semibold text-slate-800">{row.employeeName}</td>
+                          <td className="py-3 pr-3">
+                            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black uppercase ${readinessStatePill(row.state)}`}>
+                              {row.state}
+                            </span>
+                          </td>
+                          <td className="py-3 pr-3 text-slate-700">{row.reason}</td>
+                          <td className="py-3 pr-3 text-slate-700">{row.requiredAction}</td>
+                          <td className="py-3 pr-3 text-slate-600">{row.manager || "—"}</td>
+                          <td className="py-3 text-slate-600">{row.supervisor || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+            </section>
           )}
 
           {view === "leakage" && (
@@ -482,5 +702,39 @@ function LeakageTable({ events }: { events: PayrollLeakageEvent[] }) {
         </div>
       )}
     </article>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "emerald" | "rose" | "amber" | "slate" | "cyan";
+}) {
+  const toneClass: Record<typeof tone, string> = {
+    emerald: "text-emerald-700",
+    rose: "text-rose-700",
+    amber: "text-amber-700",
+    slate: "text-slate-800",
+    cyan: "text-cyan-800",
+  };
+
+  return (
+    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">{label}</p>
+      <p className={`mt-2 text-2xl font-black ${toneClass[tone]}`}>{value}</p>
+    </article>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+      <span className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</span>
+      <span className="text-sm font-black text-slate-900">{value}</span>
+    </div>
   );
 }

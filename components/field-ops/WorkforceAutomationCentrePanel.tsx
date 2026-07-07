@@ -157,6 +157,44 @@ export default function WorkforceAutomationCentrePanel({ companyId, userEmail }:
             Supabase, then refresh.
           </p>
         )}
+
+        {!loading && dashboard?.tablesAvailable && (
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <MetricCard label="Open Workflows" value={dashboard.metrics.openCount} tone="slate" />
+            <MetricCard label="Critical" value={dashboard.metrics.criticalCount} tone="rose" />
+            <MetricCard label="Overdue" value={dashboard.metrics.overdueCount} tone="amber" />
+            <MetricCard
+              label="Success Rate"
+              value={`${dashboard.metrics.automationSuccessRatePct.toFixed(1)}%`}
+              tone="emerald"
+            />
+            <MetricCard
+              label="Avg Resolution"
+              value={`${dashboard.metrics.averageResolutionMinutes} min`}
+              tone="cyan"
+            />
+          </div>
+        )}
+
+        {!loading && dashboard?.tablesAvailable && (
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <MetricCard
+              label="Business Impact"
+              value={`R${dashboard.metrics.businessImpactZAR.toLocaleString()}`}
+              tone="emerald"
+            />
+            <MetricCard
+              label="Time Saved"
+              value={`${dashboard.metrics.timeSavedHours.toFixed(1)} hrs`}
+              tone="cyan"
+            />
+            <MetricCard
+              label="Ops Improvement"
+              value={`${dashboard.metrics.operationalImprovementScore.toFixed(1)} / 100`}
+              tone="indigo"
+            />
+          </div>
+        )}
       </section>
 
       <ActionSection
@@ -214,6 +252,15 @@ export default function WorkforceAutomationCentrePanel({ companyId, userEmail }:
         loading={loading}
         empty="No completed actions yet."
         actions={(dashboard?.completedActions || []).slice(0, 15)}
+      />
+
+      <ActionSection
+        title="Critical Workflows"
+        subtitle="Highest operational impact workflows requiring rapid intervention."
+        icon={AlertTriangle}
+        loading={loading}
+        empty="No critical workflows currently open."
+        actions={(dashboard?.criticalWorkflows || []).slice(0, 12)}
       />
 
       <ActionSection
@@ -298,8 +345,16 @@ function ActionSection({
                 <span>Source: {action.source_module}</span>
                 {action.employee_id && <span>Employee: {action.employee_id}</span>}
                 {action.prepared_by && <span>Prepared: {action.prepared_by}</span>}
+                {action.pipeline_stage && <span>Stage: {action.pipeline_stage}</span>}
+                {action.workflow_owner && <span>Owner: {action.workflow_owner}</span>}
+                {action.escalation_level && <span>Priority: {action.escalation_level}</span>}
                 <span>{new Date(action.created_at).toLocaleString()}</span>
               </div>
+              {action.outcome_summary && (
+                <div className="mt-2 rounded-xl border border-cyan-100 bg-cyan-50/60 px-3 py-2 text-xs font-semibold text-cyan-950">
+                  Expected outcome: {action.outcome_summary}
+                </div>
+              )}
               {showError && action.error_message && (
                 <div className="mt-2 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-900">
                   <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -312,5 +367,31 @@ function ActionSection({
         )}
       </div>
     </section>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number | string;
+  tone: "slate" | "rose" | "amber" | "emerald" | "cyan" | "indigo";
+}) {
+  const toneMap: Record<typeof tone, string> = {
+    slate: "border-slate-200 bg-slate-50 text-slate-900",
+    rose: "border-rose-200 bg-rose-50 text-rose-900",
+    amber: "border-amber-200 bg-amber-50 text-amber-900",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    cyan: "border-cyan-200 bg-cyan-50 text-cyan-900",
+    indigo: "border-indigo-200 bg-indigo-50 text-indigo-900",
+  };
+
+  return (
+    <div className={`rounded-2xl border px-4 py-3 ${toneMap[tone]}`}>
+      <div className="text-[10px] font-black uppercase tracking-[0.18em] opacity-70">{label}</div>
+      <div className="mt-1 text-2xl font-black tracking-tight">{value}</div>
+    </div>
   );
 }

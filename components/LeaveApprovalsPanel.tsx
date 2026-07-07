@@ -14,6 +14,7 @@ type LeaveStatus = "pending" | "approved" | "declined" | "amended";
 
 type LeaveRequest = {
   id: string;
+  company_id?: string | null;
   employee_id: string | null;
   employee_name: string | null;
   leave_type: string | null;
@@ -21,6 +22,13 @@ type LeaveRequest = {
   end_date: string;
   reason: string | null;
   status: LeaveStatus | string;
+  workflow_stage?: string | null;
+  submitted_at?: string | null;
+  manager_approved_at?: string | null;
+  hr_approved_at?: string | null;
+  rejected_at?: string | null;
+  cancelled_at?: string | null;
+  completed_at?: string | null;
   manager_feedback: string | null;
   created_at: string;
 };
@@ -97,6 +105,14 @@ function leaveDays(startDate: string, endDate: string) {
   return Math.floor(difference / (1000 * 60 * 60 * 24)) + 1;
 }
 
+function datesOverlap(startA: string, endA: string, startB: string, endB: string) {
+  const aStart = new Date(`${startA}T12:00:00`).getTime();
+  const aEnd = new Date(`${endA}T12:00:00`).getTime();
+  const bStart = new Date(`${startB}T12:00:00`).getTime();
+  const bEnd = new Date(`${endB}T12:00:00`).getTime();
+  return aStart <= bEnd && bStart <= aEnd;
+}
+
 function normaliseLeaveType(value: string | null | undefined) {
   const lower = String(value || "annual_leave").toLowerCase();
 
@@ -139,8 +155,10 @@ function InfoTile({ label, value }: { label: string; value: string }) {
 }
 
 export default function LeaveApprovalsPanel({
+  companyId,
   onUpdated,
 }: {
+  companyId?: string;
   onUpdated?: () => void | Promise<void>;
 }) {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
@@ -203,11 +221,17 @@ export default function LeaveApprovalsPanel({
     setLoading(true);
     setError(null);
 
-    const { data, error: fetchError } = await supabase
+    let query = supabase
       .from("leave_requests")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(250);
+
+    if (companyId) {
+      query = query.eq("company_id", companyId);
+    }
+
+    const { data, error: fetchError } = await query;
 
     if (fetchError) {
       setError(fetchError.message);
@@ -226,13 +250,18 @@ export default function LeaveApprovalsPanel({
 
     const leaveType = normaliseLeaveType(leave.leave_type);
 
-    const { data } = await supabase
+    let query = supabase
       .from("leave_balances_live")
       .select("*")
       .eq("employee_id", String(leave.employee_id))
       .eq("leave_type", leaveType)
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
+
+    if (companyId) {
+      query = query.eq("company_id", companyId);
+    }
+
+    const { data } = await query.maybeSingle();
 
     if (data) {
       setSelectedLeaveBalance(data as LeaveBalanceLive);
@@ -247,7 +276,7 @@ export default function LeaveApprovalsPanel({
     await loadLeaveBalanceForRequest(leave);
   }
 
-  async function updateLeaveStatus(nextStatus: LeaveStatus) {
+  async function updateLeaveStatus(nextStatus: LeaveStatus | "cancelled" | "completed", nextWorkflowStage: string) {
     if (!selectedLeave) return;
 
     setSaving(true);
@@ -270,13 +299,52 @@ export default function LeaveApprovalsPanel({
       return;
     }
 
+    if (["manager_approved", "hr_approved"].includes(nextWorkflowStage) && selectedLeave.employee_id) {
+      const { data: overlapRows, error: overlapError } = await supabase
+        .from("leave_requests")
+        .select("id,start_date,end_date,status,workflow_stage")
+        .eq("employee_id", selectedLeave.employee_id)
+        .neq("id", leaveRequestId);
+
+      if (overlapError) {
+        setError(overlapError.message);
+        setSaving(false);
+        return;
+      }
+
+      const hasOverlap = (overlapRows || []).some((row) => {
+        const stage = String((row as any).workflow_stage || "submitted").toLowerCase();
+        const status = String((row as any).status || "pending").toLowerCase();
+        const active = ["submitted", "manager_approved", "hr_approved", "approved", "pending"].includes(stage) || ["approved", "pending"].includes(status);
+        if (!active) return false;
+        return datesOverlap(selectedLeave.start_date, selectedLeave.end_date, String((row as any).start_date), String((row as any).end_date));
+      });
+
+      if (hasOverlap) {
+        setError("Conflict detected: this employee has another overlapping leave request.");
+        setSaving(false);
+        return;
+      }
+    }
+
+    const nowIso = new Date().toISOString();
+
     const { error: updateError } = await supabase
       .from("leave_requests")
       .update({
         status: nextStatus,
+        workflow_stage: nextWorkflowStage,
+        manager_approved_at: nextWorkflowStage === "manager_approved" ? nowIso : null,
+        hr_approved_at: nextWorkflowStage === "hr_approved" ? nowIso : null,
+        rejected_at: nextWorkflowStage === "rejected" ? nowIso : null,
+        cancelled_at: nextWorkflowStage === "cancelled" ? nowIso : null,
+        completed_at: nextWorkflowStage === "completed" ? nowIso : null,
+        reviewed_by_manager: nextWorkflowStage === "manager_approved" ? "manager" : null,
+        reviewed_by_hr: nextWorkflowStage === "hr_approved" ? "hr" : null,
         manager_feedback: feedback.trim() || null,
       })
-      .eq("id", leaveRequestId);
+      .eq("id", leaveRequestId)
+      .eq("company_id", companyId || selectedLeave.company_id || "");
 
     if (updateError) {
       setError(updateError.message);
@@ -575,36 +643,68 @@ export default function LeaveApprovalsPanel({
 
                   <div className="mt-5 grid gap-3 md:grid-cols-3">
                     <button
-                      onClick={() => updateLeaveStatus("approved")}
+                      onClick={() => updateLeaveStatus("pending", "manager_approved")}
                       disabled={
                         saving ||
-                        selectedLeave.status === "approved" ||
+                        selectedLeave.workflow_stage === "manager_approved" ||
+                        !selectedLeaveHasEnoughBalance
+                      }
+                      className="rounded-2xl bg-cyan-600 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300 disabled:text-slate-500"
+                    >
+                      Manager Approve
+                    </button>
+
+                    <button
+                      onClick={() => updateLeaveStatus("approved", "hr_approved")}
+                      disabled={
+                        saving ||
+                        selectedLeave.workflow_stage === "hr_approved" ||
                         !selectedLeaveHasEnoughBalance
                       }
                       className="rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300 disabled:text-slate-500"
                     >
-                      Approve
+                      HR Approve
                     </button>
 
                     <button
-                      onClick={() => updateLeaveStatus("declined")}
-                      disabled={saving || selectedLeave.status === "declined"}
-                      className="rounded-2xl bg-rose-600 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300 disabled:text-slate-500"
-                    >
-                      Decline
-                    </button>
-
-                    <button
-                      onClick={() => updateLeaveStatus("amended")}
-                      disabled={saving || selectedLeave.status === "amended"}
+                      onClick={() => updateLeaveStatus("declined", "rejected")}
+                      disabled={saving || selectedLeave.workflow_stage === "rejected"}
                       className="rounded-2xl bg-blue-600 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300 disabled:text-slate-500"
                     >
-                      Amend
+                      Reject
+                    </button>
+                  </div>
+
+                  <div className="mt-3 grid gap-3 md:grid-cols-3">
+                    <button
+                      onClick={() => updateLeaveStatus("pending", "draft")}
+                      disabled={saving || selectedLeave.workflow_stage === "draft"}
+                      className="rounded-2xl bg-slate-700 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300 disabled:text-slate-500"
+                    >
+                      Move To Draft
+                    </button>
+
+                    <button
+                      onClick={() => updateLeaveStatus("cancelled", "cancelled")}
+                      disabled={saving || selectedLeave.workflow_stage === "cancelled"}
+                      className="rounded-2xl bg-rose-600 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300 disabled:text-slate-500"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      onClick={() => updateLeaveStatus("completed", "completed")}
+                      disabled={saving || selectedLeave.workflow_stage === "completed"}
+                      className="rounded-2xl bg-indigo-600 px-5 py-4 text-sm font-black text-white disabled:bg-slate-300 disabled:text-slate-500"
+                    >
+                      Complete
                     </button>
                   </div>
 
                   <div className="mt-4 rounded-2xl bg-slate-100 p-4 text-xs font-semibold leading-6 text-slate-600">
                     Submitted: {formatDateTime(selectedLeave.created_at)}
+                    <br />
+                    Workflow: {formatText(selectedLeave.workflow_stage || "submitted")}
                   </div>
                 </>
               )}

@@ -160,6 +160,10 @@ import HRWarningsDocumentPanel from "../components/HRWarningsDocumentPanel";
 import ClockReviewPanel from "../components/ClockReviewPanel";
 import WorkforceMovementPanel from "../components/WorkforceMovementPanel";
 import RosterIntelligencePanel from "../components/RosterIntelligencePanel";
+import DragDropRosterCalendar from "../components/DragDropRosterCalendar";
+import RecurringShiftTemplates from "../components/RecurringShiftTemplates";
+import SmartAutoRosteringAI from "../components/SmartAutoRosteringAI";
+import OvernightShiftLogic from "../components/OvernightShiftLogic";
 import ContractCentrePanel from "../components/ContractCentrePanel";
 import EmployeeDocumentVaultPanel from "../components/EmployeeDocumentVaultPanel";
 import LeaveControlCentrePanel from "../components/LeaveControlCentrePanel";
@@ -226,6 +230,13 @@ import PayrollIntelligencePanel from "../components/field-ops/PayrollIntelligenc
 import WorkforceLifecyclePanel from "../components/field-ops/WorkforceLifecyclePanel";
 import RecruitmentIntelligencePanel from "../components/field-ops/RecruitmentIntelligencePanel";
 import WorkforceOperatingSystemPanel from "../components/field-ops/WorkforceOperatingSystemPanel";
+import MobileAppShell, {
+  MobileHomeLauncher,
+  type MobileLauncherTile,
+  type MobileShellActionSection,
+  type MobileShellNavItem,
+} from "@/components/mobile/MobileAppShell";
+import { buildSimpleAutoPlan, dateRange } from "@/lib/roster-enterprise";
 import { useVyronDevPlatform } from "../components/vyron-dev/useVyronDevPlatform";
 import {
   ensureClientProfile,
@@ -1098,6 +1109,45 @@ type RosterShiftRow = {
   status: string;
   employee_id: string;
   store_id: string;
+  shift_template_id?: string | null;
+  roster_version_id?: string | null;
+  planner_notes?: string | null;
+  published?: boolean;
+  approved?: boolean;
+  approval_notes?: string | null;
+  labor_cost_estimate?: number | null;
+};
+
+type ShiftTemplateRow = {
+  id: string;
+  template_name: string;
+  shift_type: string;
+  start_time: string;
+  end_time: string;
+  break_minutes: number;
+  recurring_pattern: string | null;
+  rotation_group: string | null;
+  status: string;
+};
+
+type RosterRuleRow = {
+  id: string;
+  rule_name: string;
+  minimum_rest_hours: number;
+  maximum_shift_hours: number;
+  maximum_consecutive_days: number;
+  maximum_weekly_hours: number;
+  validate_automatically: boolean;
+  status: string;
+};
+
+type CoverageRequirementRow = {
+  id: string;
+  store_id: string | null;
+  coverage_date: string;
+  shift_type: string;
+  required_employees: number;
+  notes: string | null;
 };
 
 type ClockEventRow = {
@@ -11428,15 +11478,187 @@ function RosterManagementPanel({
   rosterShifts,
   employees,
   stores,
+  leaveRequests,
+  templates,
+  coverageRequirements,
+  companyId,
   onOpenCreateShift,
   onRefresh,
 }: {
   rosterShifts: RosterShiftRow[];
   employees: EmployeeRow[];
   stores: StoreRow[];
+  leaveRequests: LeaveRequestRow[];
+  templates: ShiftTemplateRow[];
+  coverageRequirements: CoverageRequirementRow[];
+  companyId: string;
   onOpenCreateShift: () => void;
   onRefresh: () => void;
 }) {
+  const [busy, setBusy] = useState<string | null>(null);
+
+  async function moveShift(shiftId: string, nextDate: string) {
+    const shift = rosterShifts.find((item) => item.id === shiftId);
+    if (!shift) return;
+
+    const startTime = shift.planned_start.slice(11, 19);
+    const endTime = shift.planned_end.slice(11, 19);
+
+    setBusy("move");
+    const { error } = await supabase
+      .from("roster_shifts")
+      .update({
+        shift_date: nextDate,
+        planned_start: `${nextDate}T${startTime}`,
+        planned_end: `${nextDate}T${endTime}`,
+      })
+      .eq("id", shiftId)
+      .eq("company_id", companyId);
+
+    setBusy(null);
+    if (error) {
+      alert(`Move shift failed: ${error.message}`);
+      return;
+    }
+    onRefresh();
+  }
+
+  async function publishDay(shiftDate: string) {
+    setBusy(`publish-${shiftDate}`);
+    const { error } = await supabase
+      .from("roster_shifts")
+      .update({ published: true, status: "published" })
+      .eq("company_id", companyId)
+      .eq("shift_date", shiftDate);
+
+    setBusy(null);
+    if (error) {
+      alert(`Publish failed: ${error.message}`);
+      return;
+    }
+    onRefresh();
+  }
+
+  async function createTemplate(payload: {
+    template_name: string;
+    shift_type: string;
+    start_time: string;
+    end_time: string;
+    break_minutes: number;
+    recurring_pattern: string;
+    rotation_group: string | null;
+  }) {
+    setBusy("template");
+    const { error } = await supabase.from("shift_templates").insert({
+      company_id: companyId,
+      ...payload,
+      status: "active",
+    });
+    setBusy(null);
+    if (error) {
+      alert(`Template create failed: ${error.message}`);
+      return;
+    }
+    onRefresh();
+  }
+
+  async function applyTemplate(payload: {
+    templateId: string;
+    storeId: string;
+    employeeId: string;
+    startDate: string;
+    endDate: string;
+  }) {
+    if (!payload.templateId || !payload.storeId || !payload.employeeId) return;
+    const template = templates.find((item) => item.id === payload.templateId);
+    if (!template) return;
+
+    const days = dateRange(payload.startDate, payload.endDate);
+    const inserts = days.map((day) => ({
+      company_id: companyId,
+      employee_id: payload.employeeId,
+      store_id: payload.storeId,
+      shift_date: day,
+      planned_start: `${day}T${template.start_time}`,
+      planned_end: `${day}T${template.end_time}`,
+      role: template.shift_type,
+      status: "scheduled",
+      shift_template_id: template.id,
+    }));
+
+    if (inserts.length === 0) return;
+
+    setBusy("apply-template");
+    const { error } = await supabase.from("roster_shifts").insert(inserts);
+    setBusy(null);
+    if (error) {
+      alert(`Template apply failed: ${error.message}`);
+      return;
+    }
+    onRefresh();
+  }
+
+  async function generateAutoRoster(payload: {
+    startDate: string;
+    endDate: string;
+    startTime: string;
+    endTime: string;
+  }) {
+    const plan = buildSimpleAutoPlan({
+      employees,
+      stores,
+      startDate: payload.startDate,
+      endDate: payload.endDate,
+      defaultStart: payload.startTime,
+      defaultEnd: payload.endTime,
+    });
+
+    if (plan.length === 0) {
+      alert("No auto-plan generated. Ensure active employees and stores exist.");
+      return;
+    }
+
+    setBusy("auto");
+    const { error } = await supabase.from("roster_shifts").insert(
+      plan.map((item) => ({
+        company_id: companyId,
+        ...item,
+      }))
+    );
+    setBusy(null);
+
+    if (error) {
+      alert(`Auto roster failed: ${error.message}`);
+      return;
+    }
+
+    onRefresh();
+  }
+
+  async function addCoverageRequirement() {
+    if (stores.length === 0) {
+      alert("Create at least one store first.");
+      return;
+    }
+
+    const targetDate = new Date().toISOString().slice(0, 10);
+    setBusy("coverage");
+    const { error } = await supabase.from("roster_coverage_requirements").upsert({
+      company_id: companyId,
+      store_id: stores[0].id,
+      coverage_date: targetDate,
+      shift_type: "morning",
+      required_employees: Math.max(1, Math.min(6, stores.length + 1)),
+      notes: "Auto-generated baseline coverage",
+    });
+    setBusy(null);
+    if (error) {
+      alert(`Coverage rule failed: ${error.message}`);
+      return;
+    }
+    onRefresh();
+  }
+
   return (
     <div className="space-y-6">
       <div className="grid gap-5 md:grid-cols-3">
@@ -11454,7 +11676,15 @@ function RosterManagementPanel({
           <div className="flex flex-wrap gap-3">
             <button onClick={onRefresh} className="rounded-2xl bg-slate-100 px-5 py-3 text-sm font-bold text-slate-700">Refresh</button>
             <button onClick={onOpenCreateShift} className="rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15">Create Shift</button>
+            <button disabled={busy === "coverage"} onClick={addCoverageRequirement} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:opacity-60">{busy === "coverage" ? "Adding..." : "Add Coverage Baseline"}</button>
           </div>
+        </div>
+
+        <div className="mt-6 space-y-5">
+          <SmartAutoRosteringAI onGenerate={generateAutoRoster} />
+          <RecurringShiftTemplates templates={templates} stores={stores} employees={employees} onCreateTemplate={createTemplate} onApplyTemplate={applyTemplate} />
+          <DragDropRosterCalendar rosterShifts={rosterShifts} employees={employees} stores={stores} onMoveShift={moveShift} onPublishDay={publishDay} />
+          <OvernightShiftLogic rosterShifts={rosterShifts} />
         </div>
 
         <div className="mt-6 space-y-4">
@@ -11487,6 +11717,12 @@ function RosterManagementPanel({
               );
             })
           )}
+        </div>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <InfoBox label="Coverage Rules" value={String(coverageRequirements.length)} />
+          <InfoBox label="Leave Requests" value={String(leaveRequests.length)} />
+          <InfoBox label="Templates" value={String(templates.length)} />
         </div>
       </Panel>
     </div>
@@ -12195,6 +12431,12 @@ function ConnectedInsightsScreen({
   }, [branchLeakageSorted, maxBranchLeak]);
 
   const computedLabel = w.computedAtIso ? new Date(w.computedAtIso).toLocaleString("en-ZA") : "—";
+  const phase1Insights = (w.insights || []).slice(0, 6);
+  const topEmployeeRisks = (w.labourLeakage?.employeeRiskRanking || []).slice(0, 6);
+  const topDepartmentRisks = (w.labourLeakage?.departmentRiskRanking || []).slice(0, 6);
+  const managerScoreRows = (w.managerScorecard || []).slice(0, 6);
+  const departmentHealthRows = (w.departmentHealth || []).slice(0, 6);
+  const workforceHealthRows = (w.workforceHealth || []).slice(0, 8);
 
   return (
     <div className="space-y-8">
@@ -12275,6 +12517,45 @@ function ConnectedInsightsScreen({
           accent="cyan"
           trend={anomalyCount > 0 ? "down" : "up"}
           badge="Alerts"
+        />
+      </div>
+
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          title="Attendance %"
+          value={`${(w.attendance?.attendancePct || 0).toFixed(1)}%`}
+          subtitle={`Punctuality ${(w.attendance?.punctualityPct || 0).toFixed(1)}%`}
+          icon={<Clock3 className="h-6 w-6" />}
+          accent="cyan"
+          trend={(w.attendance?.attendancePct || 0) >= 85 ? "up" : "neutral"}
+          badge="Attendance"
+        />
+        <StatCard
+          title="Missed Shift %"
+          value={`${(w.attendance?.missedShiftPct || 0).toFixed(1)}%`}
+          subtitle={`Avg lateness ${(w.attendance?.averageLatenessMinutes || 0).toFixed(1)} min`}
+          icon={<AlertTriangle className="h-6 w-6" />}
+          accent="amber"
+          trend={(w.attendance?.missedShiftPct || 0) > 8 ? "down" : "up"}
+          badge="Coverage"
+        />
+        <StatCard
+          title="Payroll readiness"
+          value={`${(w.payroll?.readinessScore || 0).toFixed(1)}%`}
+          subtitle={`${w.payroll?.blockerCount || 0} blocker issues`}
+          icon={<WalletCards className="h-6 w-6" />}
+          accent="emerald"
+          trend={(w.payroll?.blockerCount || 0) > 0 ? "down" : "up"}
+          badge="Payroll"
+        />
+        <StatCard
+          title="Workforce health"
+          value={`${(w.executiveDashboard?.workforceHealth || 0).toFixed(1)}%`}
+          subtitle={`Compliance ${(w.executiveDashboard?.complianceScore || 0).toFixed(1)}%`}
+          icon={<HeartPulse className="h-6 w-6" />}
+          accent="rose"
+          trend={(w.executiveDashboard?.workforceHealth || 0) >= 75 ? "up" : "neutral"}
+          badge="Health"
         />
       </div>
 
@@ -12462,6 +12743,141 @@ function ConnectedInsightsScreen({
               Watchlist pin active — align HR business partner and payroll controller on follow-up tasks.
             </p>
           ) : null}
+        </Panel>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <Panel>
+          <h3 className="text-lg font-black tracking-tight text-slate-950">Labour leakage employee risk ranking</h3>
+          <p className="mt-2 text-sm text-slate-500">Highest-risk employees ranked by leakage score and operational triggers.</p>
+          <div className="mt-4 overflow-auto rounded-2xl border border-slate-200/80">
+            <table className="w-full min-w-[520px] text-left text-sm">
+              <thead className="bg-slate-100/90">
+                <tr className="border-b border-slate-200 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                  <th className="px-4 py-3">Employee</th>
+                  <th className="px-4 py-3">Department</th>
+                  <th className="px-4 py-3 text-right">Risk</th>
+                  <th className="px-4 py-3 text-right">Leakage</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topEmployeeRisks.length === 0 ? (
+                  <IntelligenceEmptyRow colSpan={4} message="No labour leakage employee ranking yet." />
+                ) : (
+                  topEmployeeRisks.map((row, idx) => (
+                    <tr key={`${row.employeeId}-${idx}`} className="border-b border-slate-100">
+                      <td className="px-4 py-3 font-semibold text-slate-900">{row.name}</td>
+                      <td className="px-4 py-3 text-slate-600">{row.department}</td>
+                      <td className="px-4 py-3 text-right font-bold text-amber-700">{row.riskScore.toFixed(1)}</td>
+                      <td className="px-4 py-3 text-right font-black text-rose-700">R {Math.round(row.estimatedLeakageZAR).toLocaleString("en-ZA")}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+
+        <Panel>
+          <h3 className="text-lg font-black tracking-tight text-slate-950">Department risk and health snapshot</h3>
+          <p className="mt-2 text-sm text-slate-500">Cross-view of department leakage risk against health score trend.</p>
+          <div className="mt-4 space-y-3">
+            {topDepartmentRisks.length === 0 ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-600">No department risk ranking yet.</div>
+            ) : (
+              topDepartmentRisks.map((row) => {
+                const health = departmentHealthRows.find((h) => h.department === row.department)?.overall || 0;
+                return (
+                  <div key={row.department} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <div className="text-sm font-black text-slate-950">{row.department}</div>
+                        <div className="text-xs text-slate-500">Leakage R {Math.round(row.estimatedLeakageZAR).toLocaleString("en-ZA")}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-amber-700">Risk {row.riskScore.toFixed(1)}</div>
+                        <div className="text-xs font-semibold text-emerald-700">Health {health.toFixed(1)}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </Panel>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-3">
+        <Panel>
+          <h3 className="text-lg font-black tracking-tight text-slate-950">Manager scorecard</h3>
+          <div className="mt-3 space-y-2">
+            {managerScoreRows.length === 0 ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">No manager scorecard data yet.</div>
+            ) : (
+              managerScoreRows.map((m) => (
+                <div key={m.manager} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="truncate text-sm font-black text-slate-900">{m.manager}</span>
+                    <span className="text-sm font-bold text-cyan-700">{m.overall.toFixed(1)}%</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </Panel>
+
+        <Panel>
+          <h3 className="text-lg font-black tracking-tight text-slate-950">Workforce health score</h3>
+          <div className="mt-3 space-y-2">
+            {workforceHealthRows.length === 0 ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">No employee health scores yet.</div>
+            ) : (
+              workforceHealthRows.map((row) => (
+                <div key={row.employeeId} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="truncate text-sm font-black text-slate-900">{row.name}</span>
+                    <span className="text-xs font-bold text-slate-600">{row.band}</span>
+                  </div>
+                  <div className="mt-1 text-xs font-semibold text-emerald-700">Overall {row.overall.toFixed(1)}%</div>
+                </div>
+              ))
+            )}
+          </div>
+        </Panel>
+
+        <Panel>
+          <h3 className="text-lg font-black tracking-tight text-slate-950">Intelligence engine queue</h3>
+          <p className="mt-2 text-sm text-slate-500">Operational decisions with cause, owner, cost, and prepared execution work.</p>
+          <div className="mt-3 space-y-2">
+            {phase1Insights.length === 0 ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">No active intelligence insights yet.</div>
+            ) : (
+              phase1Insights.map((insight) => (
+                <div key={insight.id} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-xs font-black uppercase tracking-wider text-cyan-700">{insight.domain}</div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{insight.severity}</div>
+                  </div>
+                  <div className="mt-1 text-sm font-bold text-slate-900">{insight.title}</div>
+                  <div className="mt-2 space-y-1 text-[11px] text-slate-700">
+                    <div><span className="font-black text-slate-900">What happened:</span> {insight.whatHappened}</div>
+                    <div><span className="font-black text-slate-900">Why:</span> {insight.whyItHappened}</div>
+                    <div><span className="font-black text-slate-900">Cost:</span> R {Math.round(insight.costToBusinessZAR || 0).toLocaleString("en-ZA")}</div>
+                    <div><span className="font-black text-slate-900">Next action:</span> {insight.whatShouldHappenNext}</div>
+                    <div><span className="font-black text-slate-900">Owner:</span> {insight.whoShouldDoIt}</div>
+                    <div><span className="font-black text-slate-900">If no action:</span> {insight.ifNothingIsDone}</div>
+                    <div><span className="font-black text-slate-900">Value:</span> {insight.measurableValue}</div>
+                  </div>
+                  <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-[11px] text-slate-700">
+                    <span className="font-black text-slate-900">Auto-prepared work:</span>{" "}
+                    {insight.autoPreparation?.canPrepare
+                      ? (insight.autoPreparation.preparedWork || []).join(" | ") || "Prepared task package available"
+                      : "No automatic preparation available yet"}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </Panel>
       </div>
 
@@ -16096,6 +16512,47 @@ function displayNavigationLabel(item: string) {
   return item;
 }
 
+function displayMobileSectionTitle(active: string) {
+  if (active === "Command Centre") return "Home";
+  if (
+    active === "WhatsApp Action Centre" ||
+    active === "Employee Notifications" ||
+    active === "Notifications" ||
+    active === "WhatsApp"
+  ) {
+    return "Notifications";
+  }
+  return active;
+}
+
+function resolveMobileNavKey(active: string, moreOpen: boolean) {
+  if (active === "Command Centre") return "home";
+  if (active === "Live Activity") return "activity";
+  if (
+    active === "WhatsApp Action Centre" ||
+    active === "Employee Notifications" ||
+    active === "Notifications" ||
+    active === "WhatsApp"
+  ) {
+    return "notifications";
+  }
+  if (moreOpen) return "more";
+  return "more";
+}
+
+function initialsFromIdentity(value: string | null | undefined) {
+  const clean = (value || "").trim();
+  if (!clean) return "VC";
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return `${words[0][0] || ""}${words[1][0] || ""}`.toUpperCase();
+  }
+  if (clean.includes("@")) {
+    return clean.slice(0, 2).toUpperCase();
+  }
+  return clean.slice(0, 2).toUpperCase();
+}
+
 
 export default function Page() {
   const router = useRouter();
@@ -16166,6 +16623,8 @@ export default function Page() {
   const [addEmployeeOpen, setAddEmployeeOpen] = useState(false);
   const [createShiftOpen, setCreateShiftOpen] = useState(false);
   const [manualClockOpen, setManualClockOpen] = useState(false);
+  const [mobileCreateOpen, setMobileCreateOpen] = useState(false);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [stores, setStores] = useState<StoreRow[]>([]);
@@ -16178,6 +16637,9 @@ export default function Page() {
   const [hrNotes, setHrNotes] = useState<HrNoteRow[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequestRow[]>([]);
   const [rosterShifts, setRosterShifts] = useState<RosterShiftRow[]>([]);
+  const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplateRow[]>([]);
+  const [rosterRules, setRosterRules] = useState<RosterRuleRow[]>([]);
+  const [coverageRequirements, setCoverageRequirements] = useState<CoverageRequirementRow[]>([]);
   const [clockEvents, setClockEvents] = useState<ClockEventRow[]>([]);
   const [payrollBatches, setPayrollBatches] = useState<PayrollBatchRow[]>([]);
   const [payrollHours, setPayrollHours] = useState<PayrollHoursRow[]>([]);
@@ -16675,6 +17137,16 @@ export default function Page() {
   const isVyronCoreSupportView = isVyronCoreSupportSession(vyronDevSupportSession);
   const hasTenantCompanyAccess = Boolean(currentCompanyId) || isVyronCoreSupportView;
   const isMasterOperatorSession = isVyronMasterOperator(layoutUserRole, normalizedAuthEmail);
+  const visibleShellNavGroups = useMemo(
+    () =>
+      buildSidebarNavGroups(
+        layoutUserRole,
+        normalizedAuthEmail,
+        hasTenantCompanyAccess,
+        isVyronCoreSupportView
+      ),
+    [layoutUserRole, normalizedAuthEmail, hasTenantCompanyAccess, isVyronCoreSupportView]
+  );
   const tenantPermissionLayer = useMemo(
     () => resolveTenantPermissionLayer(layoutUserRole, normalizedAuthEmail),
     [layoutUserRole, normalizedAuthEmail]
@@ -16920,7 +17392,7 @@ export default function Page() {
     [masterInboxTick]
   );
 
-  const alertCounts = useMemo(
+  const alertCounts = useMemo<Record<string, number>>(
     () => ({
       Dashboard: openExceptionCount + openHrCaseCount + pendingLeaveCount + blockedPayrollCount,
       "Command Centre": openExceptionCount + openHrCaseCount + pendingLeaveCount + blockedPayrollCount,
@@ -16971,6 +17443,245 @@ export default function Page() {
       masterNewClientRecommendationCount,
     ]
   );
+
+  const mobileNotificationCount =
+    alertCounts["Notifications"] ||
+    alertCounts["Employee Notifications"] ||
+    alertCounts["WhatsApp Action Centre"] ||
+    0;
+
+  const mobileHomeTiles: MobileLauncherTile[] = [
+    {
+      key: "employees",
+      title: "Employees",
+      description: "Staff records, active employee details and people workflows.",
+      icon: <Users className="h-6 w-6" />,
+      onPress: () => setActive("Employees"),
+    },
+    {
+      key: "clocking",
+      title: "Clocking",
+      description: "Live clock activity, exceptions and attendance control.",
+      icon: <Clock3 className="h-6 w-6" />,
+      badge: alertCounts["Clocking"] || undefined,
+      onPress: () => setActive("Clocking"),
+    },
+    {
+      key: "stores-rosters",
+      title: "Stores & Rosters",
+      description: "Location setup, roster planning and workforce coverage.",
+      icon: <Store className="h-6 w-6" />,
+      onPress: () => setActive("Stores & Rosters"),
+    },
+    {
+      key: "leave",
+      title: "Leave",
+      description: "Approvals, balances and leave control workflows.",
+      icon: <CalendarRange className="h-6 w-6" />,
+      badge: alertCounts["Leave Approvals"] || undefined,
+      onPress: () => setActive("Leave Management"),
+    },
+    {
+      key: "hr-cases",
+      title: "HR Cases",
+      description: "Risk cases, warning actions and employee compliance records.",
+      icon: <ShieldAlert className="h-6 w-6" />,
+      badge: alertCounts["HR Cases"] || undefined,
+      onPress: () => setActive("HR Cases"),
+    },
+    {
+      key: "payroll",
+      title: "Payroll",
+      description: "Payroll readiness, blockers and export preparation.",
+      icon: <WalletCards className="h-6 w-6" />,
+      badge: alertCounts["Payroll Prep"] || undefined,
+      onPress: () => setActive("Payroll Prep"),
+    },
+    {
+      key: "documents",
+      title: "HR Documents",
+      description: "Contracts, employee files and supporting documents.",
+      icon: <FileText className="h-6 w-6" />,
+      onPress: () => setActive("HR Documents"),
+    },
+    {
+      key: "reports",
+      title: "Reports",
+      description: "Executive reporting, history and live operational summaries.",
+      icon: <BarChart3 className="h-6 w-6" />,
+      onPress: () => setActive("Reports Centre"),
+    },
+    {
+      key: "intelligence",
+      title: "Intelligence",
+      description: "Workforce insights, leakage signals and decision support.",
+      icon: <Brain className="h-6 w-6" />,
+      onPress: () => setActive("Workforce Intelligence"),
+    },
+    {
+      key: "field",
+      title: "Field Ops",
+      description: "Journey, route and mobile workforce field operations.",
+      icon: <Route className="h-6 w-6" />,
+      onPress: () => setActive("Field Operations"),
+    },
+    {
+      key: "automation",
+      title: "Automation",
+      description: "Workflow automation, orchestrated tasks and AI actions.",
+      icon: <Zap className="h-6 w-6" />,
+      onPress: () => setActive("Automation Centre"),
+    },
+    {
+      key: "settings",
+      title: "Settings",
+      description: "Company setup, workspace controls and admin surfaces.",
+      icon: <ShieldCheck className="h-6 w-6" />,
+      onPress: () =>
+        setActive(isMasterOperatorSession ? "Client Directory" : "Company Setup"),
+    },
+  ];
+
+  const mobileCreateSections: MobileShellActionSection[] = [
+    {
+      key: "quick-create",
+      title: "Quick Create",
+      actions: [
+        {
+          key: "open-employees",
+          label: "Employee",
+          description: "Open the staff workspace and use the existing add employee flow.",
+          icon: <UserPlus className="h-5 w-5" />,
+          onPress: () => setActive("Employees"),
+          tone: "gold",
+        },
+        {
+          key: "open-store",
+          label: "Store",
+          description: "Open locations to create or manage workspace stores.",
+          icon: <Store className="h-5 w-5" />,
+          onPress: () => setActive("Stores"),
+        },
+        {
+          key: "open-roster",
+          label: "Roster Shift",
+          description: "Open roster planning and create a new scheduled shift.",
+          icon: <CalendarDays className="h-5 w-5" />,
+          onPress: () => setActive("Rosters"),
+        },
+        {
+          key: "open-hr-case",
+          label: "HR Case",
+          description: "Jump into HR cases and continue from the live workflow.",
+          icon: <ShieldAlert className="h-5 w-5" />,
+          onPress: () => setActive("HR Cases"),
+        },
+      ],
+    },
+  ];
+
+  const mobileMoreSections: MobileShellActionSection[] = [
+    {
+      key: "account",
+      title: "Account",
+      actions: [
+        {
+          key: "workspace-settings",
+          label: isMasterOperatorSession ? "Client Directory" : "Company Setup",
+          description: isMasterOperatorSession
+            ? "Open the platform client directory and workspace controls."
+            : "Open workspace setup, plan and administrative controls.",
+          icon: <Building2 className="h-5 w-5" />,
+          onPress: () =>
+            setActive(isMasterOperatorSession ? "Client Directory" : "Company Setup"),
+        },
+        {
+          key: "logout",
+          label: "Logout",
+          description: "End the current secure session and return to the login screen.",
+          icon: <LogIn className="h-5 w-5" />,
+          onPress: () => {
+            void handleLogout();
+          },
+          tone: "danger",
+        },
+      ],
+    },
+    ...visibleShellNavGroups.map<MobileShellActionSection>((group) => ({
+      key: group.label,
+      title: group.label,
+      actions: group.items.map((item) => {
+        const resolved = resolveNavigationTarget(item);
+        const itemBadgeCount = alertCounts[item] || alertCounts[resolved] || 0;
+        return {
+          key: `${group.label}-${item}`,
+          label: displayNavigationLabel(item),
+          description: `Open ${displayNavigationLabel(item)} in the live workspace.`,
+          icon: <NavIcon item={resolved} />,
+          badge: itemBadgeCount > 0 ? (itemBadgeCount > 99 ? "99+" : itemBadgeCount) : undefined,
+          onPress: () => setActive(resolved),
+          tone: resolved === active ? "gold" : "default" as const,
+        };
+      }),
+    })),
+  ];
+
+  const mobileNavKey = resolveMobileNavKey(active, mobileMoreOpen);
+  const mobileNavItems: MobileShellNavItem[] = [
+    {
+      key: "home",
+      label: "Home",
+      icon: <LayoutDashboard className="h-5 w-5" />,
+      active: mobileNavKey === "home",
+      onPress: () => setActive("Command Centre"),
+    },
+    {
+      key: "activity",
+      label: "Activity",
+      icon: <Activity className="h-5 w-5" />,
+      active: mobileNavKey === "activity",
+      onPress: () => setActive("Live Activity"),
+    },
+    {
+      key: "create",
+      label: "Create",
+      icon: <Plus className="h-6 w-6" />,
+      active: mobileCreateOpen,
+      prominent: true,
+      onPress: () => {
+        setMobileMoreOpen(false);
+        setMobileCreateOpen((current) => !current);
+      },
+    },
+    {
+      key: "notifications",
+      label: "Notifications",
+      icon: <Bell className="h-5 w-5" />,
+      badge:
+        mobileNotificationCount > 0
+          ? mobileNotificationCount > 99
+            ? "99+"
+            : mobileNotificationCount
+          : undefined,
+      active: mobileNavKey === "notifications",
+      onPress: () => setActive("Notifications"),
+    },
+    {
+      key: "more",
+      label: "More",
+      icon: <Menu className="h-5 w-5" />,
+      active: mobileNavKey === "more" && !mobileCreateOpen,
+      onPress: () => {
+        setMobileCreateOpen(false);
+        setMobileMoreOpen((current) => !current);
+      },
+    },
+  ];
+
+  useEffect(() => {
+    setMobileCreateOpen(false);
+    setMobileMoreOpen(false);
+  }, [active]);
 
   useEffect(() => {
     async function loadAuthSession() {
@@ -17139,6 +17850,9 @@ export default function Page() {
         setExceptions([]);
         setHrCases([]);
         setRosterShifts([]);
+        setShiftTemplates([]);
+        setRosterRules([]);
+        setCoverageRequirements([]);
         setClockEvents([]);
         setPayrollBatches([]);
         setPayrollHours([]);
@@ -17255,7 +17969,7 @@ export default function Page() {
       );
       setCurrentCompanyName(activeCompanyName);
 
-      const [storesRes, employeesRes, exceptionsRes, rosterRes, clockRes, payrollRes, payrollHoursRes, payrollClockChecksRes, rolesRes, companyUsersRes, hrWarningsRes, hrDocumentsRes, hrNotesRes, leaveRequestsRes, companyPlanRes] = await Promise.all([
+      const [storesRes, employeesRes, exceptionsRes, rosterRes, shiftTemplatesRes, rosterRulesRes, coverageRequirementsRes, clockRes, payrollRes, payrollHoursRes, payrollClockChecksRes, rolesRes, companyUsersRes, hrWarningsRes, hrDocumentsRes, hrNotesRes, leaveRequestsRes, companyPlanRes] = await Promise.all([
         supabase
           .from("stores")
           .select("id,name,city,region,status,address,opening_time,closing_time,gps_radius_meters,record_status")
@@ -17267,7 +17981,10 @@ export default function Page() {
           .eq("company_id", activeCompanyId)
           .order("first_name"),
         supabase.from("time_exceptions").select("id,exception_type,severity,description,status,employee_id,store_id,roster_shift_id,source,exception_key").eq("company_id", activeCompanyId).order("created_at", { ascending: false }),
-        supabase.from("roster_shifts").select("id,shift_date,planned_start,planned_end,role,status,employee_id,store_id").eq("company_id", activeCompanyId).gte("shift_date", today).order("planned_start", { ascending: true }),
+        supabase.from("roster_shifts").select("id,shift_date,planned_start,planned_end,role,status,employee_id,store_id,shift_template_id,roster_version_id,planner_notes,published,approved,approval_notes,labor_cost_estimate").eq("company_id", activeCompanyId).gte("shift_date", today).order("planned_start", { ascending: true }),
+        supabase.from("shift_templates").select("id,template_name,shift_type,start_time,end_time,break_minutes,recurring_pattern,rotation_group,status").eq("company_id", activeCompanyId).order("template_name", { ascending: true }),
+        supabase.from("roster_rules").select("id,rule_name,minimum_rest_hours,maximum_shift_hours,maximum_consecutive_days,maximum_weekly_hours,validate_automatically,status").eq("company_id", activeCompanyId).order("created_at", { ascending: false }),
+        supabase.from("roster_coverage_requirements").select("id,store_id,coverage_date,shift_type,required_employees,notes").eq("company_id", activeCompanyId).gte("coverage_date", today).order("coverage_date", { ascending: true }),
         supabase.from("clock_events").select("id,employee_id,store_id,roster_shift_id,event_type,event_time,source,latitude,longitude,gps_accuracy,photo_url,photo_bucket,photo_path,device_info,clock_note").eq("company_id", activeCompanyId).order("event_time", { ascending: false }),
         supabase.from("payroll_batches").select("id,batch_name,period_start,period_end,payroll_system,status,exported_at").eq("company_id", activeCompanyId).order("created_at", { ascending: false }),
         supabase.from("payroll_hours").select("id,company_id,employee_id,period_start,period_end,normal_hours,overtime_hours,late_minutes,missing_clock_events,status,approved_at,approval_note,exported_at,export_batch_id,created_at").eq("company_id", activeCompanyId).order("created_at", { ascending: false }),
@@ -17364,6 +18081,9 @@ export default function Page() {
         setExceptions([]);
         setHrCases([]);
         setRosterShifts([]);
+        setShiftTemplates([]);
+        setRosterRules([]);
+        setCoverageRequirements([]);
         setClockEvents([]);
         setPayrollBatches([]);
         setPayrollHours([]);
@@ -17390,6 +18110,18 @@ export default function Page() {
         "payroll_clock_checks",
         payrollClockChecksRes.error
       );
+      const shiftTemplatesTableMissing = optionalTableMissing(
+        "shift_templates",
+        shiftTemplatesRes.error
+      );
+      const rosterRulesTableMissing = optionalTableMissing(
+        "roster_rules",
+        rosterRulesRes.error
+      );
+      const coverageRequirementsTableMissing = optionalTableMissing(
+        "roster_coverage_requirements",
+        coverageRequirementsRes.error
+      );
       const companyUsersTableMissing = optionalTableMissing(
         "company_users",
         companyUsersRes.error
@@ -17408,6 +18140,9 @@ export default function Page() {
         exceptionsRes.error ||
         hrCasesRes.error ||
         rosterRes.error ||
+        (shiftTemplatesTableMissing ? null : shiftTemplatesRes.error) ||
+        (rosterRulesTableMissing ? null : rosterRulesRes.error) ||
+        (coverageRequirementsTableMissing ? null : coverageRequirementsRes.error) ||
         clockRes.error ||
         payrollRes.error ||
         payrollHoursRes.error ||
@@ -17435,6 +18170,21 @@ export default function Page() {
       setExceptions((exceptionsRes.error ? [] : exceptionsRes.data || []) as ExceptionRow[]);
       setHrCases((hrCasesRes.error ? [] : hrCasesRes.data || []) as HrCaseRow[]);
       setRosterShifts((rosterRes.error ? [] : rosterRes.data || []) as RosterShiftRow[]);
+      setShiftTemplates(
+        (shiftTemplatesTableMissing || shiftTemplatesRes.error
+          ? []
+          : shiftTemplatesRes.data || []) as ShiftTemplateRow[]
+      );
+      setRosterRules(
+        (rosterRulesTableMissing || rosterRulesRes.error
+          ? []
+          : rosterRulesRes.data || []) as RosterRuleRow[]
+      );
+      setCoverageRequirements(
+        (coverageRequirementsTableMissing || coverageRequirementsRes.error
+          ? []
+          : coverageRequirementsRes.data || []) as CoverageRequirementRow[]
+      );
       setClockEvents((clockRes.error ? [] : clockRes.data || []) as ClockEventRow[]);
       setPayrollBatches((payrollRes.error ? [] : payrollRes.data || []) as PayrollBatchRow[]);
       setPayrollHours((payrollHoursRes.error ? [] : payrollHoursRes.data || []) as PayrollHoursRow[]);
@@ -17609,7 +18359,18 @@ export default function Page() {
     if (active === "Clocking") return <ClockingDrilldownHubScreen clockEvents={clockEvents} employees={employees} stores={stores} rosterShifts={rosterShifts} exceptions={exceptions} setActive={setActive} onManualEvent={() => setManualClockOpen(true)} onRefresh={refreshData} />;
     if (active === "Clocking Review") return <ClockReviewPanel companyId={currentCompanyId} />;
     if (active === "Workforce Movement") return <WorkforceMovementPanel companyId={currentCompanyId} />;
-    if (active === "Roster Intelligence") return <RosterIntelligencePanel />;
+    if (active === "Roster Intelligence")
+      return (
+        <RosterIntelligencePanel
+          employees={employees}
+          stores={stores}
+          rosterShifts={rosterShifts}
+          leaveRequests={leaveRequests}
+          clockEvents={clockEvents}
+          coverageRequirements={coverageRequirements}
+          rosterRules={rosterRules}
+        />
+      );
     if (active === "Payroll Clock Engine") return <PayrollClockEngineScreen payrollClockChecks={payrollClockChecks} rosterShifts={rosterShifts} clockEvents={clockEvents} employees={employees} stores={stores} companyId={currentCompanyId} onRefresh={refreshData} />;
     if (active === "Exceptions") return <ExceptionsActionPanel exceptions={exceptions} employees={employees} stores={stores} companyId={currentCompanyId} onUpdated={refreshData} onNavigate={setActive} />;
     if (active === "Stores & Rosters") return <StoresRostersHub setActive={setActive} />;
@@ -17740,7 +18501,20 @@ export default function Page() {
     if (active === "Workforce Health Score")
       return <WorkforceOperatingSystemPanel companyId={currentCompanyId} initialView="health" />;
     if (active === "Stores") return <StoresEditAndAddSafePage stores={stores} exceptions={exceptions} setActive={setActive} onAddStore={() => setAddStoreOpen(true)} onRefresh={refreshData} />;
-    if (active === "Rosters") return <RosterManagementPanel rosterShifts={rosterShifts} employees={employees} stores={stores} onOpenCreateShift={() => setCreateShiftOpen(true)} onRefresh={refreshData} />;
+    if (active === "Rosters")
+      return (
+        <RosterManagementPanel
+          rosterShifts={rosterShifts}
+          employees={employees}
+          stores={stores}
+          leaveRequests={leaveRequests}
+          templates={shiftTemplates}
+          coverageRequirements={coverageRequirements}
+          companyId={currentCompanyId}
+          onOpenCreateShift={() => setCreateShiftOpen(true)}
+          onRefresh={refreshData}
+        />
+      );
     if (active === "Leave Control Centre") return <LeaveControlCentrePanel />;
     if (active === "Leave Management") return <LeaveApprovalsScreen leaveRequests={leaveRequests} employees={employees} companyId={currentCompanyId} onRefresh={refreshData} />;
     if (active === "Leave Approvals") return <LeaveApprovalsScreen leaveRequests={leaveRequests} employees={employees} companyId={currentCompanyId} onRefresh={refreshData} />;
@@ -18113,19 +18887,60 @@ return (
       <CreateShiftModal open={createShiftOpen} onClose={() => setCreateShiftOpen(false)} onSaved={refreshData} stores={stores} employees={employees} companyId={currentCompanyId} />
       <ManualClockEventModal open={manualClockOpen} onClose={() => setManualClockOpen(false)} onSaved={refreshData} stores={stores} employees={employees} rosterShifts={rosterShifts} companyId={currentCompanyId} />
 
-      {mobileNavOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileNavOpen(false)} />
-          <div className="absolute left-0 top-0 h-full w-[320px] max-w-[86vw]">
-            <button onClick={() => setMobileNavOpen(false)} className="absolute right-4 top-4 z-10 rounded-2xl bg-white/10 p-3 text-white">
-              <X className="h-5 w-5" />
-            </button>
-            <Sidebar active={active} setActive={setActive} closeMobile={() => setMobileNavOpen(false)} alertCounts={alertCounts} openGroup={activeSidebarGroup} setOpenGroup={setActiveSidebarGroup} userRole={layoutUserRole} userEmail={normalizedAuthEmail} hasCompanyAccess={hasTenantCompanyAccess} coreSupportMode={isVyronCoreSupportView} tenantWorkspacePlan={tenantWorkspaceSidebarPlan} />
-          </div>
-        </div>
-      )}
+      <div className="lg:hidden">
+        <MobileAppShell
+          title={displayMobileSectionTitle(active)}
+          workspaceName={currentCompanyName || "VYRON Workspace"}
+          profileLabel={initialsFromIdentity(authUserEmail || normalizedAuthEmail)}
+          notificationCount={mobileNotificationCount}
+          onOpenWorkspace={() => {
+            setMobileCreateOpen(false);
+            setMobileMoreOpen(true);
+          }}
+          onOpenNotifications={() => setActive("Notifications")}
+          onOpenProfile={() => {
+            setMobileCreateOpen(false);
+            setMobileMoreOpen(true);
+          }}
+          navItems={mobileNavItems}
+          createOpen={mobileCreateOpen}
+          onCreateOpenChange={setMobileCreateOpen}
+          createSections={mobileCreateSections}
+          moreOpen={mobileMoreOpen}
+          onMoreOpenChange={setMobileMoreOpen}
+          moreSections={mobileMoreSections}
+        >
+          {isMasterOperatorSession && vyronDevSupportSession && (
+            <div className="mb-4">
+              <VyronDevSupportSessionBanner
+                session={vyronDevSupportSession}
+                onEndSession={handleEndVyronDevSupportSession}
+                onReturnToVyronDev={handleReturnToVyronDevFromSupport}
+                onOpenProduct={() =>
+                  openVyronDevProduct(
+                    vyronDevSupportSession.clientId,
+                    vyronDevSupportSession.productCode
+                  )
+                }
+              />
+            </div>
+          )}
 
-      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[300px_1fr]">
+          {loading ? (
+            <VyronWorkspaceSkeleton />
+          ) : active === "Command Centre" ? (
+            <MobileHomeLauncher
+              title="Touch-first workspace"
+              subtitle="Open the live workflows you already use on desktop through a premium launcher designed for tablets and phones."
+              tiles={mobileHomeTiles}
+            />
+          ) : (
+            <div className="vyron-page-enter">{renderSection()}</div>
+          )}
+        </MobileAppShell>
+      </div>
+
+      <div className="hidden min-h-screen lg:grid lg:grid-cols-[300px_1fr]">
         <div className="hidden lg:block">
           <Sidebar active={active} setActive={setActive} alertCounts={alertCounts} openGroup={activeSidebarGroup} setOpenGroup={setActiveSidebarGroup} userRole={layoutUserRole} userEmail={normalizedAuthEmail} hasCompanyAccess={hasTenantCompanyAccess} coreSupportMode={isVyronCoreSupportView} tenantWorkspacePlan={tenantWorkspaceSidebarPlan} />
         </div>
