@@ -4,6 +4,7 @@ import {
   authenticateApiRequest,
   getSupabaseAdminClient,
 } from "@/lib/server-api-auth";
+import { VYRON_SESSION_TOKEN_COOKIE } from "@/lib/server/auth-routing";
 import {
   isWhatsAppMockMode,
   loadWhatsAppCommandDashboard,
@@ -15,6 +16,24 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  const auth = await authenticateApiRequest(
+    request.headers.get("authorization"),
+    request.cookies.get(VYRON_SESSION_TOKEN_COOKIE)?.value || ""
+  );
+  if (!auth.ok) {
+    return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status });
+  }
+
+  const companyId = (request.nextUrl.searchParams.get("companyId") || "").trim();
+  if (companyId) {
+    const access = await assertCompanyWorkspaceAccess(auth.supabase, auth.email, companyId, {
+      platformOperator: auth.platformOperator,
+    });
+    if (!access.ok) {
+      return NextResponse.json({ ok: false, error: access.message }, { status: access.status });
+    }
+  }
+
   const mockMode = isWhatsAppMockMode();
   return NextResponse.json({
     ok: true,
@@ -29,47 +48,48 @@ export async function GET(request: NextRequest) {
     hasWhatsAppCredentials: Boolean(
       process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID
     ),
-    companyId: request.nextUrl.searchParams.get("companyId") || null,
+    companyId: companyId || null,
   });
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await authenticateApiRequest(
+    request.headers.get("authorization"),
+    request.cookies.get(VYRON_SESSION_TOKEN_COOKIE)?.value || ""
+  );
+    if (!auth.ok) {
+      return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status });
+    }
+
     const body = await request.json();
     const phone = String(body?.phone || body?.to || "").trim();
     const message = String(body?.message || body?.text || "").trim();
-    const forceMock = body?.mock === true;
+    const forceMock = process.env.NODE_ENV !== "production" && body?.mock === true;
     const sendReply = body?.sendReply !== false;
+    const companyId = String(body?.companyId || request.nextUrl.searchParams.get("companyId") || "").trim();
 
     if (!message) {
       return NextResponse.json({ ok: false, error: "message is required." }, { status: 400 });
     }
 
-    const authHeader = request.headers.get("authorization");
-    let companyId = String(body?.companyId || "").trim();
-    let managerEmail: string | undefined;
+    if (!companyId) {
+      return NextResponse.json({ ok: false, error: "companyId is required." }, { status: 400 });
+    }
 
-    if (authHeader) {
-      const auth = await authenticateApiRequest(authHeader);
-      if (!auth.ok) {
-        return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status });
-      }
-      companyId = companyId || (request.nextUrl.searchParams.get("companyId") || "").trim();
-      if (companyId) {
-        const access = await assertCompanyWorkspaceAccess(auth.supabase, auth.email, companyId);
-        if (!access.ok) {
-          return NextResponse.json({ ok: false, error: access.message }, { status: access.status });
-        }
-      }
-      managerEmail = auth.email;
+    const access = await assertCompanyWorkspaceAccess(auth.supabase, auth.email, companyId, {
+      platformOperator: auth.platformOperator,
+    });
+    if (!access.ok) {
+      return NextResponse.json({ ok: false, error: access.message }, { status: access.status });
     }
 
     const supabase = getSupabaseAdminClient();
     const result = await processWhatsAppWorkforceCommand(supabase, {
       phone: phone || "27000000000",
       messageText: message,
-      companyId: companyId || undefined,
-      managerEmail,
+      companyId,
+      managerEmail: auth.email,
       forceMock: forceMock || isWhatsAppMockMode(),
     });
 

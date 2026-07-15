@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { calculateWorkforceIntelligence } from "@/lib/intelligence-suite";
 import type { WorkforceIntelligenceState } from "@/lib/intelligence-suite-types";
+import { computeExecutiveWorkforceIntelligence } from "@/lib/executive-workforce-intelligence";
 import {
   assertCompanyWorkspaceAccess,
   authenticateApiRequest,
 } from "@/lib/server-api-auth";
+import { VYRON_SESSION_TOKEN_COOKIE } from "@/lib/server/auth-routing";
 
 export const runtime = "nodejs";
 
@@ -27,7 +29,10 @@ function daysAgoIso(days: number): string {
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await authenticateApiRequest(request.headers.get("authorization"));
+    const auth = await authenticateApiRequest(
+      request.headers.get("authorization"),
+      request.cookies.get(VYRON_SESSION_TOKEN_COOKIE)?.value || ""
+    );
     if (!auth.ok) {
       return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status });
     }
@@ -129,7 +134,17 @@ export async function GET(request: NextRequest) {
       trainingData
     );
 
-    return NextResponse.json({ ok: true, intelligence });
+    const executive = await computeExecutiveWorkforceIntelligence(auth.supabase, companyId);
+
+    return NextResponse.json({
+      ok: true,
+      intelligence,
+      executive: {
+        summary: executive.summary,
+        risks: executive.risks,
+        recommendations: executive.recommendations,
+      },
+    });
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Workforce intelligence computation failed.";

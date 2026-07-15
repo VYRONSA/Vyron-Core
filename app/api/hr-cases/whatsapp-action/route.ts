@@ -5,6 +5,7 @@ import {
   getSupabaseAdminClient,
   getSupabasePublicConfig,
 } from "@/lib/server-api-auth";
+import { VYRON_SESSION_TOKEN_COOKIE } from "@/lib/server/auth-routing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,7 +39,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await authenticateApiRequest(request.headers.get("authorization"));
+    const auth = await authenticateApiRequest(
+      request.headers.get("authorization"),
+      request.cookies.get(VYRON_SESSION_TOKEN_COOKIE)?.value || ""
+    );
     if (!auth.ok) {
       return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status });
     }

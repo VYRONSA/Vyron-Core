@@ -1,42 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { isVyronMasterOperator } from "@/lib/company-access";
 import { resendClientActivationEmail } from "@/lib/client-invite-resend";
+import { authenticateApiRequest } from "@/lib/server-api-auth";
+import { VYRON_SESSION_TOKEN_COOKIE } from "@/lib/server/auth-routing";
 
 export const runtime = "nodejs";
 
-const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
-const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
-
-function stripQuotes(value: string): string {
-  const t = value.trim();
-  if (t.length >= 2 && ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'")))) {
-    return t.slice(1, -1).trim();
-  }
-  return t;
-}
-
 async function assertMasterOperator(request: NextRequest) {
-  const authHeader = request.headers.get("authorization") || "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-  if (!token) {
-    return { ok: false as const, status: 401, message: "Sign in required." };
+  const auth = await authenticateApiRequest(
+    request.headers.get("authorization"),
+    request.cookies.get(VYRON_SESSION_TOKEN_COOKIE)?.value || ""
+  );
+  if (!auth.ok) {
+    return { ok: false as const, status: auth.status, message: auth.message };
   }
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return { ok: false as const, status: 500, message: "Server auth is not configured." };
-  }
-
-  const supabase = createClient(supabaseUrl, stripQuotes(supabaseAnonKey), {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data.user?.email) {
-    return { ok: false as const, status: 401, message: "Invalid or expired session." };
-  }
-
-  if (!isVyronMasterOperator("", data.user.email)) {
+  if (!isVyronMasterOperator(auth.role) && !auth.platformOperator) {
     return {
       ok: false as const,
       status: 403,
@@ -51,8 +30,8 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     route: "/api/clients/resend-invite",
-    hasSupabaseUrl: Boolean(supabaseUrl),
-    hasAnonKey: Boolean(stripQuotes(supabaseAnonKey)),
+    hasSupabaseUrl: Boolean((process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim()),
+    hasAnonKey: Boolean((process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim()),
     hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()),
   });
 }

@@ -1,4 +1,5 @@
 import { normalizeRbacRole, type VyronRbacRole } from "@/lib/server/auth-routing";
+import { evaluateSessionValidity, type SessionRow } from "@/lib/server/session-validation";
 
 type SupabaseUser = {
   id?: string;
@@ -17,6 +18,8 @@ type CompanyRow = {
   id?: string;
   status?: string | null;
   subscription_status?: string | null;
+  session_idle_timeout_minutes?: number | null;
+  session_absolute_timeout_minutes?: number | null;
 };
 
 type RpcAccessRow = {
@@ -36,6 +39,9 @@ export type ServerAuthorizationContext = {
   membershipActive: boolean;
   companyActive: boolean;
   workspaceActive: boolean;
+  /** False when the tracked session (vyron_user_sessions) is missing, force-logout
+   * revoked, idle-timed-out, or past its absolute lifetime. See Task 1/2 (Phase 1C). */
+  sessionValid: boolean;
 };
 
 const ACTIVE_COMPANY_STATUSES = new Set(["", "active", "trial", "trialing", "demo"]);
@@ -59,6 +65,21 @@ function baseDeniedContext(userId: string | null, email: string | null): ServerA
     membershipActive: false,
     companyActive: false,
     workspaceActive: false,
+    sessionValid: false,
+  };
+}
+
+function unauthenticatedContext(): ServerAuthorizationContext {
+  return {
+    authenticated: false,
+    userId: null,
+    email: null,
+    role: null,
+    companyId: null,
+    membershipActive: false,
+    companyActive: false,
+    workspaceActive: false,
+    sessionValid: false,
   };
 }
 
@@ -87,7 +108,7 @@ async function fetchCompanyById(
   companyId: string
 ): Promise<CompanyRow | null> {
   const params = new URLSearchParams({
-    select: "id,status,subscription_status",
+    select: "id,status,subscription_status,session_idle_timeout_minutes,session_absolute_timeout_minutes",
     id: `eq.${companyId}`,
     limit: "1",
   });
@@ -169,37 +190,48 @@ async function fetchMembershipViaRpc(
   return data || null;
 }
 
+async function fetchSessionByToken(
+  supabaseUrl: string,
+  supabaseAnonKey: string,
+  token: string,
+  sessionToken: string
+): Promise<SessionRow | null> {
+  if (!sessionToken) return null;
+
+  const params = new URLSearchParams({
+    select: "session_token,revoked_at,last_seen_at,created_at,company_id",
+    session_token: `eq.${sessionToken}`,
+    limit: "1",
+  });
+
+  const response = await fetch(`${supabaseUrl}/rest/v1/vyron_user_sessions?${params.toString()}`, {
+    method: "GET",
+    headers: {
+      apikey: supabaseAnonKey,
+      Authorization: `Bearer ${token}`,
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) return null;
+  const rows = (await response.json()) as SessionRow[];
+  return rows[0] || null;
+}
+
 export async function resolveServerAuthorizationContext(
-  token: string
+  token: string,
+  sessionToken: string
 ): Promise<ServerAuthorizationContext> {
   const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
   const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
   if (!supabaseUrl || !supabaseAnonKey || !token) {
-    return {
-      authenticated: false,
-      userId: null,
-      email: null,
-      role: null,
-      companyId: null,
-      membershipActive: false,
-      companyActive: false,
-      workspaceActive: false,
-    };
+    return unauthenticatedContext();
   }
 
   try {
     const user = await fetchSupabaseUser(supabaseUrl, supabaseAnonKey, token);
     if (!user?.id) {
-      return {
-        authenticated: false,
-        userId: null,
-        email: null,
-        role: null,
-        companyId: null,
-        membershipActive: false,
-        companyActive: false,
-        workspaceActive: false,
-      };
+      return unauthenticatedContext();
     }
 
     const userId = user.id;
@@ -215,12 +247,10 @@ export async function resolveServerAuthorizationContext(
     );
 
     if (membership?.company_id) {
-      const company = await fetchCompanyById(
-        supabaseUrl,
-        supabaseAnonKey,
-        token,
-        membership.company_id
-      );
+      const [company, session] = await Promise.all([
+        fetchCompanyById(supabaseUrl, supabaseAnonKey, token, membership.company_id),
+        fetchSessionByToken(supabaseUrl, supabaseAnonKey, token, sessionToken),
+      ]);
 
       const role = normalizeRbacRole(membership.role || "employee");
       const membershipActive = normalizeStatus(membership.status || "active") === "active";
@@ -228,6 +258,7 @@ export async function resolveServerAuthorizationContext(
       const workspaceStatus = normalizeStatus(company?.subscription_status);
       const companyActive = ACTIVE_COMPANY_STATUSES.has(companyStatus);
       const workspaceActive = ACTIVE_WORKSPACE_STATUSES.has(workspaceStatus);
+      const sessionValid = evaluateSessionValidity(session, company).valid;
 
       return {
         authenticated: true,
@@ -238,18 +269,17 @@ export async function resolveServerAuthorizationContext(
         membershipActive,
         companyActive,
         workspaceActive,
+        sessionValid,
       };
     }
 
     const rpc = await fetchMembershipViaRpc(supabaseUrl, supabaseAnonKey, token);
     if (!rpc?.company_id) return denied;
 
-    const company = await fetchCompanyById(
-      supabaseUrl,
-      supabaseAnonKey,
-      token,
-      rpc.company_id
-    );
+    const [company, session] = await Promise.all([
+      fetchCompanyById(supabaseUrl, supabaseAnonKey, token, rpc.company_id),
+      fetchSessionByToken(supabaseUrl, supabaseAnonKey, token, sessionToken),
+    ]);
     const role = normalizeRbacRole(rpc.user_role || "employee");
     const membershipActive = normalizeStatus(rpc.user_status || "active") === "active";
     const companyStatus = normalizeStatus(company?.status);
@@ -259,6 +289,7 @@ export async function resolveServerAuthorizationContext(
     const companyActive = ACTIVE_COMPANY_STATUSES.has(companyStatus);
     const workspaceActive =
       ACTIVE_WORKSPACE_STATUSES.has(workspaceStatus) && rpc.subscription_locked !== true;
+    const sessionValid = evaluateSessionValidity(session, company).valid;
 
     return {
       authenticated: true,
@@ -269,17 +300,9 @@ export async function resolveServerAuthorizationContext(
       membershipActive,
       companyActive,
       workspaceActive,
+      sessionValid,
     };
   } catch {
-    return {
-      authenticated: false,
-      userId: null,
-      email: null,
-      role: null,
-      companyId: null,
-      membershipActive: false,
-      companyActive: false,
-      workspaceActive: false,
-    };
+    return unauthenticatedContext();
   }
 }

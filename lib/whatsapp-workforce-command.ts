@@ -71,10 +71,13 @@ export type WhatsAppCommandDashboard = {
   mockMode: boolean;
 };
 
+function isNonProductionEnv(): boolean {
+  return process.env.NODE_ENV !== "production";
+}
+
 export function isWhatsAppMockMode(): boolean {
-  if (process.env.WHATSAPP_WORKFORCE_MOCK_MODE === "true") return true;
-  if (!process.env.WHATSAPP_ACCESS_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) return true;
-  return false;
+  if (!isNonProductionEnv()) return false;
+  return process.env.WHATSAPP_WORKFORCE_MOCK_MODE === "true";
 }
 
 export function normaliseWhatsAppPhone(value: string): string {
@@ -194,18 +197,42 @@ async function writeWaAudit(
 export async function resolveWhatsAppManager(
   supabase: SupabaseClient,
   phone: string,
-  mockMode = isWhatsAppMockMode()
+  mockMode = isWhatsAppMockMode(),
+  companyId?: string
 ): Promise<WhatsAppManagerContext | null> {
   const normalised = normaliseWhatsAppPhone(phone);
 
-  const { data: employees } = await supabase
+  let employeeQuery = supabase
     .from("employees")
     .select("id, first_name, last_name, email, phone, company_id, job_title")
     .not("phone", "is", null);
 
-  const employee = (employees || []).find((e) => phoneMatches(e.phone || "", normalised));
+  if (companyId) {
+    employeeQuery = employeeQuery.eq("company_id", companyId);
+  }
+
+  const { data: employees } = await employeeQuery;
+
+  const matchedEmployees = (employees || []).filter((e) => phoneMatches(e.phone || "", normalised));
+
+  const uniqueCompanyIds = Array.from(
+    new Set(matchedEmployees.map((e) => String(e.company_id || "")).filter(Boolean))
+  );
+
+  if (!companyId && uniqueCompanyIds.length > 1) {
+    return null;
+  }
+
+  const scopedMatches = companyId
+    ? matchedEmployees
+    : uniqueCompanyIds.length === 1
+      ? matchedEmployees.filter((e) => String(e.company_id || "") === uniqueCompanyIds[0])
+      : matchedEmployees;
+
+  const employee = scopedMatches.length === 1 ? scopedMatches[0] : null;
   if (!employee) {
     if (!mockMode) return null;
+    if (!isNonProductionEnv()) return null;
     const { data: companies } = await supabase.from("companies").select("id").limit(1);
     const companyId = companies?.[0]?.id;
     if (!companyId) return null;
@@ -328,8 +355,16 @@ export async function processWhatsAppWorkforceCommand(
     };
   }
 
-  let manager = await resolveWhatsAppManager(supabase, input.phone, mockMode);
-  if (!manager && input.companyId) {
+  // When companyId is already known (verified by the caller — either the API route's
+  // assertCompanyWorkspaceAccess check, or the webhook's own prior phone resolution),
+  // the manager lookup MUST be scoped to that company. Falling back to an unscoped
+  // cross-company phone search here would let an authenticated caller in company A
+  // hijack the command context of any company B employee by supplying their phone
+  // number, defeating the route's tenant-workspace check entirely.
+  let manager = input.companyId
+    ? await resolveWhatsAppManager(supabase, input.phone, mockMode, input.companyId)
+    : await resolveWhatsAppManager(supabase, input.phone, mockMode);
+  if (!manager && input.companyId && mockMode && isNonProductionEnv()) {
     manager = {
       companyId: input.companyId,
       managerPhone: normaliseWhatsAppPhone(input.phone),
@@ -633,7 +668,7 @@ export async function sendWhatsAppWorkforceReply(
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
   const graphVersion = process.env.WHATSAPP_GRAPH_VERSION || "v20.0";
   if (!phoneNumberId || !accessToken) {
-    return { ok: false, mock: true, error: "WhatsApp provider not configured." };
+    return { ok: false, mock: false, error: "WhatsApp provider not configured." };
   }
   const to = normaliseWhatsAppPhone(toPhone);
   const response = await fetch(

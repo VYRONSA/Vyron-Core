@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isSupabaseMissingTableError, shouldSuppressWorkspaceLoadError } from "@/lib/company-access";
+import { VYRON_SESSION_TOKEN_COOKIE } from "@/lib/server/auth-routing";
+import { setVyronCookie, clearVyronCookie } from "@/app/_app-shell-session";
 
 export type UserSessionRow = {
   id: string;
@@ -36,6 +38,10 @@ export function writeLocalSessionToken(email: string, token: string): void {
   } catch {
     /* ignore */
   }
+  // Also carried as a cookie so the server (middleware.ts, lib/server-api-auth.ts) can
+  // validate revocation/idle/absolute timeout on every request — see
+  // lib/server/session-validation.ts.
+  setVyronCookie(VYRON_SESSION_TOKEN_COOKIE, token, Math.floor(SESSION_TTL_MS / 1000));
 }
 
 export function clearLocalSessionToken(email: string): void {
@@ -45,6 +51,7 @@ export function clearLocalSessionToken(email: string): void {
   } catch {
     /* ignore */
   }
+  clearVyronCookie(VYRON_SESSION_TOKEN_COOKIE);
 }
 
 function generateSessionToken(): string {

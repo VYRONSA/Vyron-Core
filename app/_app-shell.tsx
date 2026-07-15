@@ -1,20 +1,5 @@
 ﻿"use client";
 
-function GlobalWarningBanner({ exceptions, hrCases, payrollHours }: any) {
-  const hasIssues =
-    exceptions.some((e:any) => e.status !== "closed" && e.status !== "approved") ||
-    hrCases.some((c:any) => c.status !== "closed") ||
-    payrollHours.some((p:any) => p.status === "needs_review");
-
-  if (!hasIssues) return null;
-
-  return (
-    <div className="w-full bg-rose-600 text-white p-4 text-sm font-bold text-center">
-      ⚠️ ACTION REQUIRED: Unresolved issues detected
-    </div>
-  );
-}
-
 
 // VYRON CORE FINAL PREMIUM POLISH BUILD
 // Full app preserved. Payroll stability, duplicate-safe calculations, exception safety, dashboard polish, and safer UI states.
@@ -88,7 +73,7 @@ import {
 import {
   getPlatformWorkspaceId,
 } from "../lib/developer-workspace";
-import { readPublicSupabaseEnv } from "../lib/public-env";
+import { formatSupabaseAuthErrorMessage, readPublicSupabaseEnv } from "../lib/public-env";
 import { authFetch } from "../lib/authenticated-api-client";
 import { supabase } from "../lib/supabase";
 import {
@@ -115,7 +100,13 @@ import {
 } from "../lib/company-access";
 import { seedEmployeeLeaveBalances } from "@/lib/leave-balance-seed";
 import { writeAuditLog } from "@/lib/audit-log";
-import { registerUserSession, touchUserSession, readLocalSessionToken } from "@/lib/session-management";
+import {
+  registerUserSession,
+  touchUserSession,
+  readLocalSessionToken,
+  clearLocalSessionToken,
+  revokeUserSession,
+} from "@/lib/session-management";
 import {
   TENANT_RBAC_ROLE_OPTIONS,
   buildTenantWorkspaceNavGroup,
@@ -130,6 +121,9 @@ import {
 } from "@/lib/tenant-rbac";
 import AuditLogPanel from "@/components/security/AuditLogPanel";
 import SessionManagementPanel from "@/components/security/SessionManagementPanel";
+import SessionTimeoutSettingsPanel from "@/components/security/SessionTimeoutSettingsPanel";
+import SessionTimeoutWarning from "@/components/security/SessionTimeoutWarning";
+import { useSessionTimeoutGuard } from "@/lib/hooks/use-session-timeout-guard";
 import {
   isVyronDemoPeriodExpired,
   shouldBlockTenantForExpiredDemo,
@@ -148,6 +142,18 @@ import {
   type StaffImportPreparedRow,
   type StaffImportRowError,
 } from "@/lib/staff-import";
+import {
+  VYRON_CLIENT_DIRECTORY_STORAGE_KEY,
+  VYRON_CLIENT_RECOMMENDATIONS_STORAGE_KEY,
+  VYRON_INVITE_URL_PARAM,
+  VYRON_PENDING_INVITES_STORAGE_KEY,
+  VYRON_PREMIUM_LOGOUT_BUTTON_CLASS,
+  clearVyronCookie,
+  clearVyronSessionLocalStorage,
+  syncVyronAuthCookies,
+  syncVyronRoleCookie,
+} from "./_app-shell-session";
+import GlobalWarningBanner from "@/components/shell/GlobalWarningBanner";
 import ManagerActionCentrePanel from "../components/ManagerActionCentrePanel";
 import EmployeeNotificationsPanel from "../components/EmployeeNotificationsPanel";
 import LeaveBalancePanel from "../components/LeaveBalancePanel";
@@ -254,57 +260,7 @@ import { requestCreateClientLoginUser } from "@/lib/create-client-login-user-cli
 import {
   VYRON_AUTH_COOKIE,
   VYRON_ROLE_COOKIE,
-  normalizeRbacRole,
 } from "@/lib/server/auth-routing";
-
-
-/** URL query key for invitation-only signup (also accepts legacy `token`). */
-const VYRON_INVITE_URL_PARAM = "invite";
-const VYRON_PENDING_INVITES_STORAGE_KEY = "vyron-pending-invites";
-const VYRON_CLIENT_DIRECTORY_STORAGE_KEY = "vyron-master-client-directory";
-const VYRON_CLIENT_RECOMMENDATIONS_STORAGE_KEY = "vyron-master-client-recommendations";
-
-function setVyronCookie(name: string, value: string, maxAgeSeconds: number) {
-  if (typeof document === "undefined") return;
-  document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Lax`;
-}
-
-function clearVyronCookie(name: string) {
-  if (typeof document === "undefined") return;
-  document.cookie = `${name}=; Path=/; Max-Age=0; SameSite=Lax`;
-}
-
-function syncVyronAuthCookies(sessionEmail: string | null, accessToken: string | null) {
-  if (!sessionEmail || !accessToken) {
-    clearVyronCookie(VYRON_AUTH_COOKIE);
-    return;
-  }
-  setVyronCookie(VYRON_AUTH_COOKIE, accessToken, 60 * 60 * 8);
-}
-
-function syncVyronRoleCookie(inputRole: string | null | undefined) {
-  const normalized = normalizeRbacRole(inputRole);
-  setVyronCookie(VYRON_ROLE_COOKIE, normalized, 60 * 60 * 8);
-}
-
-/** Session-scope keys only — org caches (directory, demos) & uploaded payloads stay intact. */
-const VYRON_LOGOUT_SESSION_STORAGE_KEYS = [VYRON_PENDING_INVITES_STORAGE_KEY] as const;
-
-function clearVyronSessionLocalStorage(): readonly string[] {
-  if (typeof window === "undefined") return [];
-  for (const key of VYRON_LOGOUT_SESSION_STORAGE_KEYS) {
-    try {
-      window.localStorage.removeItem(key);
-    } catch {
-      /* ignore quota / privacy mode */
-    }
-  }
-  return VYRON_LOGOUT_SESSION_STORAGE_KEYS;
-}
-
-/** High-contrast dashboard logout (charcoal pill, red hover — matches rounded VYRON shell). */
-const VYRON_PREMIUM_LOGOUT_BUTTON_CLASS =
-  "rounded-full bg-[#292524] px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-black/20 transition hover:-translate-y-0.5 hover:bg-red-600 hover:shadow-lg hover:shadow-red-950/35 active:translate-y-0 active:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300";
 
 type ClientRecommendationRow = {
   id: string;
@@ -609,21 +565,14 @@ function registerPendingInvite(record: Omit<PendingInviteRecord, "createdAt">) {
   writePendingInviteStore({ invites: next });
 }
 
-function isValidPendingInviteToken(token: string | null | undefined): boolean {
-  const normalized = (token || "").trim();
-  if (!normalized) return false;
-  return readPendingInviteStore().invites.some((item) => item.token === normalized);
-}
-
-function readInviteTokenFromLocation(): string | null {
-  if (typeof window === "undefined") return null;
-  const params = new URLSearchParams(window.location.search);
-  return (params.get(VYRON_INVITE_URL_PARAM) || params.get("token") || "").trim() || null;
-}
-
-function buildSignupInviteLink(inviteToken: string): string {
-  if (typeof window === "undefined") return `/signup?${VYRON_INVITE_URL_PARAM}=${inviteToken}`;
-  return `${window.location.origin}/signup?${VYRON_INVITE_URL_PARAM}=${inviteToken}`;
+// Server-side validation only: the actual invite link mailed to a user is a Supabase
+// GoTrue-issued, signed, expiring token (see lib/client-invite-resend.ts /
+// app/api/clients/resend-invite), verified entirely server-side when the link is opened.
+// This local record is display-only (so the Client Directory can show/copy a reference
+// link) and is never itself treated as proof of a valid invitation by any auth check.
+function buildInviteAcceptanceLink(inviteToken: string): string {
+  if (typeof window === "undefined") return `/reset-password?${VYRON_INVITE_URL_PARAM}=${inviteToken}`;
+  return `${window.location.origin}/reset-password?${VYRON_INVITE_URL_PARAM}=${inviteToken}`;
 }
 
 function findInviteLinkForCompany(companyId: string): string | undefined {
@@ -631,7 +580,7 @@ function findInviteLinkForCompany(companyId: string): string | undefined {
   if (!id) return undefined;
   const rec = readPendingInviteStore().invites.find((item) => item.companyId === id);
   if (!rec?.token) return undefined;
-  return buildSignupInviteLink(rec.token);
+  return buildInviteAcceptanceLink(rec.token);
 }
 
 function generateInviteToken(): string {
@@ -669,7 +618,7 @@ async function requestResendClientInvite(
   }
 
   const token = ensurePendingInviteForCompany(entry);
-  const inviteRedirectTo = buildSignupInviteLink(token);
+  const inviteRedirectTo = buildInviteAcceptanceLink(token);
 
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
@@ -2282,6 +2231,8 @@ function isNetworkAuthMessage(msg: string): boolean {
 }
 
 function exposeAuthError(err: unknown, setError: (s: string) => void, label: string) {
+  // Full detail (including stack) is for the browser devtools console only — never shown
+  // to the end user. The login screen only ever renders a production-safe message.
   const detail = serializeAuthErrorForUi(err);
   console.error(`[auth] ${label}`, err, detail);
   const msg =
@@ -2290,10 +2241,11 @@ function exposeAuthError(err: unknown, setError: (s: string) => void, label: str
       : typeof err === "object" && err && "message" in err
         ? String((err as { message?: unknown }).message)
         : "";
+  const safeMessage = formatSupabaseAuthErrorMessage(msg || "Sign-in failed. Please try again.");
   if (isNetworkAuthMessage(msg) || isNetworkAuthMessage(detail)) {
-    window.alert(`Auth error (raw):\n\n${detail}`);
+    window.alert(safeMessage);
   }
-  setError(detail);
+  setError(safeMessage);
 }
 
 function logSupabaseTargetHost() {
@@ -2318,25 +2270,16 @@ function LoginScreen({
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<"login" | "signup">("login");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [inviteToken, setInviteToken] = useState<string | null>(null);
-  const [inviteChecked, setInviteChecked] = useState(false);
 
-  const hasValidInvite = inviteToken ? isValidPendingInviteToken(inviteToken) : false;
-  const signupRestricted = mode === "signup" && inviteChecked && !hasValidInvite;
-
-  useEffect(() => {
-    const tokenFromUrl = readInviteTokenFromLocation();
-    setInviteToken(tokenFromUrl);
-    if (tokenFromUrl && isValidPendingInviteToken(tokenFromUrl)) {
-      setMode("signup");
-    }
-    setInviteChecked(true);
-  }, []);
-
+  // VYRON CORE is invitation-only: there is no public self-registration path here.
+  // Accounts are created server-side only, by a Company Owner (invite a system user) or
+  // a Platform Operator (provision a client workspace) — both server-validated (see
+  // lib/create-client-login-user.ts and app/api/clients/resend-invite). An invited user
+  // completes setup via the real Supabase-issued invite link, which lands on
+  // /reset-password to set their password.
   async function handleAuth() {
     setLoading(true);
     setMessage(null);
@@ -2348,81 +2291,27 @@ function LoginScreen({
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
-      setLoading(false);
-      return;
-    }
+    try {
+      logSupabaseTargetHost();
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
 
-    if (mode === "login") {
-      try {
-        logSupabaseTargetHost();
-        const { data, error: signInError } = await supabase.auth.signInWithPassword({
-          email: email.trim().toLowerCase(),
-          password,
-        });
-
-        if (signInError) {
-          exposeAuthError(signInError, setError, "signInError");
-          setLoading(false);
-          return;
-        }
-
-        const userEmail = data.user?.email || email.trim().toLowerCase();
-        logSupabaseTargetHost();
-        onAuthenticated(userEmail);
-        setLoading(false);
-        return;
-      } catch (authErr) {
-        exposeAuthError(authErr, setError, "signIn catch");
+      if (signInError) {
+        exposeAuthError(signInError, setError, "signInError");
         setLoading(false);
         return;
       }
-      return;
-    }
 
-    if (!hasValidInvite) {
-      setError(
-        "Registration is restricted to invited corporate clients only. Please contact info@vyronsoft.co.za to provision your workspace."
-      );
+      const userEmail = data.user?.email || email.trim().toLowerCase();
+      logSupabaseTargetHost();
+      onAuthenticated(userEmail);
       setLoading(false);
-      return;
-    }
-
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const emailRedirectTo = inviteToken
-      ? `${origin}/?invite=${encodeURIComponent(inviteToken)}`
-      : `${origin}/`;
-
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email: email.trim().toLowerCase(),
-      password,
-      options: {
-        emailRedirectTo,
-      },
-    });
-
-    if (signUpError) {
-      exposeAuthError(signUpError, setError, "signUpError");
+    } catch (authErr) {
+      exposeAuthError(authErr, setError, "signIn catch");
       setLoading(false);
-      return;
     }
-
-    // When "Confirm email" is required, Supabase returns user but no session until the link is opened.
-    if (data.session && data.user?.email) {
-      onAuthenticated(data.user.email);
-      setMessage("Account created — you are signed in.");
-    } else if (data.user?.email) {
-      setMessage(
-        "Almost done — we sent a confirmation email. Click the link to verify your account; you will land back here signed in."
-      );
-      setMode("login");
-    } else {
-      setMessage("Check your inbox to finish setting up your account.");
-      setMode("login");
-    }
-
-    setLoading(false);
   }
 
   return (
@@ -2446,13 +2335,9 @@ function LoginScreen({
 
           <section className="p-8 md:p-10">
             <div className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-700">VYRON CORE</div>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight">{mode === "login" ? "Login" : "Create account"}</h2>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight">Login</h2>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              {mode === "login"
-                ? "Use the email that was added under Settings / Roles → Company Users."
-                : hasValidInvite
-                  ? "Complete registration with the email address on your corporate invitation."
-                  : "Corporate workspace registration requires a valid invitation link."}
+              Use the email that was added under Settings / Roles → Company Users.
             </p>
 
             <div className="mt-6">
@@ -2468,26 +2353,10 @@ function LoginScreen({
               </p>
             </div>
 
-            {signupRestricted ? (
-              <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900">
-                Registration is restricted to invited corporate clients only. Please contact{" "}
-                <a href="mailto:info@vyronsoft.co.za" className="font-bold text-cyan-800 underline">
-                  info@vyronsoft.co.za
-                </a>{" "}
-                to provision your workspace.
-              </div>
-            ) : (
-              <div className="mt-8 space-y-4">
-                <FormInput label="Email address" value={email} onChange={setEmail} placeholder="admin@company.co.za" type="email" />
-                <FormInput label="Password" value={password} onChange={setPassword} placeholder="Minimum 6 characters" type="password" />
-              </div>
-            )}
-
-            {hasValidInvite && mode === "signup" && (
-              <div className="mt-5 rounded-2xl bg-cyan-50 p-4 text-sm font-semibold text-cyan-900">
-                Invitation verified — you may create your corporate account.
-              </div>
-            )}
+            <div className="mt-8 space-y-4">
+              <FormInput label="Email address" value={email} onChange={setEmail} placeholder="admin@company.co.za" type="email" />
+              <FormInput label="Password" value={password} onChange={setPassword} placeholder="Password" type="password" />
+            </div>
 
             {error && (
               <div className="mt-5 rounded-2xl border-2 border-rose-600 bg-rose-50 p-4 text-sm font-semibold text-rose-800 whitespace-pre-wrap break-words">
@@ -2496,26 +2365,28 @@ function LoginScreen({
             )}
             {message && <div className="mt-5 rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">{message}</div>}
 
-            {!signupRestricted && (
-              <button
-                onClick={handleAuth}
-                disabled={loading}
-                className="mt-6 w-full rounded-2xl bg-[#06101f] px-5 py-4 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15 disabled:opacity-60"
-              >
-                {loading ? "Please wait..." : mode === "login" ? "Login" : "Create Account"}
-              </button>
-            )}
-
             <button
-              onClick={() => {
-                setMode(mode === "login" ? "signup" : "login");
-                setError(null);
-                setMessage(null);
-              }}
-              className="mt-4 w-full rounded-2xl bg-slate-100 px-5 py-4 text-sm font-bold text-slate-700"
+              onClick={handleAuth}
+              disabled={loading}
+              className="mt-6 w-full rounded-2xl bg-[#06101f] px-5 py-4 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15 disabled:opacity-60"
             >
-              {mode === "login" ? "Need an account? Create one" : "Already have an account? Login"}
+              {loading ? "Please wait..." : "Login"}
             </button>
+
+            <a
+              href="/forgot-password"
+              className="mt-4 block w-full rounded-2xl bg-slate-100 px-5 py-4 text-center text-sm font-bold text-slate-700"
+            >
+              Forgot password?
+            </a>
+
+            <p className="mt-4 text-center text-xs leading-5 text-slate-500">
+              VYRON CORE is invitation-only. Need access? Contact{" "}
+              <a href="mailto:info@vyronsoft.co.za" className="font-bold text-cyan-800 underline">
+                info@vyronsoft.co.za
+              </a>
+              .
+            </p>
           </section>
         </div>
       </div>
@@ -9014,8 +8885,9 @@ function TeamAccessControlScreen({
         </div>
       </Panel>
 
-      {permissionLayer === "owner" ? (
+      {permissionLayer === "owner" || permissionLayer === "platform" ? (
         <>
+          <SessionTimeoutSettingsPanel companyId={companyId} />
           <SessionManagementPanel companyId={companyId} operatorEmail={operatorEmail} />
           <AuditLogPanel companyId={companyId} />
         </>
@@ -17746,6 +17618,13 @@ export default function Page() {
   }, [authUserEmail, pathname, router, searchParams]);
 
   async function handleLogout() {
+    if (authUserEmail) {
+      const sessionToken = readLocalSessionToken(authUserEmail);
+      if (sessionToken) {
+        await revokeUserSession(supabase, sessionToken).catch(() => {});
+      }
+      clearLocalSessionToken(authUserEmail);
+    }
     await supabase.auth.signOut();
     syncVyronAuthCookies(null, null);
     clearVyronCookie(VYRON_ROLE_COOKIE);
@@ -17791,6 +17670,12 @@ export default function Page() {
       router.replace("/");
     }
   }
+
+  const { warning: sessionTimeoutWarning, stayLoggedIn: staySignedInFromTimeout } =
+    useSessionTimeoutGuard({
+      enabled: Boolean(authUserEmail) && !accountSuspended && !demoExpired,
+      onExpired: handleLogout,
+    });
 
   function refreshData() {
     setRefreshKey((value) => value + 1);
@@ -18850,6 +18735,11 @@ export default function Page() {
   
 return (
     <main className="min-h-screen bg-[#07101f] text-slate-950">
+      <SessionTimeoutWarning
+        warning={sessionTimeoutWarning}
+        onStayLoggedIn={staySignedInFromTimeout}
+        onLogoutNow={handleLogout}
+      />
       <UpgradeWorkspaceModal
         open={upgradeWorkspaceOpen}
         onClose={() => setUpgradeWorkspaceOpen(false)}

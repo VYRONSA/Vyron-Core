@@ -1,5 +1,9 @@
 export const VYRON_AUTH_COOKIE = "vyron_access_token";
 export const VYRON_ROLE_COOKIE = "vyron_role";
+/** Carries the vyron_user_sessions.session_token so the server can enforce Force
+ * Logout / idle / absolute timeout (see lib/server/session-validation.ts). Written
+ * alongside the local-storage copy in lib/session-management.ts. */
+export const VYRON_SESSION_TOKEN_COOKIE = "vyron_session_id";
 
 export const AUTH_ROUTES = [
   "/login",
@@ -145,6 +149,13 @@ export function isAuthPath(pathname: string): boolean {
 
 export function isMarketingPath(pathname: string): boolean {
   return MARKETING_ROUTES.some((route) => matchesRoutePrefix(pathname, route));
+}
+
+/** Password-recovery/invite-acceptance links must render even for an already-authenticated
+ * browser session — the token that matters lives in the URL hash fragment, which the server
+ * never sees, so an existing cookie must not bounce the user away before it's processed. */
+export function isPasswordResetPath(pathname: string): boolean {
+  return matchesRoutePrefix(pathname, "/reset-password");
 }
 
 export function canAccessRouteForRole(role: VyronRbacRole, pathname: string): boolean {

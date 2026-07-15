@@ -1,9 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
   VYRON_AUTH_COOKIE,
+  VYRON_SESSION_TOKEN_COOKIE,
   canAccessRouteForRole,
   isAuthPath,
   isMarketingPath,
+  isPasswordResetPath,
   isProtectedPath,
 } from "@/lib/server/auth-routing";
 import { resolveServerAuthorizationContext } from "@/lib/server/authorization";
@@ -27,8 +29,12 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   const rawToken = request.cookies.get(VYRON_AUTH_COOKIE)?.value || "";
-  const authz = await resolveServerAuthorizationContext(rawToken);
-  const authenticated = authz.authenticated;
+  const sessionToken = request.cookies.get(VYRON_SESSION_TOKEN_COOKIE)?.value || "";
+  const authz = await resolveServerAuthorizationContext(rawToken, sessionToken);
+  // A revoked (Force Logout) or timed-out tracked session is treated the same as an
+  // invalid JWT everywhere in this file — otherwise a session killed server-side would
+  // still bounce between /login and /dashboard via the isAuthPath redirect below.
+  const authenticated = authz.authenticated && authz.sessionValid;
 
   if (isProtectedPath(pathname)) {
     if (!authenticated) return redirectToLogin(request);
@@ -42,6 +48,9 @@ export async function middleware(request: NextRequest) {
   }
 
   if (authenticated && (isAuthPath(pathname) || isMarketingPath(pathname))) {
+    if (isPasswordResetPath(pathname)) {
+      return NextResponse.next();
+    }
     if (request.nextUrl.searchParams.get("public") === "1") {
       return NextResponse.next();
     }

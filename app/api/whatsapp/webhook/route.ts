@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { getSupabaseAdminClient, getSupabasePublicConfig } from "@/lib/server-api-auth";
 import {
   parseWhatsAppCommand,
@@ -11,7 +12,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const VERIFY_TOKEN =
-  process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || "vyron_core_verify_token";
+  process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN?.trim() || "";
+const WHATSAPP_APP_SECRET = process.env.WHATSAPP_APP_SECRET?.trim() || "";
 
 function normalisePhone(value: string) {
   let phone = String(value || "").replace(/[^\d]/g, "");
@@ -38,6 +40,22 @@ async function logMessage(row: Record<string, any>) {
   return error ? error.message : null;
 }
 
+function verifyWebhookSignature(rawBody: string, signatureHeader: string | null): boolean {
+  if (!WHATSAPP_APP_SECRET) return false;
+  if (!signatureHeader || !signatureHeader.startsWith("sha256=")) return false;
+
+  const expected = createHmac("sha256", WHATSAPP_APP_SECRET).update(rawBody, "utf8").digest("hex");
+  const provided = signatureHeader.slice("sha256=".length).trim();
+
+  const expectedBuf = Buffer.from(expected, "hex");
+  const providedBuf = Buffer.from(provided, "hex");
+
+  if (expectedBuf.length === 0 || providedBuf.length === 0) return false;
+  if (expectedBuf.length !== providedBuf.length) return false;
+
+  return timingSafeEqual(expectedBuf, providedBuf);
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
 
@@ -49,15 +67,13 @@ export async function GET(request: NextRequest) {
     const { url } = getSupabasePublicConfig();
     return NextResponse.json({
       ok: true,
-      message: "VYRON CORE WhatsApp webhook is live.",
-      expectedVerifyToken: VERIFY_TOKEN,
+      message: "WhatsApp webhook is live.",
+      webhookVerifyConfigured: Boolean(VERIFY_TOKEN),
       hasSupabaseUrl: Boolean(url),
-      hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
-      hasAnonFallback: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
     });
   }
 
-  if (mode === "subscribe" && token === VERIFY_TOKEN && challenge) {
+  if (VERIFY_TOKEN && mode === "subscribe" && token === VERIFY_TOKEN && challenge) {
     return new NextResponse(challenge, {
       status: 200,
       headers: { "Content-Type": "text/plain" },
@@ -68,8 +84,6 @@ export async function GET(request: NextRequest) {
     {
       ok: false,
       error: "Webhook verification failed.",
-      received: { mode, token, challenge },
-      expectedVerifyToken: VERIFY_TOKEN,
     },
     { status: 403 }
   );
@@ -77,7 +91,19 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const payload = await request.json();
+    const signatureHeader = request.headers.get("x-hub-signature-256");
+    const rawBody = await request.text();
+
+    if (!verifyWebhookSignature(rawBody, signatureHeader)) {
+      return NextResponse.json({ ok: false, error: "Unauthorized request." }, { status: 401 });
+    }
+
+    let payload: any;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json({ ok: false, error: "Invalid request." }, { status: 400 });
+    }
 
     const value = payload?.entry?.[0]?.changes?.[0]?.value;
     const message = value?.messages?.[0];
@@ -155,7 +181,7 @@ export async function POST(request: NextRequest) {
 
     const { data: employees, error: employeeError } = await supabaseAdmin
       .from("employees")
-      .select("id, first_name, last_name, phone")
+      .select("id, first_name, last_name, phone, company_id")
       .not("phone", "is", null);
 
     if (employeeError) {
@@ -173,7 +199,58 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: employeeError.message, logError }, { status: 500 });
     }
 
-    const employee = (employees || []).find((item: any) => phoneMatches(item.phone || "", fromPhone));
+    const matchedEmployees = (employees || []).filter((item: any) => phoneMatches(item.phone || "", fromPhone));
+
+    const matchedCompanyIds = Array.from(
+      new Set(matchedEmployees.map((item: any) => String(item.company_id || "")).filter(Boolean))
+    );
+
+    if (matchedCompanyIds.length !== 1) {
+      const logError = await logMessage({
+        direction: "inbound",
+        phone: fromPhone,
+        employee_name: contactName,
+        message_body: textBody,
+        meta_message_id: messageId,
+        status: "received",
+        match_status: "ambiguous_or_missing_company_match",
+        raw_payload: payload,
+      });
+
+      return NextResponse.json({
+        ok: true,
+        saved: false,
+        reason: "No unique employee match found.",
+        logError,
+      });
+    }
+
+    const matchedCompanyId = matchedCompanyIds[0];
+    const companyScopedEmployees = matchedEmployees.filter(
+      (item: any) => String(item.company_id || "") === matchedCompanyId
+    );
+
+    if (companyScopedEmployees.length !== 1) {
+      const logError = await logMessage({
+        direction: "inbound",
+        phone: fromPhone,
+        employee_name: contactName,
+        message_body: textBody,
+        meta_message_id: messageId,
+        status: "received",
+        match_status: "ambiguous_employee_match_in_company",
+        raw_payload: payload,
+      });
+
+      return NextResponse.json({
+        ok: true,
+        saved: false,
+        reason: "No unique employee match found.",
+        logError,
+      });
+    }
+
+    const employee = companyScopedEmployees[0];
 
     if (!employee) {
       const logError = await logMessage({
@@ -205,7 +282,8 @@ export async function POST(request: NextRequest) {
 
     const { data: hrCases, error: hrCaseError } = await supabaseAdmin
       .from("hr_cases")
-      .select("id, employee_id, status, employee_response")
+      .select("id, company_id, employee_id, status, employee_response")
+      .eq("company_id", matchedCompanyId)
       .eq("employee_id", employee.id)
       .not("status", "eq", "closed")
       .order("created_at", { ascending: false })
@@ -270,7 +348,8 @@ export async function POST(request: NextRequest) {
         validity_status: "review_required",
         status: "open",
       })
-      .eq("id", hrCase.id);
+      .eq("id", hrCase.id)
+      .eq("company_id", matchedCompanyId);
 
     const logError = await logMessage({
       direction: "inbound",

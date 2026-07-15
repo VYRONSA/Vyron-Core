@@ -44,8 +44,8 @@ export type SupabaseTableIssueKind =
 
 // Must match buildSidebarNavGroups in app/page.tsx (master supervisor nav uses VYRON_MASTER_OPERATOR_ROLE)
 export const VYRON_MASTER_OPERATOR_ROLE = "Supervisor Tools";
-
-export const VYRON_MASTER_OPERATOR_EMAIL = "info@vyronsoft.co.za";
+// Deprecated: hardcoded email identity is disabled; authorization is role/claims-based.
+export const VYRON_MASTER_OPERATOR_EMAIL = "";
 
 const SQL_SETUP_FILES =
   "sql/000-run-all-companies.sql in the SQL editor (or sql/001 then sql/002)";
@@ -362,21 +362,47 @@ export function normalizeVyronEmail(email: string | null | undefined): string {
 
 export function isVyronMasterOperator(
   userRole: string,
-  userEmail?: string | null
+  _userEmail?: string | null
 ): boolean {
-  if (userRole === VYRON_MASTER_OPERATOR_ROLE) return true;
-  return normalizeVyronEmail(userEmail) === VYRON_MASTER_OPERATOR_EMAIL;
+  const normalizedRole = (userRole || "").trim().toLowerCase();
+  return (
+    normalizedRole === VYRON_MASTER_OPERATOR_ROLE.toLowerCase() ||
+    normalizedRole === "super_admin" ||
+    normalizedRole === "platform_admin" ||
+    normalizedRole === "platform_operator"
+  );
 }
 
 /** Maps session email + DB role to the sidebar layout role string page.tsx expects. */
 export function resolveVyronLayoutRole(
-  email: string,
+  _email: string,
   roleFromAccess?: string | null
 ): string {
-  if (normalizeVyronEmail(email) === VYRON_MASTER_OPERATOR_EMAIL) {
-    return VYRON_MASTER_OPERATOR_ROLE;
-  }
   return (roleFromAccess || "manager").trim();
+}
+
+function extractUserRoleFromSupabaseSessionUser(user: {
+  role?: string;
+  app_metadata?: Record<string, unknown>;
+  user_metadata?: Record<string, unknown>;
+}): string {
+  // Only app_metadata is trusted for authorization: it can only be written via the
+  // Supabase Admin API (service role). user_metadata is self-editable by the signed-in
+  // user via supabase.auth.updateUser() and must never be treated as a privilege claim
+  // (mirrors the same fix in lib/server-api-auth.ts's extractAuthRoles).
+  const direct = String(user.role || "").trim();
+  if (direct) return direct;
+
+  const appRole = String(user.app_metadata?.role || "").trim();
+  if (appRole) return appRole;
+
+  const appRoles = user.app_metadata?.roles;
+  if (Array.isArray(appRoles) && appRoles.length > 0) {
+    const first = String(appRoles[0] || "").trim();
+    if (first) return first;
+  }
+
+  return "";
 }
 
 function mapRpcRowToAccess(
@@ -895,8 +921,9 @@ export async function getAvailableCompanies(
     }
 
     const email = normalizeVyronEmail(userData.user.email);
+    const sessionRole = extractUserRoleFromSupabaseSessionUser(userData.user);
 
-    if (isVyronMasterOperator("", email)) {
+    if (isVyronMasterOperator(sessionRole)) {
       const dbResult = await getMasterOperatorCompaniesFromDatabase(supabase);
       if (dbResult.companies.length > 0) {
         return dbResult;
@@ -929,7 +956,8 @@ export async function getCompanyAccess(
   }
 
   const email = normalizeVyronEmail(userData.user.email);
-  if (isVyronMasterOperator("", email)) {
+  const sessionRole = extractUserRoleFromSupabaseSessionUser(userData.user);
+  if (isVyronMasterOperator(sessionRole)) {
     return { access: getMasterOperatorCompanyAccess(), error: null };
   }
 

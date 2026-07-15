@@ -1,10 +1,12 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
-import PizZip from "pizzip";
-import Docxtemplater from "docxtemplater";
 import {
   assertCompanyWorkspaceAccess,
   authenticateApiRequest,
 } from "@/lib/server-api-auth";
+import { VYRON_SESSION_TOKEN_COOKIE } from "@/lib/server/auth-routing";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { writeAuditLog } from "@/lib/audit-log";
+import { renderDocxTemplate } from "@/lib/contract-intelligence";
 
 export const runtime = "nodejs";
 
@@ -33,9 +35,42 @@ function normaliseValues(values: Record<string, unknown>) {
   return normalised;
 }
 
+async function assertTemplateOwnership(
+  supabase: SupabaseClient,
+  companyId: string,
+  templateBucket: string,
+  templatePath: string
+): Promise<{ ok: true } | { ok: false; status: number; message: string }> {
+  const { data, error } = await supabase
+    .from("contract_templates")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("file_bucket", templateBucket)
+    .eq("file_path", templatePath)
+    .eq("status", "active")
+    .limit(1);
+
+  if (error) {
+    return { ok: false, status: 500, message: "Template ownership check failed." };
+  }
+
+  if (!data || data.length === 0) {
+    return {
+      ok: false,
+      status: 403,
+      message: "Template does not belong to this company workspace.",
+    };
+  }
+
+  return { ok: true };
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const auth = await authenticateApiRequest(request.headers.get("authorization"));
+    const auth = await authenticateApiRequest(
+      request.headers.get("authorization"),
+      request.cookies.get(VYRON_SESSION_TOKEN_COOKIE)?.value || ""
+    );
     if (!auth.ok) {
       return new NextResponse(auth.message, { status: auth.status });
     }
@@ -56,41 +91,46 @@ export async function POST(request: NextRequest) {
       return new NextResponse("Missing template bucket or path.", { status: 400 });
     }
 
+    const templateAccess = await assertTemplateOwnership(
+      auth.supabase,
+      companyId,
+      body.templateBucket,
+      body.templatePath
+    );
+    if (!templateAccess.ok) {
+      return new NextResponse(templateAccess.message, { status: templateAccess.status });
+    }
+
     const { data, error } = await auth.supabase.storage
       .from(body.templateBucket)
       .download(body.templatePath);
 
     if (error || !data) {
-      return new NextResponse(error?.message || "Could not download template.", {
+      return new NextResponse("Could not download template.", {
         status: 500,
       });
     }
 
     const arrayBuffer = await data.arrayBuffer();
-    const zip = new PizZip(arrayBuffer);
-
-    const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
-      delimiters: {
-        start: "{{",
-        end: "}}",
-      },
-    });
-
-    doc.render(normaliseValues(body.values || {}));
-
-    const output = doc.getZip().generate({
-      type: "uint8array",
-      mimeType:
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      compression: "DEFLATE",
-    });
+    const outputBuffer = await renderDocxTemplate(
+      Buffer.from(arrayBuffer),
+      normaliseValues(body.values || {})
+    );
 
     const fileName = `${cleanFileName(body.documentTitle || "contract")}.docx`;
 
-    const responseBody = new Blob([output as BlobPart], {
+    const responseBody = new Blob([outputBuffer as BlobPart], {
       type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+
+    void writeAuditLog(auth.supabase, {
+      companyId,
+      userEmail: auth.email,
+      action: "create",
+      entityType: "contract_template_render",
+      metadata: {
+        templateBucket: body.templateBucket,
+      },
     });
 
     return new NextResponse(responseBody, {

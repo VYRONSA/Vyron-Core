@@ -335,7 +335,12 @@ export default function SignContractPage({
         throw new Error("Could not create signature image.");
       }
 
-      const signaturePath = `${employee.id}/${documentRecord.id}/${Date.now()}-remote-employee-signature.png`;
+      const companyScope = documentRecord.company_id || employee.company_id;
+      if (!companyScope) {
+        throw new Error("Signing context is missing company scope.");
+      }
+
+      const signaturePath = `${companyScope}/${employee.id}/${documentRecord.id}/${Date.now()}-remote-employee-signature.png`;
 
       setSigningStep("Uploading signature...");
       const { error: uploadError } = await supabase.storage

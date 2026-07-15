@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import PizZip from "pizzip";
-import Docxtemplater from "docxtemplater";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   assertCompanyWorkspaceAccess,
   authenticateApiRequest,
 } from "@/lib/server-api-auth";
+import { VYRON_SESSION_TOKEN_COOKIE } from "@/lib/server/auth-routing";
+import { writeAuditLog } from "@/lib/audit-log";
+import { renderDocxTemplate } from "@/lib/contract-intelligence";
 
 export const runtime = "nodejs";
 
@@ -26,6 +28,36 @@ function asStringMap(values: Record<string, unknown>) {
   return output;
 }
 
+async function assertTemplateOwnership(
+  supabase: SupabaseClient,
+  companyId: string,
+  templateBucket: string,
+  templatePath: string
+): Promise<{ ok: true } | { ok: false; status: number; message: string }> {
+  const { data, error } = await supabase
+    .from("contract_templates")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("file_bucket", templateBucket)
+    .eq("file_path", templatePath)
+    .eq("status", "active")
+    .limit(1);
+
+  if (error) {
+    return { ok: false, status: 500, message: "Template ownership check failed." };
+  }
+
+  if (!data || data.length === 0) {
+    return {
+      ok: false,
+      status: 403,
+      message: "Template does not belong to this company workspace.",
+    };
+  }
+
+  return { ok: true };
+}
+
 export async function GET() {
   return NextResponse.json({
     ok: true,
@@ -37,7 +69,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await authenticateApiRequest(request.headers.get("authorization"));
+    const auth = await authenticateApiRequest(
+      request.headers.get("authorization"),
+      request.cookies.get(VYRON_SESSION_TOKEN_COOKIE)?.value || ""
+    );
     if (!auth.ok) {
       return NextResponse.json({ error: auth.message }, { status: auth.status });
     }
@@ -69,6 +104,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Template bucket and path are required." }, { status: 400 });
     }
 
+    const templateAccess = await assertTemplateOwnership(
+      auth.supabase,
+      companyId,
+      templateBucket,
+      templatePath
+    );
+    if (!templateAccess.ok) {
+      return NextResponse.json({ error: templateAccess.message }, { status: templateAccess.status });
+    }
+
     const { data: documentRow, error: documentError } = await auth.supabase
       .from("employee_generated_documents")
       .select("id,company_id,employee_id")
@@ -89,52 +134,25 @@ export async function POST(request: NextRequest) {
       .download(templatePath);
 
     if (downloadError || !templateBlob) {
-      return NextResponse.json(
-        {
-          error:
-            `${downloadError?.message || "Could not download DOCX template."} Bucket: ${templateBucket}. Path: ${templatePath}.`,
-        },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Could not load the selected template." }, { status: 500 });
     }
 
     const templateArrayBuffer = await templateBlob.arrayBuffer();
-    const zip = new PizZip(templateArrayBuffer);
 
-    const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
-      delimiters: {
-        start: "{{",
-        end: "}}",
-      },
-    });
-
+    let renderedBuffer: Buffer;
     try {
-      doc.render(values);
+      renderedBuffer = await renderDocxTemplate(Buffer.from(templateArrayBuffer), values);
     } catch (renderError: unknown) {
-      const err = renderError as { properties?: { errors?: Array<{ properties?: { explanation?: string }; message?: string }> }; message?: string };
-      const explanation =
-        err?.properties?.errors
-          ?.map((item) => item?.properties?.explanation || item?.message)
-          ?.join(" | ") ||
-        err?.message ||
-        "DOCX placeholder rendering failed.";
-
+      const message = renderError instanceof Error ? renderError.message : "DOCX placeholder rendering failed.";
       return NextResponse.json(
         {
-          error: `DOCX render failed. Check placeholders in the Word template. ${explanation}`,
+          error: `DOCX render failed. Check placeholders in the Word template. ${message}`,
         },
         { status: 400 }
       );
     }
 
-    const renderedBuffer = doc.getZip().generate({
-      type: "nodebuffer",
-      compression: "DEFLATE",
-    });
-
-    const outputPath = `${employeeId}/${documentId}/${Date.now()}-${cleanFileName(outputTitle)}.docx`;
+    const outputPath = `${companyId}/${employeeId}/${documentId}/${Date.now()}-${cleanFileName(outputTitle)}.docx`;
 
     const { error: uploadError } = await auth.supabase.storage
       .from("hr-signed-documents")
@@ -144,7 +162,7 @@ export async function POST(request: NextRequest) {
       });
 
     if (uploadError) {
-      return NextResponse.json({ error: uploadError.message }, { status: 500 });
+      return NextResponse.json({ error: "Could not save rendered contract file." }, { status: 500 });
     }
 
     const { error: updateError } = await auth.supabase
@@ -162,10 +180,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
+    void writeAuditLog(auth.supabase, {
+      companyId,
+      userEmail: auth.email,
+      action: "create",
+      entityType: "contract_render",
+      entityId: documentId,
+      metadata: {
+        templateBucket,
+        outputBucket: "hr-signed-documents",
+      },
+    });
+
     return NextResponse.json({
       ok: true,
+      document_id: documentId,
       file_bucket: "hr-signed-documents",
-      file_path: outputPath,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unexpected DOCX render error.";
