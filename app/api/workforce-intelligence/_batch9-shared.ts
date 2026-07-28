@@ -5,7 +5,6 @@ import {
   assertCompanyWorkspaceAccess,
   authenticateApiRequest,
 } from "@/lib/server-api-auth";
-import { VYRON_SESSION_TOKEN_COOKIE } from "@/lib/server/auth-routing";
 
 export type Batch9Context = {
   supabase: SupabaseClient;
@@ -16,10 +15,7 @@ export async function resolveBatch9Context(
   request: NextRequest,
   companyIdValue: string | null
 ): Promise<{ ok: true; ctx: Batch9Context } | { ok: false; response: NextResponse }> {
-  const auth = await authenticateApiRequest(
-    request.headers.get("authorization"),
-    request.cookies.get(VYRON_SESSION_TOKEN_COOKIE)?.value || ""
-  );
+  const auth = await authenticateApiRequest(request);
   if (!auth.ok) {
     return {
       ok: false,

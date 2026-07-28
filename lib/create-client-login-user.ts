@@ -3,13 +3,18 @@ import { normalizeVyronEmail } from "@/lib/company-access";
 
 export type CreateClientLoginUserInput = {
   email: string;
-  password: string;
+  /** Omit to send an invite email instead of setting a temporary password (Platform Console customer creation). */
+  password?: string;
   companyId: string;
   role?: "owner" | "admin";
+  /** Only used when password is omitted — where the invite email link lands. */
+  inviteRedirectTo?: string;
+  /** Profile fields (first/last name, mobile) stored as Auth user_metadata — display only, never a privilege claim. */
+  metadata?: Record<string, unknown>;
 };
 
 export type CreateClientLoginUserResult =
-  | { ok: true; userId: string; email: string }
+  | { ok: true; userId: string; email: string; invited?: boolean }
   | { ok: false; code: "missing_service_key" | "validation" | "auth" | "database"; message: string };
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -29,6 +34,7 @@ export async function createClientLoginUser(
   const email = normalizeVyronEmail(input.email);
   const companyId = (input.companyId || "").trim();
   const password = input.password || "";
+  const inviteMode = !input.password;
   const role = input.role === "admin" ? "admin" : "owner";
 
   if (!email || !email.includes("@")) {
@@ -37,7 +43,7 @@ export async function createClientLoginUser(
   if (!companyId) {
     return { ok: false, code: "validation", message: "companyId is required." };
   }
-  if (password.length < MIN_PASSWORD_LENGTH) {
+  if (!inviteMode && password.length < MIN_PASSWORD_LENGTH) {
     return {
       ok: false,
       code: "validation",
@@ -63,39 +69,72 @@ export async function createClientLoginUser(
     return { ok: false, code: "missing_service_key", message };
   }
 
-  const { data: created, error: createError } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
+  let userId: string | null = null;
 
-  let userId = created.user?.id || null;
+  if (inviteMode) {
+    const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
+      redirectTo: input.inviteRedirectTo,
+      data: input.metadata,
+    });
+    userId = invited.user?.id || null;
 
-  if (createError) {
-    const lower = createError.message.toLowerCase();
-    if (
-      lower.includes("already been registered") ||
-      lower.includes("already registered") ||
-      lower.includes("user already registered")
-    ) {
-      const { data: listed, error: listError } = await admin.auth.admin.listUsers();
-      if (listError) {
-        return { ok: false, code: "auth", message: listError.message };
+    if (inviteError) {
+      const lower = inviteError.message.toLowerCase();
+      if (
+        lower.includes("already been registered") ||
+        lower.includes("already registered") ||
+        lower.includes("user already registered") ||
+        lower.includes("already invited")
+      ) {
+        const { data: listed, error: listError } = await admin.auth.admin.listUsers();
+        if (listError) {
+          return { ok: false, code: "auth", message: listError.message };
+        }
+        const existing = listed.users.find((user) => normalizeVyronEmail(user.email) === email);
+        if (!existing?.id) {
+          return { ok: false, code: "auth", message: inviteError.message };
+        }
+        userId = existing.id;
+      } else {
+        return { ok: false, code: "auth", message: inviteError.message };
       }
-      const existing = listed.users.find((user) => normalizeVyronEmail(user.email) === email);
-      if (!existing?.id) {
+    }
+  } else {
+    const { data: created, error: createError } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: input.metadata,
+    });
+
+    userId = created.user?.id || null;
+
+    if (createError) {
+      const lower = createError.message.toLowerCase();
+      if (
+        lower.includes("already been registered") ||
+        lower.includes("already registered") ||
+        lower.includes("user already registered")
+      ) {
+        const { data: listed, error: listError } = await admin.auth.admin.listUsers();
+        if (listError) {
+          return { ok: false, code: "auth", message: listError.message };
+        }
+        const existing = listed.users.find((user) => normalizeVyronEmail(user.email) === email);
+        if (!existing?.id) {
+          return { ok: false, code: "auth", message: createError.message };
+        }
+        userId = existing.id;
+        const { error: updateError } = await admin.auth.admin.updateUserById(existing.id, {
+          password,
+          email_confirm: true,
+        });
+        if (updateError) {
+          return { ok: false, code: "auth", message: updateError.message };
+        }
+      } else {
         return { ok: false, code: "auth", message: createError.message };
       }
-      userId = existing.id;
-      const { error: updateError } = await admin.auth.admin.updateUserById(existing.id, {
-        password,
-        email_confirm: true,
-      });
-      if (updateError) {
-        return { ok: false, code: "auth", message: updateError.message };
-      }
-    } else {
-      return { ok: false, code: "auth", message: createError.message };
     }
   }
 
@@ -142,5 +181,5 @@ export async function createClientLoginUser(
     }
   }
 
-  return { ok: true, userId, email };
+  return { ok: true, userId, email, invited: inviteMode };
 }

@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   try {
     const sessionToken = request.cookies.get(VYRON_SESSION_TOKEN_COOKIE)?.value || "";
-    const auth = await authenticateApiRequest(request.headers.get("authorization"), sessionToken);
+    const auth = await authenticateApiRequest(request);
     if (!auth.ok) {
       return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status });
     }

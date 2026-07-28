@@ -2,15 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { isVyronMasterOperator } from "@/lib/company-access";
 import { resendClientActivationEmail } from "@/lib/client-invite-resend";
 import { authenticateApiRequest } from "@/lib/server-api-auth";
-import { VYRON_SESSION_TOKEN_COOKIE } from "@/lib/server/auth-routing";
 
 export const runtime = "nodejs";
 
 async function assertMasterOperator(request: NextRequest) {
-  const auth = await authenticateApiRequest(
-    request.headers.get("authorization"),
-    request.cookies.get(VYRON_SESSION_TOKEN_COOKIE)?.value || ""
-  );
+  const auth = await authenticateApiRequest(request);
   if (!auth.ok) {
     return { ok: false as const, status: auth.status, message: auth.message };
   }

@@ -1,6 +1,16 @@
+import type { NextRequest } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
 import { getAvailableCompanies } from "@/lib/company-access";
 import { evaluateSessionValidity, type SessionRow } from "@/lib/server/session-validation";
+import { isPlatformOperatorRole } from "@/lib/server/platform-operator";
+import { VYRON_SESSION_TOKEN_COOKIE } from "@/lib/server/auth-routing";
+
+/**
+ * Shown whenever there is no usable session. Deliberately the same wording the UI
+ * renders, so an expired session never surfaces as the ambiguous "Sign in required."
+ */
+export const SESSION_EXPIRED_MESSAGE = "Your session has expired. Please sign in again.";
 
 export type AuthenticatedApiContext =
   | {
@@ -21,12 +31,8 @@ export type AuthenticatedApiContext =
     }
   | { ok: false; status: number; message: string };
 
-const PLATFORM_OPERATOR_ROLES = new Set([
-  "super_admin",
-  "platform_admin",
-  "platform_operator",
-  "supervisor tools",
-]);
+/** Platform Console customer_status values that must block API access (sql/062). */
+const BLOCKED_CUSTOMER_STATUSES = new Set(["suspended", "cancelled", "expired"]);
 
 function toRoleList(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -59,7 +65,7 @@ function extractAuthRoles(user: {
 }
 
 function isPlatformOperatorByClaims(roles: string[]): boolean {
-  return roles.some((role) => PLATFORM_OPERATOR_ROLES.has(role));
+  return isPlatformOperatorRole(roles);
 }
 
 function stripEnvQuotes(value: string): string {
@@ -102,38 +108,55 @@ const SESSION_INVALID_MESSAGE: Record<"revoked" | "idle_timeout" | "absolute_tim
 };
 
 /**
- * Bearer JWT session → Supabase client scoped to the signed-in user (RLS).
- * sessionToken is the vyron_session_id cookie (see lib/server/session-validation.ts) —
- * required so Force Logout / idle / absolute timeout are enforced on every API call, not
- * just page navigation. Pass an empty string only when the caller genuinely cannot read
- * cookies (there are no such callers today); every route handler has access to
- * request.cookies.
+ * Authenticates an API request against Supabase and enforces session validity.
+ *
+ * ONE session store: the Supabase auth cookies, read here through @supabase/ssr —
+ * exactly the same cookies middleware and Server Components read. A bearer header is
+ * still accepted because several existing client components send one, but it is a
+ * *transport* for that same session, never a second store: both paths end at
+ * supabase.auth.getUser(), which revalidates against the auth server.
+ *
+ * The vyron_session_id cookie (see lib/server/session-validation.ts) is separate and
+ * unrelated to authentication — it identifies the tracked session row so Force Logout
+ * and idle/absolute timeout are enforced on API calls, not just page navigation.
  */
 export async function authenticateApiRequest(
-  authorizationHeader: string | null,
-  sessionToken: string
+  request: NextRequest
 ): Promise<AuthenticatedApiContext> {
-  const token = (authorizationHeader || "").startsWith("Bearer ")
-    ? (authorizationHeader || "").slice(7).trim()
-    : "";
-
-  if (!token) {
-    return { ok: false, status: 401, message: "Sign in required." };
-  }
+  const sessionToken = request.cookies.get(VYRON_SESSION_TOKEN_COOKIE)?.value || "";
 
   const { url, anonKey } = getSupabasePublicConfig();
   if (!url || !anonKey) {
     return { ok: false, status: 500, message: "Server auth is not configured." };
   }
 
-  const supabase = createClient(url, anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
+  const bearer = (() => {
+    const header = request.headers.get("authorization") || "";
+    return header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  })();
 
-  const { data, error } = await supabase.auth.getUser(token);
+  // Cookie-backed client (the default path for browsers and server-rendered pages).
+  const supabase = bearer
+    ? createClient(url, anonKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { headers: { Authorization: `Bearer ${bearer}` } },
+      })
+    : createServerClient(url, anonKey, {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          // Route handlers receive a fresh response object per handler, and this helper
+          // does not own one; token rotation is middleware's job.
+          setAll() {},
+        },
+      });
+
+  const { data, error } = bearer
+    ? await supabase.auth.getUser(bearer)
+    : await supabase.auth.getUser();
   if (error || !data.user?.email) {
-    return { ok: false, status: 401, message: "Invalid or expired session." };
+    return { ok: false, status: 401, message: SESSION_EXPIRED_MESSAGE };
   }
 
   let sessionRow: SessionRow | null = null;
@@ -147,13 +170,15 @@ export async function authenticateApiRequest(
   }
 
   let companyTimeoutConfig: { session_idle_timeout_minutes: number | null; session_absolute_timeout_minutes: number | null } | null = null;
+  let companyCustomerStatus: string | null = null;
   if (sessionRow?.company_id) {
     const { data: companyData } = await supabase
       .from("companies")
-      .select("session_idle_timeout_minutes,session_absolute_timeout_minutes")
+      .select("session_idle_timeout_minutes,session_absolute_timeout_minutes,customer_status")
       .eq("id", sessionRow.company_id)
       .maybeSingle();
     companyTimeoutConfig = companyData || null;
+    companyCustomerStatus = (companyData as { customer_status?: string | null } | null)?.customer_status || null;
   }
 
   const sessionValidity = evaluateSessionValidity(sessionRow, companyTimeoutConfig);
@@ -163,6 +188,18 @@ export async function authenticateApiRequest(
 
   const roles = extractAuthRoles(data.user);
   const role = roles[0] || "employee";
+  const platformOperator = isPlatformOperatorByClaims(roles);
+
+  if (
+    !platformOperator &&
+    BLOCKED_CUSTOMER_STATUSES.has((companyCustomerStatus || "").trim().toLowerCase())
+  ) {
+    return {
+      ok: false,
+      status: 403,
+      message: "This company's access has been suspended.",
+    };
+  }
 
   return {
     ok: true,
@@ -170,7 +207,7 @@ export async function authenticateApiRequest(
     email: data.user.email.trim().toLowerCase(),
     role,
     roles,
-    platformOperator: isPlatformOperatorByClaims(roles),
+    platformOperator,
     session: {
       idleTimeoutMinutes: sessionValidity.idleTimeoutMinutes,
       absoluteTimeoutMinutes: sessionValidity.absoluteTimeoutMinutes,

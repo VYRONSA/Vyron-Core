@@ -1,9 +1,22 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { readPublicSupabaseEnv } from "./public-env";
 
 let browserClient: SupabaseClient | undefined;
 
-/** Browser-safe Supabase client (lazy; no placeholder URL at build time). */
+/**
+ * Browser Supabase client (lazy; no placeholder URL at build time).
+ *
+ * Uses @supabase/ssr's createBrowserClient so the session is stored in the SAME
+ * cookies the server reads (`sb-<ref>-auth-token`), not in localStorage. That is what
+ * makes one session store possible: signing in on the client is immediately visible to
+ * middleware, Server Components, Route Handlers and Server Actions, with no
+ * synchronisation step and no second copy of the token.
+ *
+ * Previously this used createClient() with persistSession, which kept the session in
+ * localStorage where the server could not see it — hence the old hand-maintained
+ * `vyron_access_token` cookie. That cookie, and the code that wrote it, are gone.
+ */
 export function getSupabaseBrowserClient(): SupabaseClient {
   if (browserClient) return browserClient;
 
@@ -17,13 +30,7 @@ export function getSupabaseBrowserClient(): SupabaseClient {
     );
   }
 
-  browserClient = createClient(url, anonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-    },
-  });
+  browserClient = createBrowserClient(url, anonKey);
   return browserClient;
 }
 

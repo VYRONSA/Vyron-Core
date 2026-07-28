@@ -1,10 +1,33 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeRbacRole, type VyronRbacRole } from "@/lib/server/auth-routing";
 import { evaluateSessionValidity, type SessionRow } from "@/lib/server/session-validation";
+import { isPlatformOperatorRole } from "@/lib/server/platform-operator";
 
-type SupabaseUser = {
+/** Shape of the verified user from supabase.auth.getUser(). */
+export type SupabaseUser = {
   id?: string;
-  email?: string;
+  email?: string | null;
+  app_metadata?: Record<string, unknown>;
 };
+
+function toRoleList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim().toLowerCase()).filter(Boolean);
+  }
+  if (typeof value === "string") {
+    const role = value.trim().toLowerCase();
+    return role ? [role] : [];
+  }
+  return [];
+}
+
+/** Only app_metadata is trusted for authorization — see lib/server-api-auth.ts's
+ * extractAuthRoles for the matching rationale (user_metadata is self-editable). */
+function isPlatformOperatorUser(user: SupabaseUser): boolean {
+  const appRole = user.app_metadata?.role;
+  const appRoles = user.app_metadata?.roles;
+  return isPlatformOperatorRole([...toRoleList(appRole), ...toRoleList(appRoles)]);
+}
 
 type CompanyUserRow = {
   company_id?: string;
@@ -18,6 +41,7 @@ type CompanyRow = {
   id?: string;
   status?: string | null;
   subscription_status?: string | null;
+  customer_status?: string | null;
   session_idle_timeout_minutes?: number | null;
   session_absolute_timeout_minutes?: number | null;
 };
@@ -46,6 +70,12 @@ export type ServerAuthorizationContext = {
 
 const ACTIVE_COMPANY_STATUSES = new Set(["", "active", "trial", "trialing", "demo"]);
 const ACTIVE_WORKSPACE_STATUSES = new Set(["", "active", "trial", "trialing", "demo"]);
+/** Platform Console customer_status values that must block sign-in (sql/062). */
+const BLOCKED_CUSTOMER_STATUSES = new Set(["suspended", "cancelled", "expired"]);
+
+function isCustomerStatusBlocked(company: CompanyRow | null): boolean {
+  return BLOCKED_CUSTOMER_STATUSES.has(normalizeStatus(company?.customer_status));
+}
 
 function normalizeEmail(email?: string | null): string {
   return (email || "").trim().toLowerCase();
@@ -83,180 +113,108 @@ function unauthenticatedContext(): ServerAuthorizationContext {
   };
 }
 
-async function fetchSupabaseUser(
-  supabaseUrl: string,
-  supabaseAnonKey: string,
-  token: string
-): Promise<SupabaseUser | null> {
-  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    method: "GET",
-    headers: {
-      apikey: supabaseAnonKey,
-      Authorization: `Bearer ${token}`,
-    },
-    cache: "no-store",
-  });
-
-  if (!response.ok) return null;
-  return (await response.json()) as SupabaseUser;
-}
-
 async function fetchCompanyById(
-  supabaseUrl: string,
-  supabaseAnonKey: string,
-  token: string,
+  supabase: SupabaseClient,
   companyId: string
 ): Promise<CompanyRow | null> {
-  const params = new URLSearchParams({
-    select: "id,status,subscription_status,session_idle_timeout_minutes,session_absolute_timeout_minutes",
-    id: `eq.${companyId}`,
-    limit: "1",
-  });
-
-  const response = await fetch(`${supabaseUrl}/rest/v1/companies?${params.toString()}`, {
-    method: "GET",
-    headers: {
-      apikey: supabaseAnonKey,
-      Authorization: `Bearer ${token}`,
-    },
-    cache: "no-store",
-  });
-
-  if (!response.ok) return null;
-  const rows = (await response.json()) as CompanyRow[];
-  return rows[0] || null;
+  const { data } = await supabase
+    .from("companies")
+    .select(
+      "id,status,subscription_status,customer_status,session_idle_timeout_minutes,session_absolute_timeout_minutes"
+    )
+    .eq("id", companyId)
+    .limit(1)
+    .maybeSingle();
+  return (data as CompanyRow | null) || null;
 }
 
 async function fetchMembershipViaCompanyUsers(
-  supabaseUrl: string,
-  supabaseAnonKey: string,
-  token: string,
+  supabase: SupabaseClient,
   userId: string,
   email: string
 ): Promise<CompanyUserRow | null> {
-  const params = new URLSearchParams({
-    select: "company_id,role,status,user_id,user_email,created_at",
-    status: "eq.active",
-    order: "created_at.asc",
-    limit: "20",
-  });
-
+  // Commas would break PostgREST's or() grammar; the address is only ever compared.
   const escapedEmail = email.replace(/,/g, "");
-  params.set("or", `(user_id.eq.${userId},user_email.eq.${escapedEmail})`);
+  const { data } = await supabase
+    .from("company_users")
+    .select("company_id,role,status,user_id,user_email,created_at")
+    .eq("status", "active")
+    .or(`user_id.eq.${userId},user_email.eq.${escapedEmail}`)
+    .order("created_at", { ascending: true })
+    .limit(20);
 
-  const response = await fetch(`${supabaseUrl}/rest/v1/company_users?${params.toString()}`, {
-    method: "GET",
-    headers: {
-      apikey: supabaseAnonKey,
-      Authorization: `Bearer ${token}`,
-    },
-    cache: "no-store",
-  });
-
-  if (!response.ok) return null;
-
-  const rows = (await response.json()) as CompanyUserRow[];
-  if (!Array.isArray(rows) || rows.length === 0) return null;
+  const rows = (data as CompanyUserRow[] | null) || [];
+  if (rows.length === 0) return null;
 
   const byUserId = rows.find((row) => (row.user_id || "") === userId);
   if (byUserId) return byUserId;
 
-  const byEmail = rows.find(
-    (row) => normalizeEmail(row.user_email) === normalizeEmail(email)
-  );
+  const byEmail = rows.find((row) => normalizeEmail(row.user_email) === normalizeEmail(email));
   return byEmail || null;
 }
 
-async function fetchMembershipViaRpc(
-  supabaseUrl: string,
-  supabaseAnonKey: string,
-  token: string
-): Promise<RpcAccessRow | null> {
-  const response = await fetch(`${supabaseUrl}/rest/v1/rpc/vyron_get_company_access`, {
-    method: "POST",
-    headers: {
-      apikey: supabaseAnonKey,
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: "{}",
-    cache: "no-store",
-  });
-
-  if (!response.ok) return null;
-
-  const data = (await response.json()) as RpcAccessRow[] | RpcAccessRow;
-  if (Array.isArray(data)) return data[0] || null;
-  return data || null;
+async function fetchMembershipViaRpc(supabase: SupabaseClient): Promise<RpcAccessRow | null> {
+  const { data, error } = await supabase.rpc("vyron_get_company_access");
+  if (error) return null;
+  if (Array.isArray(data)) return (data[0] as RpcAccessRow) || null;
+  return (data as RpcAccessRow) || null;
 }
 
 async function fetchSessionByToken(
-  supabaseUrl: string,
-  supabaseAnonKey: string,
-  token: string,
+  supabase: SupabaseClient,
   sessionToken: string
 ): Promise<SessionRow | null> {
   if (!sessionToken) return null;
-
-  const params = new URLSearchParams({
-    select: "session_token,revoked_at,last_seen_at,created_at,company_id",
-    session_token: `eq.${sessionToken}`,
-    limit: "1",
-  });
-
-  const response = await fetch(`${supabaseUrl}/rest/v1/vyron_user_sessions?${params.toString()}`, {
-    method: "GET",
-    headers: {
-      apikey: supabaseAnonKey,
-      Authorization: `Bearer ${token}`,
-    },
-    cache: "no-store",
-  });
-
-  if (!response.ok) return null;
-  const rows = (await response.json()) as SessionRow[];
-  return rows[0] || null;
+  const { data } = await supabase
+    .from("vyron_user_sessions")
+    .select("session_token,revoked_at,last_seen_at,created_at,company_id")
+    .eq("session_token", sessionToken)
+    .limit(1)
+    .maybeSingle();
+  return (data as SessionRow | null) || null;
 }
 
+/**
+ * Resolves authorization for an already-authenticated Supabase user.
+ *
+ * `user` comes from supabase.auth.getUser() — the one verified identity for the
+ * request (middleware or a Server Component). `accessToken` is that same session's
+ * token, used only so the PostgREST reads below run under the caller's RLS rather than
+ * with elevated rights. There is no second session lookup and no second token store.
+ */
 export async function resolveServerAuthorizationContext(
-  token: string,
+  supabase: SupabaseClient,
+  user: SupabaseUser | null,
   sessionToken: string
 ): Promise<ServerAuthorizationContext> {
-  const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
-  const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
-  if (!supabaseUrl || !supabaseAnonKey || !token) {
+  if (!user?.id) {
     return unauthenticatedContext();
   }
 
   try {
-    const user = await fetchSupabaseUser(supabaseUrl, supabaseAnonKey, token);
-    if (!user?.id) {
-      return unauthenticatedContext();
-    }
-
     const userId = user.id;
     const email = normalizeEmail(user.email);
     const denied = baseDeniedContext(userId, email || null);
+    // Platform operators (VYRON staff) may have no tenant company_users seat at
+    // all — their access must never hinge on one existing. When true, the
+    // resolved role is forced to "platform_operator" below regardless of which
+    // branch (membership / RPC / neither) is reached.
+    const platformOperator = isPlatformOperatorUser(user);
 
-    const membership = await fetchMembershipViaCompanyUsers(
-      supabaseUrl,
-      supabaseAnonKey,
-      token,
-      userId,
-      email
-    );
+    const membership = await fetchMembershipViaCompanyUsers(supabase, userId, email);
 
     if (membership?.company_id) {
       const [company, session] = await Promise.all([
-        fetchCompanyById(supabaseUrl, supabaseAnonKey, token, membership.company_id),
-        fetchSessionByToken(supabaseUrl, supabaseAnonKey, token, sessionToken),
+        fetchCompanyById(supabase, membership.company_id),
+        fetchSessionByToken(supabase, sessionToken),
       ]);
 
-      const role = normalizeRbacRole(membership.role || "employee");
+      const role = platformOperator ? "platform_operator" : normalizeRbacRole(membership.role || "employee");
       const membershipActive = normalizeStatus(membership.status || "active") === "active";
       const companyStatus = normalizeStatus(company?.status);
       const workspaceStatus = normalizeStatus(company?.subscription_status);
-      const companyActive = ACTIVE_COMPANY_STATUSES.has(companyStatus);
+      const companyActive =
+        ACTIVE_COMPANY_STATUSES.has(companyStatus) && !isCustomerStatusBlocked(company);
       const workspaceActive = ACTIVE_WORKSPACE_STATUSES.has(workspaceStatus);
       const sessionValid = evaluateSessionValidity(session, company).valid;
 
@@ -266,27 +224,43 @@ export async function resolveServerAuthorizationContext(
         email: email || null,
         role,
         companyId: membership.company_id,
-        membershipActive,
-        companyActive,
-        workspaceActive,
+        membershipActive: membershipActive || platformOperator,
+        companyActive: companyActive || platformOperator,
+        workspaceActive: workspaceActive || platformOperator,
         sessionValid,
       };
     }
 
-    const rpc = await fetchMembershipViaRpc(supabaseUrl, supabaseAnonKey, token);
-    if (!rpc?.company_id) return denied;
+    const rpc = await fetchMembershipViaRpc(supabase);
+
+    if (!rpc?.company_id) {
+      if (!platformOperator) return denied;
+      const session = await fetchSessionByToken(supabase, sessionToken);
+      return {
+        authenticated: true,
+        userId,
+        email: email || null,
+        role: "platform_operator",
+        companyId: null,
+        membershipActive: true,
+        companyActive: true,
+        workspaceActive: true,
+        sessionValid: evaluateSessionValidity(session, null).valid,
+      };
+    }
 
     const [company, session] = await Promise.all([
-      fetchCompanyById(supabaseUrl, supabaseAnonKey, token, rpc.company_id),
-      fetchSessionByToken(supabaseUrl, supabaseAnonKey, token, sessionToken),
+      fetchCompanyById(supabase, rpc.company_id),
+      fetchSessionByToken(supabase, sessionToken),
     ]);
-    const role = normalizeRbacRole(rpc.user_role || "employee");
+    const role = platformOperator ? "platform_operator" : normalizeRbacRole(rpc.user_role || "employee");
     const membershipActive = normalizeStatus(rpc.user_status || "active") === "active";
     const companyStatus = normalizeStatus(company?.status);
     const workspaceStatus = normalizeStatus(
       company?.subscription_status || rpc.subscription_status || "active"
     );
-    const companyActive = ACTIVE_COMPANY_STATUSES.has(companyStatus);
+    const companyActive =
+      ACTIVE_COMPANY_STATUSES.has(companyStatus) && !isCustomerStatusBlocked(company);
     const workspaceActive =
       ACTIVE_WORKSPACE_STATUSES.has(workspaceStatus) && rpc.subscription_locked !== true;
     const sessionValid = evaluateSessionValidity(session, company).valid;
@@ -297,9 +271,9 @@ export async function resolveServerAuthorizationContext(
       email: email || null,
       role,
       companyId: rpc.company_id,
-      membershipActive,
-      companyActive,
-      workspaceActive,
+      membershipActive: membershipActive || platformOperator,
+      companyActive: companyActive || platformOperator,
+      workspaceActive: workspaceActive || platformOperator,
       sessionValid,
     };
   } catch {

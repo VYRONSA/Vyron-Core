@@ -6,7 +6,6 @@ import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { validateClientLoginPassword } from "@/lib/create-client-login-user";
-import { syncVyronAuthCookies } from "@/app/_app-shell-session";
 
 type LinkState = "checking" | "invalid" | "ready";
 
@@ -123,12 +122,8 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      const email = data.user?.email;
-      const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
-      if (email && accessToken) {
-        syncVyronAuthCookies(email, accessToken);
-      }
-
+      // No cookie work here any more: updateUser() refreshes the Supabase session and
+      // @supabase/ssr writes the auth cookies the server reads, in one place.
       setSuccess(true);
       setSubmitting(false);
       window.setTimeout(() => router.replace("/dashboard"), 1500);

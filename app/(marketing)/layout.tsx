@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import MarketingShell from "@/components/marketing/MarketingShell";
-import { isTokenUsable, VYRON_AUTH_COOKIE } from "@/lib/server/auth-routing";
+import { getServerUser } from "@/lib/supabase-server";
 
 export const metadata: Metadata = {
   robots: {
@@ -16,9 +15,8 @@ export default async function MarketingLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(VYRON_AUTH_COOKIE)?.value || "";
-  if (isTokenUsable(token)) {
+  const { user } = await getServerUser();
+  if (user) {
     redirect("/dashboard");
   }
 

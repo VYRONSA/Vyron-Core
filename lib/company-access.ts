@@ -3,6 +3,7 @@ import {
   isLegacyFakeWorkspaceId,
   isProtectedDeveloperWorkspaceId,
 } from "@/lib/developer-workspace";
+import { isPlatformOperatorRole } from "@/lib/server/platform-operator";
 
 export type VyronCompanyAccess = {
   company_id: string;
@@ -367,9 +368,7 @@ export function isVyronMasterOperator(
   const normalizedRole = (userRole || "").trim().toLowerCase();
   return (
     normalizedRole === VYRON_MASTER_OPERATOR_ROLE.toLowerCase() ||
-    normalizedRole === "super_admin" ||
-    normalizedRole === "platform_admin" ||
-    normalizedRole === "platform_operator"
+    isPlatformOperatorRole([normalizedRole])
   );
 }
 

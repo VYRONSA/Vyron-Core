@@ -1,8 +1,15 @@
-export const VYRON_AUTH_COOKIE = "vyron_access_token";
-export const VYRON_ROLE_COOKIE = "vyron_role";
-/** Carries the vyron_user_sessions.session_token so the server can enforce Force
- * Logout / idle / absolute timeout (see lib/server/session-validation.ts). Written
- * alongside the local-storage copy in lib/session-management.ts. */
+import { isPlatformOperatorRole } from "@/lib/server/platform-operator";
+
+/**
+ * Carries the vyron_user_sessions.session_token so the server can enforce Force Logout
+ * / idle / absolute timeout (see lib/server/session-validation.ts).
+ *
+ * This is NOT an authentication credential — it names a tracked-session row and grants
+ * nothing by itself. Authentication lives entirely in the Supabase auth cookies managed
+ * by @supabase/ssr. The former `vyron_access_token` cookie (a client-written duplicate
+ * of the access token) and `vyron_role` (a client-written role hint no server code ever
+ * read) were removed in the authentication consolidation.
+ */
 export const VYRON_SESSION_TOKEN_COOKIE = "vyron_session_id";
 
 export const AUTH_ROUTES = [
@@ -27,7 +34,7 @@ export const MARKETING_ROUTES = [
   "/terms",
 ] as const;
 
-export const PUBLIC_ROUTE_PREFIXES = ["/sign-contract"] as const;
+export const PUBLIC_ROUTE_PREFIXES = ["/sign-contract", "/maintenance"] as const;
 
 export const PROTECTED_ROUTE_PREFIXES = [
   "/dashboard",
@@ -51,6 +58,7 @@ export const PROTECTED_ROUTE_PREFIXES = [
   "/mobile-workforce",
   "/operations",
   "/owner",
+  "/platform",
   "/payroll-exceptions",
   "/payroll-forecast",
   "/payroll-intelligence",
@@ -81,7 +89,10 @@ export const PROTECTED_ROUTE_PREFIXES = [
   "/workforce-risk",
 ] as const;
 
-export type VyronRbacRole = "owner" | "supervisor" | "manager" | "employee";
+export type VyronRbacRole = "platform_operator" | "owner" | "supervisor" | "manager" | "employee";
+
+/** Routes reserved for VYRON's own platform operators (Platform Console). */
+export const PLATFORM_ONLY_ROUTE_PREFIXES = ["/platform"] as const;
 
 const EMPLOYEE_ALLOWED_PREFIXES = [
   "/dashboard",
@@ -116,19 +127,9 @@ function parseJwtPayload(token: string): Record<string, unknown> | null {
   }
 }
 
-export function isTokenUsable(token?: string | null): boolean {
-  if (!token) return false;
-  const payload = parseJwtPayload(token);
-  if (!payload) return false;
-
-  const exp = Number(payload.exp);
-  if (!Number.isFinite(exp)) return true;
-  const now = Math.floor(Date.now() / 1000);
-  return exp > now;
-}
-
 export function normalizeRbacRole(input?: string | null): VyronRbacRole {
   const value = String(input || "").trim().toLowerCase();
+  if (isPlatformOperatorRole([value])) return "platform_operator";
   if (value === "owner" || value === "super_user" || value === "superuser") return "owner";
   if (value === "supervisor") return "supervisor";
   if (value === "manager" || value === "admin") return "manager";
@@ -165,6 +166,16 @@ export function canAccessRouteForRole(role: VyronRbacRole, pathname: string): bo
     matchesRoutePrefix(pathname, prefix)
   );
   if (!knownProtectedRoute) return false;
+
+  const isPlatformOnlyRoute = PLATFORM_ONLY_ROUTE_PREFIXES.some((prefix) =>
+    matchesRoutePrefix(pathname, prefix)
+  );
+  if (isPlatformOnlyRoute) return role === "platform_operator";
+
+  // Platform operators (VYRON staff) get full tenant-side access too — this
+  // preserves today's implicit behavior where VYRON DEV rides on whatever
+  // protected route (e.g. /dashboard) the operator is already authenticated into.
+  if (role === "platform_operator") return true;
 
   if (role === "owner") return true;
 

@@ -4,7 +4,6 @@ import {
   assertCompanyWorkspaceAccess,
   authenticateApiRequest,
 } from "@/lib/server-api-auth";
-import { VYRON_SESSION_TOKEN_COOKIE } from "@/lib/server/auth-routing";
 import { writeAuditLog } from "@/lib/audit-log";
 import { renderDocxTemplate } from "@/lib/contract-intelligence";
 
@@ -69,10 +68,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await authenticateApiRequest(
-      request.headers.get("authorization"),
-      request.cookies.get(VYRON_SESSION_TOKEN_COOKIE)?.value || ""
-    );
+    const auth = await authenticateApiRequest(request);
     if (!auth.ok) {
       return NextResponse.json({ error: auth.message }, { status: auth.status });
     }

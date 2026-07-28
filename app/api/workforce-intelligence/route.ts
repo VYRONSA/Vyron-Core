@@ -6,7 +6,6 @@ import {
   assertCompanyWorkspaceAccess,
   authenticateApiRequest,
 } from "@/lib/server-api-auth";
-import { VYRON_SESSION_TOKEN_COOKIE } from "@/lib/server/auth-routing";
 
 export const runtime = "nodejs";
 
@@ -29,10 +28,7 @@ function daysAgoIso(days: number): string {
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await authenticateApiRequest(
-      request.headers.get("authorization"),
-      request.cookies.get(VYRON_SESSION_TOKEN_COOKIE)?.value || ""
-    );
+    const auth = await authenticateApiRequest(request);
     if (!auth.ok) {
       return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status });
     }

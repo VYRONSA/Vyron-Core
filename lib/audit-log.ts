@@ -12,6 +12,22 @@ export const AUDIT_ACTIONS = [
   "login_as_client",
   "exit_client_mode",
   "force_logout",
+  "suspend",
+  "reactivate",
+  "cancel",
+  "maintenance_enable",
+  "maintenance_disable",
+  "maintenance_override_used",
+  "maintenance_override_failed",
+  "platform_bootstrap",
+  "platform_bootstrap_blocked",
+  // Privilege elevation ("Platform Mode") — see lib/platform/elevation.ts.
+  "platform_elevation_granted",
+  "platform_elevation_denied",
+  "platform_elevation_locked",
+  "platform_elevation_exited",
+  "platform_elevation_revoked",
+  "platform_lockdown",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

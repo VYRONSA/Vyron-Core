@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { isTokenUsable, VYRON_AUTH_COOKIE } from "@/lib/server/auth-routing";
+import { getServerUser } from "@/lib/supabase-server";
+import ImpersonationBanner from "@/components/platform/ImpersonationBanner";
 
 export const metadata: Metadata = {
   robots: {
@@ -15,14 +15,16 @@ export default async function ProtectedAppLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(VYRON_AUTH_COOKIE)?.value || "";
-  if (!isTokenUsable(token)) {
+  // Verified against Supabase, not a locally decoded token — the same authority
+  // middleware and every route handler use.
+  const { user } = await getServerUser();
+  if (!user) {
     redirect("/login");
   }
 
   return (
     <div className="vyron-shell min-h-screen bg-[#07101f] text-slate-950">
+      <ImpersonationBanner />
       {children}
     </div>
   );

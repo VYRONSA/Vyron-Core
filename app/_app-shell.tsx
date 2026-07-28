@@ -5,7 +5,9 @@
 // Full app preserved. Payroll stability, duplicate-safe calculations, exception safety, dashboard polish, and safer UI states.
 
 import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { isPlatformOperatorSessionUser } from "@/lib/server/platform-operator";
 import {
   Database,
   Upload,
@@ -148,10 +150,7 @@ import {
   VYRON_INVITE_URL_PARAM,
   VYRON_PENDING_INVITES_STORAGE_KEY,
   VYRON_PREMIUM_LOGOUT_BUTTON_CLASS,
-  clearVyronCookie,
   clearVyronSessionLocalStorage,
-  syncVyronAuthCookies,
-  syncVyronRoleCookie,
 } from "./_app-shell-session";
 import GlobalWarningBanner from "@/components/shell/GlobalWarningBanner";
 import ManagerActionCentrePanel from "../components/ManagerActionCentrePanel";
@@ -258,8 +257,6 @@ import {
 import { validateClientLoginPassword } from "@/lib/create-client-login-user";
 import { requestCreateClientLoginUser } from "@/lib/create-client-login-user-client";
 import {
-  VYRON_AUTH_COOKIE,
-  VYRON_ROLE_COOKIE,
 } from "@/lib/server/auth-routing";
 
 type ClientRecommendationRow = {
@@ -1979,6 +1976,7 @@ function Sidebar({
   hasCompanyAccess = false,
   coreSupportMode = false,
   tenantWorkspacePlan,
+  platformOperator = false,
 }: {
   active: string;
   setActive: (value: string) => void;
@@ -1988,6 +1986,7 @@ function Sidebar({
   setOpenGroup: (value: string) => void;
   userRole?: string;
   userEmail?: string | null;
+  platformOperator?: boolean;
   hasCompanyAccess?: boolean;
   coreSupportMode?: boolean;
   tenantWorkspacePlan?: {
@@ -2046,6 +2045,19 @@ function Sidebar({
               Upgrade Workspace
             </button>
           )}
+        </div>
+      )}
+
+      {platformOperator && (
+        <div className="border-b border-white/10 px-4 py-4">
+          <Link
+            href="/platform"
+            onClick={() => closeMobile?.()}
+            className="vyron-focus-ring flex w-full items-center gap-3 rounded-xl bg-gradient-to-r from-blue-600/90 to-cyan-500/90 px-3 py-3 text-left text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:from-blue-500 hover:to-cyan-400"
+          >
+            <span className="flex-1">Platform Console</span>
+            <span className="text-xs font-bold tracking-wider text-white/70">VYRON</span>
+          </Link>
         </div>
       )}
 
@@ -16436,6 +16448,9 @@ export default function Page() {
   const [activeSidebarGroup, setActiveSidebarGroup] = useState("Command Centre");
   const [authUserEmail, setAuthUserEmail] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string>("");
+  /** Platform-operator claim read from the Supabase session's app_metadata. Drives the
+   * Platform Console sidebar link only — middleware.ts is the authoritative gate. */
+  const [platformOperatorSession, setPlatformOperatorSession] = useState(false);
 
   const normalizedAuthEmail = useMemo(
     () => normalizeVyronEmail(authUserEmail),
@@ -17556,11 +17571,26 @@ export default function Page() {
   }, [active]);
 
   useEffect(() => {
+    /**
+     * getUser() re-reads app_metadata from the auth server, whereas the cached session
+     * user only changes when the access token rotates. Reading it fresh means a newly
+     * granted operator claim surfaces the Platform Console link right away, instead of
+     * after the operator signs out and back in.
+     */
+    async function syncPlatformOperatorFlag(hasSession: boolean) {
+      if (!hasSession) {
+        setPlatformOperatorSession(false);
+        return;
+      }
+      const { data } = await supabase.auth.getUser();
+      setPlatformOperatorSession(isPlatformOperatorSessionUser(data?.user));
+    }
+
     async function loadAuthSession() {
       const { data } = await supabase.auth.getSession();
       const sessionEmail = normalizeVyronEmail(data.session?.user?.email || "") || null;
-      syncVyronAuthCookies(sessionEmail, data.session?.access_token || null);
       setAuthUserEmail(sessionEmail);
+      void syncPlatformOperatorFlag(Boolean(data.session));
       if (sessionEmail) {
         applyLayoutRole(
           sessionEmail,
@@ -17574,8 +17604,8 @@ export default function Page() {
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       const sessionEmail = normalizeVyronEmail(session?.user?.email || "") || null;
-      syncVyronAuthCookies(sessionEmail, session?.access_token || null);
       setAuthUserEmail(sessionEmail);
+      void syncPlatformOperatorFlag(Boolean(session));
       if (sessionEmail) {
         applyLayoutRole(
           sessionEmail,
@@ -17606,10 +17636,6 @@ export default function Page() {
   }, [layoutUserRole, normalizedAuthEmail]);
 
   useEffect(() => {
-    syncVyronRoleCookie(layoutUserRole || "employee");
-  }, [layoutUserRole]);
-
-  useEffect(() => {
     if (!authUserEmail) return;
     if (pathname !== "/login") return;
 
@@ -17618,6 +17644,17 @@ export default function Page() {
   }, [authUserEmail, pathname, router, searchParams]);
 
   async function handleLogout() {
+    // Platform Mode lives in an httpOnly cookie, so only the server can clear it.
+    // This runs before signOut, while the request is still authenticated — otherwise
+    // signing back in would silently resume the previous elevated session.
+    if (platformOperatorSession) {
+      await fetch("/api/platform/elevation", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: "logout" }),
+      }).catch(() => {});
+    }
+
     if (authUserEmail) {
       const sessionToken = readLocalSessionToken(authUserEmail);
       if (sessionToken) {
@@ -17625,9 +17662,8 @@ export default function Page() {
       }
       clearLocalSessionToken(authUserEmail);
     }
+    // signOut() clears the Supabase auth cookies — the only session store there is.
     await supabase.auth.signOut();
-    syncVyronAuthCookies(null, null);
-    clearVyronCookie(VYRON_ROLE_COOKIE);
     clearVyronSessionLocalStorage();
 
     setMobileNavOpen(false);
@@ -18832,7 +18868,7 @@ return (
 
       <div className="hidden min-h-screen lg:grid lg:grid-cols-[300px_1fr]">
         <div className="hidden lg:block">
-          <Sidebar active={active} setActive={setActive} alertCounts={alertCounts} openGroup={activeSidebarGroup} setOpenGroup={setActiveSidebarGroup} userRole={layoutUserRole} userEmail={normalizedAuthEmail} hasCompanyAccess={hasTenantCompanyAccess} coreSupportMode={isVyronCoreSupportView} tenantWorkspacePlan={tenantWorkspaceSidebarPlan} />
+          <Sidebar active={active} setActive={setActive} alertCounts={alertCounts} openGroup={activeSidebarGroup} setOpenGroup={setActiveSidebarGroup} userRole={layoutUserRole} userEmail={normalizedAuthEmail} hasCompanyAccess={hasTenantCompanyAccess} coreSupportMode={isVyronCoreSupportView} tenantWorkspacePlan={tenantWorkspaceSidebarPlan} platformOperator={platformOperatorSession} />
         </div>
 
         <section className={active === "Command Centre" ? "bg-[#07101f]" : "bg-[#f6f8fb] p-4 md:p-8"}>

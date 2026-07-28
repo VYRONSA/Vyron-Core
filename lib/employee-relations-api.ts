@@ -5,7 +5,6 @@ import {
   authenticateApiRequest,
   type AuthenticatedApiContext,
 } from "@/lib/server-api-auth";
-import { VYRON_SESSION_TOKEN_COOKIE } from "@/lib/server/auth-routing";
 import { writeAuditLog, type AuditAction } from "@/lib/audit-log";
 
 export type ApiContext = {
@@ -49,10 +48,7 @@ export async function requireApiContext(
   request: NextRequest,
   companyIdValue: unknown
 ): Promise<{ ok: true; ctx: ApiContext } | { ok: false; status: number; message: string }> {
-  const auth = await authenticateApiRequest(
-    request.headers.get("authorization"),
-    request.cookies.get(VYRON_SESSION_TOKEN_COOKIE)?.value || ""
-  );
+  const auth = await authenticateApiRequest(request);
   if (!auth.ok) {
     return { ok: false, status: auth.status, message: auth.message };
   }

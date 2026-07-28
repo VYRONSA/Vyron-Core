@@ -3,7 +3,6 @@ import {
   assertCompanyWorkspaceAccess,
   authenticateApiRequest,
 } from "@/lib/server-api-auth";
-import { VYRON_SESSION_TOKEN_COOKIE } from "@/lib/server/auth-routing";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { writeAuditLog } from "@/lib/audit-log";
 import { renderDocxTemplate } from "@/lib/contract-intelligence";
@@ -67,10 +66,7 @@ async function assertTemplateOwnership(
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await authenticateApiRequest(
-      request.headers.get("authorization"),
-      request.cookies.get(VYRON_SESSION_TOKEN_COOKIE)?.value || ""
-    );
+    const auth = await authenticateApiRequest(request);
     if (!auth.ok) {
       return new NextResponse(auth.message, { status: auth.status });
     }
