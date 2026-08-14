@@ -1,34 +1,48 @@
 /**
- * POST /api/platform/bootstrap — promote the FIRST Platform Operator, once.
+ * Platform Administrator recovery endpoint.
  *
- * This is the ONLY route under /api/platform that does not call
- * requirePlatformOperator(): by definition no operator exists yet when it runs.
- * It is guarded instead by
- *   - PLATFORM_BOOTSTRAP_SECRET (server-only env var, fail-closed when unset),
- *   - the one-time latch in public.vyron_platform_bootstrap (sql/066),
- *   - a scan proving zero accounts currently hold an operator claim.
- * Once the latch row exists this route can never promote anyone again.
+ *   GET  → report whether the platform currently has an administrator
+ *   POST → provision (or repair) the Platform Administrator
+ *
+ * This is the ONLY route under /api/platform that does not require an authenticated
+ * platform operator, because it exists precisely for the case where none exists.
+ *
+ * WHAT CHANGED, AND WHY
+ *
+ * This used to be a one-time latch: after a single successful bootstrap it refused
+ * forever. That looked safe but produced an unrecoverable state — delete the promoted
+ * account and the platform has zero operators *and* a bootstrap that will never run
+ * again, leaving hand-editing the database as the only way back in.
+ *
+ * The guard is now an invariant rather than a one-shot: provisioning is permitted only
+ * while the platform has NO operator. That is self-healing (it becomes available again
+ * exactly when the administrator is lost) and it is not an escalation path, because
+ * while any operator exists it refuses and further operators are promoted from the
+ * Platform Console instead.
+ *
+ * Layers of protection, unchanged in spirit:
+ *   - PLATFORM_BOOTSTRAP_SECRET must match (fail-closed when unset)
+ *   - the zero-operator invariant above
+ *   - every action is written to vyron_audit_log
  *
  *   curl -X POST https://<host>/api/platform/bootstrap \
  *     -H "x-vyron-bootstrap-secret: $PLATFORM_BOOTSTRAP_SECRET" \
  *     -H "content-type: application/json" \
- *     -d '{"email":"you@yourdomain.com"}'
+ *     -d '{"email":"you@yourdomain.com","password":"..."}'
  *
- * GET the same path (with the secret header) to check status without changing anything.
+ * `email`/`password` are optional: with none supplied the configured
+ * PLATFORM_BOOTSTRAP_ADMIN_EMAIL / _PASSWORD are used.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/server-api-auth";
 import { writeAuditLog } from "@/lib/audit-log";
+import { verifyBootstrapSecret, BOOTSTRAP_SECRET_ENV } from "@/lib/platform/operator-bootstrap";
 import {
-  BOOTSTRAP_SECRET_ENV,
-  buildOperatorAppMetadata,
-  claimBootstrapLatch,
-  readBootstrapLatch,
-  releaseBootstrapLatch,
+  ensurePlatformAdmin,
+  getConfiguredBootstrapAdmin,
   scanUsers,
-  verifyBootstrapSecret,
-} from "@/lib/platform/operator-bootstrap";
+} from "@/lib/platform/platform-admin-provisioning";
 
 export const runtime = "nodejs";
 
@@ -56,47 +70,42 @@ export async function GET(request: NextRequest) {
     return fail(503, error instanceof Error ? error.message : "Admin client unavailable.");
   }
 
-  const latch = await readBootstrapLatch(supabase);
-  if (!latch.ok) return fail(latch.status, latch.message);
+  const configured = getConfiguredBootstrapAdmin();
+  const scan = await scanUsers(supabase, configured?.email || "");
 
-  if (latch.row) {
-    return NextResponse.json({
-      ok: true,
-      available: false,
-      reason: "already_bootstrapped",
-      completedAt: latch.row.completed_at,
-      promotedEmail: latch.row.promoted_email,
-      method: latch.row.method,
-    });
-  }
-
-  const scan = await scanUsers(supabase, "");
-  if (!scan.ok) return fail(scan.status, scan.message);
-
-  const operators = scan.scan.existingOperators;
   return NextResponse.json({
     ok: true,
-    available: operators.length === 0,
-    reason: operators.length === 0 ? "ready" : "operator_already_exists",
-    existingOperatorCount: operators.length,
+    // Available whenever the platform has no operator — this is the self-healing
+    // invariant, not a consumed one-time token.
+    available: scan.operators.length === 0,
+    operatorCount: scan.operators.length,
+    operators: scan.operators.map((operator) => operator.email),
+    configuredAdmin: configured?.email || null,
+    configuredAdminExists: Boolean(scan.target),
+    totalUsers: scan.total,
   });
 }
 
 export async function POST(request: NextRequest) {
   const secret = verifyBootstrapSecret(request.headers.get(SECRET_HEADER) || "");
   if (!secret.ok) {
-    // Deliberately not written to vyron_audit_log: this endpoint is
-    // unauthenticated, so logging every rejected guess would let anyone flood
-    // the audit trail. Server logs carry the signal instead.
+    // Deliberately not written to vyron_audit_log: this endpoint is unauthenticated,
+    // so logging every rejected guess would let anyone flood the audit trail.
     console.warn(`[platform-bootstrap] rejected attempt from ${requestIp(request)}: ${secret.message}`);
     return fail(secret.status, secret.message);
   }
 
   const body = await request.json().catch(() => null);
-  const email = String(body?.email || "").trim().toLowerCase();
+  const configured = getConfiguredBootstrapAdmin();
+
+  const email = String(body?.email || configured?.email || "").trim().toLowerCase();
+  const password = String(body?.password || configured?.password || "");
 
   if (!email || !EMAIL_PATTERN.test(email)) {
-    return fail(400, "A valid email address is required.");
+    return fail(
+      400,
+      `A valid email address is required — pass one in the body or set PLATFORM_BOOTSTRAP_ADMIN_EMAIL.`
+    );
   }
 
   let supabase;
@@ -106,89 +115,31 @@ export async function POST(request: NextRequest) {
     return fail(503, error instanceof Error ? error.message : "Admin client unavailable.");
   }
 
-  const latch = await readBootstrapLatch(supabase);
-  if (!latch.ok) return fail(latch.status, latch.message);
+  const result = await ensurePlatformAdmin(supabase, {
+    email,
+    password,
+    reason: "recovery_endpoint",
+  });
 
-  if (latch.row) {
-    return fail(
-      410,
-      `Bootstrap has already been used (${latch.row.promoted_email} on ${latch.row.completed_at}) and is permanently disabled. Promote further operators from /platform.`
-    );
-  }
-
-  const scan = await scanUsers(supabase, email);
-  if (!scan.ok) return fail(scan.status, scan.message);
-
-  if (scan.scan.existingOperators.length > 0) {
+  if (!result.ok) {
     await writeAuditLog(supabase, {
       userEmail: email,
       action: "platform_bootstrap_blocked",
       entityType: "platform_operator",
-      metadata: {
-        reason: "operator_already_exists",
-        existingOperatorCount: scan.scan.existingOperators.length,
-        ip: requestIp(request),
-      },
+      metadata: { reason: result.message, ip: requestIp(request) },
     });
-    return fail(
-      409,
-      "A Platform Operator already exists. Bootstrap is only available when there are none — sign in as that operator and promote users from /platform."
-    );
+    // 409: refused because an operator already exists, which is the expected steady state.
+    return fail(409, result.message);
   }
-
-  const target = scan.scan.target;
-  if (!target) {
-    return fail(
-      404,
-      `No account exists for ${email}. Create the account first (sign up in the app), then re-run bootstrap.`
-    );
-  }
-
-  // Claim the latch BEFORE promoting: a concurrent second request loses here on
-  // the single-row primary key rather than racing into a second promotion.
-  const claim = await claimBootstrapLatch(supabase, {
-    userId: target.id,
-    email,
-    performedBy: requestIp(request),
-  });
-  if (!claim.ok) return fail(claim.status, claim.message);
-  if (!claim.claimed) {
-    return fail(410, "Bootstrap has already been used and is permanently disabled.");
-  }
-
-  const { error: promoteError } = await supabase.auth.admin.updateUserById(target.id, {
-    app_metadata: buildOperatorAppMetadata(target.app_metadata),
-  });
-
-  if (promoteError) {
-    // The promotion failed, so the latch must not stay claimed — otherwise the
-    // project would be permanently locked out with no operator at all.
-    await releaseBootstrapLatch(supabase, target.id);
-    return fail(500, `Could not promote ${email}: ${promoteError.message}`);
-  }
-
-  const audit = await writeAuditLog(supabase, {
-    userEmail: email,
-    action: "platform_bootstrap",
-    entityType: "platform_operator",
-    entityId: target.id,
-    metadata: {
-      method: "api",
-      promotedEmail: email,
-      ip: requestIp(request),
-      bootstrapPermanentlyDisabled: true,
-    },
-  });
 
   return NextResponse.json({
     ok: true,
-    email,
-    userId: target.id,
-    role: "platform_operator",
-    bootstrapDisabled: true,
-    auditLogged: audit.ok,
+    email: result.email,
+    userId: result.userId,
+    actions: result.actions,
     message:
-      "Platform Operator created. Sign out and sign in again to refresh your session claims, then open /platform. Bootstrap is now permanently disabled — remove " +
-      `${BOOTSTRAP_SECRET_ENV} from the environment.`,
+      result.actions.length === 0
+        ? result.message
+        : `${result.message} Sign in and open /platform. Remove ${BOOTSTRAP_SECRET_ENV} from the environment when recovery is complete.`,
   });
 }

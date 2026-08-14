@@ -28,6 +28,26 @@ export const AUDIT_ACTIONS = [
   "platform_elevation_exited",
   "platform_elevation_revoked",
   "platform_lockdown",
+  /** Deterministic Platform Administrator provisioning — see
+   * lib/platform/platform-admin-provisioning.ts. */
+  "platform_admin_provisioned",
+  /**
+   * Customer user management (Settings → Users & Access and Platform Console →
+   * Customer → Users). See lib/tenant/user-management.ts, which is the only writer.
+   * Passwords are never part of these records — every metadata payload passes through
+   * redactSecrets() first.
+   */
+  "user_created",
+  "user_invited",
+  "user_updated",
+  "user_role_changed",
+  "user_module_access_changed",
+  "user_permissions_changed",
+  "user_password_reset",
+  "user_activated",
+  "user_deactivated",
+  "user_deleted",
+  "user_restored",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

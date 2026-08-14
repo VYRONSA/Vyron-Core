@@ -1,0 +1,4 @@
+{
+  "//": "Scoped to tests/ only — marks the suites as ES modules so Node does not reparse each file as CommonJS first. The Next.js app is unaffected.",
+  "type": "module"
+}

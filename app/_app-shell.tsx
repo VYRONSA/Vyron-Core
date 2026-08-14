@@ -110,12 +110,9 @@ import {
   revokeUserSession,
 } from "@/lib/session-management";
 import {
-  TENANT_RBAC_ROLE_OPTIONS,
   buildTenantWorkspaceNavGroup,
-  canTenantInviteUsers,
   canTenantSubmitFeedback,
   filterSidebarNavGroupsByRbac,
-  formatTenantRbacRoleLabel,
   isRouteAllowedDuringSupportSession,
   isTenantNavRouteAllowed,
   resolveTenantPermissionLayer,
@@ -225,6 +222,7 @@ import ClientProfitabilityIntelligencePanel from "../components/field-ops/Client
 import ClientPortalAdminPanel from "@/components/client-portal/ClientPortalAdminPanel";
 import TrainingCentrePanel from "@/components/TrainingCentrePanel";
 import PilotClientReadinessProgram from "@/components/pilot-readiness/PilotClientReadinessProgram";
+import UsersAccessPanel from "@/components/settings/UsersAccessPanel";
 import WorkforceCostIntelligencePanel from "../components/field-ops/WorkforceCostIntelligencePanel";
 import WorkforceRiskIntelligencePanel from "../components/field-ops/WorkforceRiskIntelligencePanel";
 import WorkforceAiCopilotPanel from "../components/field-ops/WorkforceAiCopilotPanel";
@@ -304,13 +302,35 @@ export type MasterClientDirectoryEntry = {
   physicalAddress?: string;
 };
 
-/** PostgREST select for directory + detail reload; wider shape requires sql/007 (or folded 001). */
-const COMPANIES_DIRECTORY_BASE_WITH_PROFILE =
-  "id, name, contact_person, phone, physical_address, subscription_status, subscription_tier, monthly_fee, demo_started_at, status, created_at";
-const COMPANIES_DIRECTORY_BASE_WITHOUT_PROFILE =
-  "id, name, subscription_status, subscription_tier, monthly_fee, demo_started_at, status, created_at";
-const COMPANIES_DIRECTORY_SELECT_WITH_PROFILE = `${COMPANIES_DIRECTORY_BASE_WITH_PROFILE}, ${COMPANY_USERS_DIRECTORY_EMBED}`;
-const COMPANIES_DIRECTORY_SELECT_WITHOUT_PROFILE = `${COMPANIES_DIRECTORY_BASE_WITHOUT_PROFILE}, ${COMPANY_USERS_DIRECTORY_EMBED}`;
+/**
+ * PostgREST select for directory + detail reload.
+ *
+ * Two column groups are optional because they arrived in later migrations, and a project
+ * that has not run them yet must degrade to a working directory rather than a red error:
+ *   - contact_person / phone / physical_address → sql/007 (folded into 001)
+ *   - demo_started_at                            → sql/008 (folded into sql/069)
+ *
+ * The fallbacks below are NOT error suppression: the query is retried with a narrower
+ * projection and the missing capability is reported to the operator with the exact
+ * migration to run (see the banner in ClientDirectoryScreen).
+ */
+const COMPANIES_DIRECTORY_PROFILE_COLUMNS = "contact_person, phone, physical_address";
+const COMPANIES_DIRECTORY_DEMO_COLUMN = "demo_started_at";
+
+function buildCompaniesDirectorySelect(options: {
+  withProfile: boolean;
+  withDemoTier: boolean;
+}): string {
+  return [
+    "id, name",
+    options.withProfile ? COMPANIES_DIRECTORY_PROFILE_COLUMNS : null,
+    "subscription_status, subscription_tier, monthly_fee",
+    options.withDemoTier ? COMPANIES_DIRECTORY_DEMO_COLUMN : null,
+    "status, created_at",
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
 
 function isMissingCompaniesProfileColumnError(message: string | undefined): boolean {
   if (!message) return false;
@@ -323,18 +343,25 @@ function isMissingCompaniesProfileColumnError(message: string | undefined): bool
   return namesProfileCol && m.includes("companies");
 }
 
+/** "column companies.demo_started_at does not exist" — sql/008 / sql/069 not applied. */
+function isMissingDemoStartedAtColumnError(message: string | undefined): boolean {
+  if (!message) return false;
+  const m = message.toLowerCase();
+  return m.includes("demo_started_at");
+}
+
 async function queryCompaniesDirectory(options?: {
   companyId?: string;
   withProfile?: boolean;
+  withDemoTier?: boolean;
 }): Promise<{
   rows: Record<string, unknown>[];
   single: Record<string, unknown> | null;
   error: string | null;
 }> {
   const withProfile = options?.withProfile !== false;
-  const baseSelect = withProfile
-    ? COMPANIES_DIRECTORY_BASE_WITH_PROFILE
-    : COMPANIES_DIRECTORY_BASE_WITHOUT_PROFILE;
+  const withDemoTier = options?.withDemoTier !== false;
+  const baseSelect = buildCompaniesDirectorySelect({ withProfile, withDemoTier });
 
   let bareQuery = supabase.from("companies").select(baseSelect);
   if (options?.companyId) {
@@ -346,6 +373,14 @@ async function queryCompaniesDirectory(options?: {
   const bareResult = options?.companyId
     ? await bareQuery.maybeSingle()
     : await bareQuery;
+
+  if (
+    bareResult.error &&
+    withDemoTier &&
+    isMissingDemoStartedAtColumnError(bareResult.error.message)
+  ) {
+    return queryCompaniesDirectory({ ...options, withDemoTier: false });
+  }
 
   if (
     bareResult.error &&
@@ -432,27 +467,10 @@ const VYRON_WORKSPACE_TIER_EMPLOYEE_CAPS: Record<
   Enterprise: null,
 };
 
-/** System user (company_users) seat cap per tier — null = unlimited. */
-const VYRON_WORKSPACE_TIER_USER_SEAT_CAPS: Record<
-  (typeof CLIENT_SUBSCRIPTION_TIERS)[number],
-  number | null
-> = {
-  Demo: null,
-  Starter: 2,
-  Growth: 5,
-  Business: 20,
-  Professional: null,
-  Enterprise: null,
-};
-
-function getWorkspaceUserSeatCap(tier: string | undefined): number | null {
-  return VYRON_WORKSPACE_TIER_USER_SEAT_CAPS[normalizeClientSubscriptionTier(tier)];
-}
-
-function formatWorkspaceUserSeatCapLabel(cap: number | null): string {
-  if (cap === null) return "Unlimited";
-  return String(cap);
-}
+// The system-user seat cap moved to companies.user_limit, which Platform Console
+// provisioning writes from the subscription plan and /api/company/users enforces
+// server-side (lib/tenant/user-management.ts). The tier-keyed table that used to live
+// here could only be applied in the browser, so it was advisory rather than a limit.
 
 function clientSubscriptionTierRank(tier: string | undefined): number {
   return CLIENT_SUBSCRIPTION_TIERS.indexOf(normalizeClientSubscriptionTier(tier));
@@ -1191,48 +1209,10 @@ type CompanyUserRow = {
   created_at?: string;
 };
 
-function companyUserNamesStorageKey(companyId: string) {
-  return `vyron-company-user-names-${companyId}`;
-}
-
-function readCompanyUserDisplayNames(companyId: string): Record<string, string> {
-  if (typeof window === "undefined" || !companyId) return {};
-  try {
-    const raw = window.localStorage.getItem(companyUserNamesStorageKey(companyId));
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, string>;
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function writeCompanyUserDisplayName(companyId: string, email: string, fullName: string) {
-  if (typeof window === "undefined" || !companyId || !email.trim()) return;
-  const key = companyUserNamesStorageKey(companyId);
-  const map = readCompanyUserDisplayNames(companyId);
-  map[normalizeVyronEmail(email)] = fullName.trim();
-  window.localStorage.setItem(key, JSON.stringify(map));
-}
-
-function resolveCompanyUserDisplayName(
-  companyId: string,
-  email: string,
-  nameMap?: Record<string, string>
-): string {
-  const normalized = normalizeVyronEmail(email);
-  const fromMap = (nameMap || readCompanyUserDisplayNames(companyId))[normalized];
-  if (fromMap?.trim()) return fromMap.trim();
-  const local = normalized.split("@")[0] || normalized;
-  return local.replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function countBillableCompanyUsers(users: CompanyUserRow[]): number {
-  return users.filter((row) => {
-    const status = (row.status || "active").toLowerCase();
-    return status !== "archived" && status !== "removed" && status !== "inactive";
-  }).length;
-}
+// A user's display name is now first_name / last_name on company_users (sql/069),
+// written by /api/company/users. The previous implementation kept names in a
+// per-browser localStorage map keyed by company, so the same user appeared with a
+// different name on every device and no name at all to anyone else.
 
 const navItems = [
   "Command Centre",
@@ -6595,6 +6575,7 @@ function ClientDirectoryDetailModal({
   const [loadError, setLoadError] = useState<string | null>(null);
   /** False when DB has no contact_person / phone / physical_address (run sql/007). */
   const [profileColumnsInDb, setProfileColumnsInDb] = useState(true);
+  const [demoTierColumnInDb, setDemoTierColumnInDb] = useState(true);
 
   const [companyName, setCompanyName] = useState(entry.companyName);
   const [contactPerson, setContactPerson] = useState(entry.contactPerson || "");
@@ -6652,6 +6633,11 @@ function ClientDirectoryDetailModal({
           Object.prototype.hasOwnProperty.call(data, "phone") ||
           Object.prototype.hasOwnProperty.call(data, "physical_address")
       );
+
+      // queryCompaniesDirectory retries without demo_started_at when the column is
+      // absent, so its absence from the returned row — not an error string — is the
+      // signal that sql/069 still needs to be applied.
+      setDemoTierColumnInDb(Object.prototype.hasOwnProperty.call(data, "demo_started_at"));
 
       const row = data as Record<string, unknown>;
       const users = Array.isArray(row.company_users) ? row.company_users : [];
@@ -6859,6 +6845,17 @@ function ClientDirectoryDetailModal({
             <code className="rounded bg-white/80 px-1">sql/007-client-profile-columns.sql</code> (or re-run{" "}
             <code className="rounded bg-white/80 px-1">sql/000-run-all-companies.sql</code>
             ), wait ~30s, then refresh — the directory still loads other company fields.
+          </p>
+        )}
+
+        {!loadError && !demoTierColumnInDb && !loading && (
+          <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-950">
+            The Demo tier window column is not in your Supabase project yet, so the 30-day Demo
+            countdown is unavailable. Run{" "}
+            <code className="rounded bg-white/80 px-1">sql/069-customer-user-management.sql</code>{" "}
+            (it folds in the previously optional{" "}
+            <code className="rounded bg-white/80 px-1">sql/008-demo-tier-timestamp.sql</code>), wait
+            ~30s, then refresh — every other company field still loads.
           </p>
         )}
 
@@ -8684,228 +8681,30 @@ function TenantAccessRestrictedScreen({
   );
 }
 
+/**
+ * Workspace governance ("Users & Access").
+ *
+ * The user list, invite form and role editing that used to live here wrote
+ * public.company_users rows straight from the browser with status 'pending' and no
+ * Supabase Auth user behind them, so an "invited" person could never actually sign in,
+ * and roles were changed with no server-side authorisation and no audit record.
+ *
+ * That is now UsersAccessPanel, backed by /api/company/users — the same screen and the
+ * same service the Platform Console uses. The session and audit panels below are
+ * unchanged owner-only workspace governance.
+ */
 function TeamAccessControlScreen({
   companyId,
-  companyUsers,
-  subscriptionTier,
   permissionLayer,
   operatorEmail,
-  onRefresh,
 }: {
   companyId: string;
-  companyUsers: CompanyUserRow[];
-  subscriptionTier: string;
   permissionLayer: TenantPermissionLayer;
   operatorEmail: string;
-  onRefresh: () => void;
 }) {
-  const [fullName, setFullName] = useState("");
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<(typeof TENANT_RBAC_ROLE_OPTIONS)[number]["value"]>("employee");
-  const [saving, setSaving] = useState(false);
-  const [seatBanner, setSeatBanner] = useState<string | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [savedMessage, setSavedMessage] = useState<string | null>(null);
-  const [nameMap, setNameMap] = useState<Record<string, string>>({});
-
-  const seatCap = getWorkspaceUserSeatCap(subscriptionTier);
-  const seatCount = countBillableCompanyUsers(companyUsers);
-  const seatAtLimit = seatCap !== null && seatCount >= seatCap;
-  const canInvite = canTenantInviteUsers(permissionLayer);
-
-  useEffect(() => {
-    if (companyId) setNameMap(readCompanyUserDisplayNames(companyId));
-  }, [companyId, companyUsers.length]);
-
-  async function handleInvite() {
-    setFormError(null);
-    setSavedMessage(null);
-    setSeatBanner(null);
-
-    if (!canInvite) {
-      setFormError("Only workspace owners can invite system users.");
-      return;
-    }
-
-    if (!companyId) {
-      setFormError("Select an active company workspace first.");
-      return;
-    }
-
-    const trimmedEmail = normalizeVyronEmail(inviteEmail);
-    if (!trimmedEmail || !trimmedEmail.includes("@")) {
-      setFormError("A valid email address is required.");
-      return;
-    }
-
-    if (!fullName.trim()) {
-      setFormError("Full name is required.");
-      return;
-    }
-
-    if (seatAtLimit) {
-      setSeatBanner(
-        `Seat Limit Reached. Your current subscription tier accommodates a maximum of ${seatCap} system users. Please upgrade your workspace package to add more management accounts.`
-      );
-      return;
-    }
-
-    const duplicate = companyUsers.some((row) => normalizeVyronEmail(row.user_email) === trimmedEmail);
-    if (duplicate) {
-      setFormError("This email is already assigned to the workspace.");
-      return;
-    }
-
-    setSaving(true);
-    const { error: insertError } = await supabase.from("company_users").insert({
-      company_id: companyId,
-      user_email: trimmedEmail,
-      role: inviteRole,
-      status: "pending",
-    });
-
-    if (insertError) {
-      setFormError(insertError.message);
-      setSaving(false);
-      return;
-    }
-
-    writeCompanyUserDisplayName(companyId, trimmedEmail, fullName.trim());
-    setNameMap(readCompanyUserDisplayNames(companyId));
-    setFullName("");
-    setInviteEmail("");
-    setInviteRole("employee");
-    setSavedMessage(`Invitation prepared for ${trimmedEmail} (${formatTenantRbacRoleLabel(inviteRole)}).`);
-    setSaving(false);
-    onRefresh();
-  }
-
   return (
     <div className="space-y-8">
-      <Panel dark>
-        <div className="flex flex-wrap items-end justify-between gap-6">
-          <div>
-            <div className="text-xs font-black uppercase tracking-[0.35em] text-cyan-300">Workspace governance</div>
-            <h2 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">Team Access Control</h2>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300">
-              Manage system users for this workspace — Super Users, Supervisors, and schedule operators. Seat limits follow
-              your subscription tier.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-cyan-400/20 bg-white/5 px-5 py-4 text-right">
-            <div className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-200">System users</div>
-            <div className="mt-2 text-2xl font-black text-white">
-              {seatCount} / {formatWorkspaceUserSeatCapLabel(seatCap)}
-            </div>
-            <div className="mt-1 text-xs text-slate-400">{normalizeClientSubscriptionTier(subscriptionTier)} tier</div>
-          </div>
-        </div>
-      </Panel>
-
-      {seatBanner ? (
-        <div className="rounded-[2rem] border border-amber-300/80 bg-amber-50 px-6 py-5 text-sm font-semibold leading-relaxed text-amber-950 shadow-[0_18px_55px_rgba(245,158,11,0.12)]">
-          {seatBanner}
-        </div>
-      ) : null}
-
-      {canInvite ? (
-        <Panel>
-          <h3 className="text-xl font-black text-slate-950">Invite New System User</h3>
-          <p className="mt-2 text-sm text-slate-500">
-            Creates a pending <span className="font-bold">company_users</span> row. The user signs in after invite
-            activation.
-          </p>
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <FormInput label="Full Name" value={fullName} onChange={setFullName} placeholder="Thabo Mokoena" />
-            <FormInput
-              label="Email"
-              value={inviteEmail}
-              onChange={setInviteEmail}
-              placeholder="manager@company.co.za"
-              type="email"
-            />
-            <label className="text-sm font-bold md:col-span-2">
-              Role
-              <select
-                value={inviteRole}
-                onChange={(event) =>
-                  setInviteRole(event.target.value as (typeof TENANT_RBAC_ROLE_OPTIONS)[number]["value"])
-                }
-                className="vyron-input vyron-focus-ring mt-2"
-              >
-                {TENANT_RBAC_ROLE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          {formError ? (
-            <div className="mt-4 rounded-2xl bg-rose-50 p-4 text-sm font-semibold text-rose-700">{formError}</div>
-          ) : null}
-          {savedMessage ? (
-            <div className="mt-4 rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">{savedMessage}</div>
-          ) : null}
-          <button
-            type="button"
-            disabled={saving || seatAtLimit}
-            onClick={() => void handleInvite()}
-            className="mt-6 flex w-fit items-center gap-2 rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15 disabled:opacity-50"
-          >
-            <Plus className="h-4 w-4" />
-            {saving ? "Sending invite..." : "Invite System User"}
-          </button>
-        </Panel>
-      ) : (
-        <Panel>
-          <p className="text-sm font-semibold text-slate-600">
-            You can view workspace users. Only Super Users can invite or change system access.
-          </p>
-        </Panel>
-      )}
-
-      <Panel>
-        <h3 className="text-xl font-black text-slate-950">Workspace system users</h3>
-        <div className="mt-6 overflow-x-auto rounded-[2rem] border border-slate-200/80">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs font-black uppercase tracking-[0.2em] text-slate-500">
-              <tr>
-                <th className="px-5 py-4">Name</th>
-                <th className="px-5 py-4">Email</th>
-                <th className="px-5 py-4">User Role</th>
-                <th className="px-5 py-4">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {companyUsers.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-5 py-10 text-center text-slate-500">
-                    No system users linked to this workspace yet.
-                  </td>
-                </tr>
-              ) : (
-                companyUsers.map((row) => (
-                  <tr key={row.id || `${row.user_email}-${row.role}`} className="bg-white/90">
-                    <td className="px-5 py-4 font-bold text-slate-950">
-                      {resolveCompanyUserDisplayName(companyId, row.user_email, nameMap)}
-                    </td>
-                    <td className="px-5 py-4 text-slate-700">{row.user_email}</td>
-                    <td className="px-5 py-4">
-                      <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-800">
-                        {formatTenantRbacRoleLabel(row.role)}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <StatusPill value={row.status || "active"} />
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Panel>
+      <UsersAccessPanel endpoint="/api/company/users" />
 
       {permissionLayer === "owner" || permissionLayer === "platform" ? (
         <>
@@ -10846,7 +10645,7 @@ function ClientSetupScreen({
         : "Administrator login: not configured.";
 
       const profileNote = companyProfileErr
-        ? ` Billing profile update note: ${companyProfileErr.message} (for contact/address fields run sql/007-client-profile-columns.sql in Supabase, then wait ~30s; 008 is only for demo_started_at).`
+        ? ` Billing profile update note: ${companyProfileErr.message} (for contact/address fields run sql/007-client-profile-columns.sql in Supabase; for demo_started_at run sql/069-customer-user-management.sql, which folds in the previously optional sql/008. Then wait ~30s.)`
         : "";
 
       setSavedMessage(
@@ -16361,6 +16160,9 @@ function resolveNavigationTarget(item: string) {
     "Document Hub": "Document Hub",
     "Team Access Control": "Team Access Control",
     "User Management": "Team Access Control",
+    // Settings → Users & Access. The internal route key is unchanged so existing deep
+    // links and the RBAC nav tables keep working; only the label the operator sees moved.
+    "Users & Access": "Team Access Control",
     "Send Feedback": TENANT_SEND_FEEDBACK_ROUTE,
     "Field Operations": "Field Operations",
     "Job Visits": "Job Visits",
@@ -18276,11 +18078,8 @@ export default function Page() {
       return (
         <TeamAccessControlScreen
           companyId={currentCompanyId}
-          companyUsers={companyUsers}
-          subscriptionTier={workspaceSubscriptionTier}
           permissionLayer={tenantPermissionLayer}
           operatorEmail={normalizedAuthEmail}
-          onRefresh={refreshData}
         />
       );
     if (active === "Live Activity") return <LiveActivityScreen clockEvents={clockEvents} exceptions={exceptions} hrCases={hrCases} employees={employees} stores={stores} />;

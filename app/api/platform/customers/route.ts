@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePlatformOperator } from "@/app/api/platform/_shared";
 import { provisionPlatformCustomer } from "@/lib/platform/provision-customer";
 import { computeHealthScore } from "@/lib/platform/health-score";
+import type { PasswordMode } from "@/lib/tenant/user-management";
 
 export const runtime = "nodejs";
 
@@ -136,7 +137,16 @@ export async function POST(request: NextRequest) {
     adminLastName: String(body.adminLastName || ""),
     adminEmail: String(body.adminEmail || ""),
     adminMobile: body.adminMobile ? String(body.adminMobile) : undefined,
+    adminPasswordMode: body.adminPasswordMode
+      ? (String(body.adminPasswordMode) as PasswordMode)
+      : undefined,
     adminPassword: body.adminPassword ? String(body.adminPassword) : undefined,
+    adminConfirmPassword: body.adminConfirmPassword
+      ? String(body.adminConfirmPassword)
+      : undefined,
+    adminRole: body.adminRole ? String(body.adminRole) : undefined,
+    adminActive: body.adminActive === undefined ? undefined : Boolean(body.adminActive),
+    adminModules: Array.isArray(body.adminModules) ? body.adminModules.map(String) : null,
     inviteRedirectTo: body.inviteRedirectTo
       ? String(body.inviteRedirectTo)
       : `${request.nextUrl.origin}/invite`,
@@ -144,7 +154,10 @@ export async function POST(request: NextRequest) {
   });
 
   if (!result.ok) {
-    return NextResponse.json({ ok: false, message: result.message }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, message: result.message, companyId: result.companyId },
+      { status: 400 }
+    );
   }
 
   return NextResponse.json(result);

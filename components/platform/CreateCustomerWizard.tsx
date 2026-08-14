@@ -4,6 +4,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
 import { platformFetch } from "@/lib/platform/platform-client";
+import { CUSTOMER_ROLE_OPTIONS, type CustomerRole } from "@/lib/tenant/user-roles";
+import {
+  PASSWORD_POLICY_DESCRIPTION,
+  validatePassword,
+  type PasswordMode,
+} from "@/lib/tenant/password-policy";
 import PlatformPanel from "./PlatformPanel";
 
 type PlanOption = { id: string; code: string; name: string; modules: string[]; employee_limit: number | null; storage_limit_gb: number | null; ai_credit_limit: number | null; api_request_limit: number | null };
@@ -50,9 +56,15 @@ export default function CreateCustomerWizard() {
     adminLastName: "",
     adminEmail: "",
     adminMobile: "",
-    sendInvite: true,
+    adminRole: "owner" as CustomerRole,
+    adminActive: true,
+    adminPasswordMode: "generate" as PasswordMode,
     adminPassword: "",
+    adminConfirmPassword: "",
   });
+  const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
+  const [copiedPassword, setCopiedPassword] = useState(false);
+  const [provisionedCompanyId, setProvisionedCompanyId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -128,9 +140,12 @@ export default function CreateCustomerWizard() {
       setError("Administrator name and email are required.");
       return;
     }
-    if (step === 4 && !form.sendInvite && form.adminPassword.length < 8) {
-      setError("Temporary password must be at least 8 characters.");
-      return;
+    if (step === 4 && form.adminPasswordMode === "manual") {
+      const validation = validatePassword(form.adminPassword, form.adminConfirmPassword);
+      if (!validation.ok) {
+        setError(validation.message);
+        return;
+      }
     }
     setStep((s) => Math.min(STEPS.length - 1, s + 1));
   }
@@ -144,8 +159,14 @@ export default function CreateCustomerWizard() {
     setSubmitting(true);
     setError(null);
     setSuccess(null);
+    setTemporaryPassword(null);
 
-    const result = await platformFetch<{ companyId: string; companyName: string }>(
+    const result = await platformFetch<{
+      companyId: string;
+      companyName: string;
+      temporaryPassword?: string;
+      notices?: string[];
+    }>(
       "/api/platform/customers",
       {
         method: "POST",
@@ -169,7 +190,15 @@ export default function CreateCustomerWizard() {
           adminLastName: form.adminLastName,
           adminEmail: form.adminEmail,
           adminMobile: form.adminMobile || undefined,
-          adminPassword: form.sendInvite ? undefined : form.adminPassword,
+          adminRole: form.adminRole,
+          adminActive: form.adminActive,
+          adminPasswordMode: form.adminPasswordMode,
+          adminPassword:
+            form.adminPasswordMode === "manual" ? form.adminPassword : undefined,
+          adminConfirmPassword:
+            form.adminPasswordMode === "manual" ? form.adminConfirmPassword : undefined,
+          // The administrator inherits the module set just provisioned for the company.
+          adminModules: null,
         }),
       }
     );
@@ -181,7 +210,19 @@ export default function CreateCustomerWizard() {
       return;
     }
 
-    setSuccess(`${result.data.companyName} created.`);
+    const notices = result.data.notices || [];
+    setSuccess(
+      [`${result.data.companyName} created.`, ...notices].join(" ")
+    );
+
+    // A generated password exists only in this response. Hold the operator on the page
+    // until they dismiss it rather than navigating away and losing it.
+    if (result.data.temporaryPassword) {
+      setTemporaryPassword(result.data.temporaryPassword);
+      setProvisionedCompanyId(result.data.companyId);
+      return;
+    }
+
     setTimeout(() => router.push(`/platform/customers/${result.data.companyId}`), 900);
   }
 
@@ -387,17 +428,98 @@ export default function CreateCustomerWizard() {
             </label>
           </div>
 
-          <label className="mt-4 flex items-center gap-3 text-sm font-bold text-slate-700">
-            <input type="checkbox" checked={form.sendInvite} onChange={(e) => update("sendInvite", e.target.checked)} />
-            Send an email invitation (recommended) instead of setting a temporary password
-          </label>
-
-          {!form.sendInvite ? (
-            <label className="mt-4 flex flex-col gap-2 md:w-1/2">
-              <span className={labelClass}>Temporary Password *</span>
-              <input type="password" className={inputClass} value={form.adminPassword} onChange={(e) => update("adminPassword", e.target.value)} />
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <label className="flex flex-col gap-2">
+              <span className={labelClass}>Role *</span>
+              <select
+                className={inputClass}
+                value={form.adminRole}
+                onChange={(e) => update("adminRole", e.target.value as CustomerRole)}
+              >
+                {CUSTOMER_ROLE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-slate-500">
+                {CUSTOMER_ROLE_OPTIONS.find((option) => option.value === form.adminRole)?.description}
+              </span>
             </label>
-          ) : null}
+            <label className="flex flex-col gap-2">
+              <span className={labelClass}>Status</span>
+              <select
+                className={inputClass}
+                value={form.adminActive ? "active" : "inactive"}
+                onChange={(e) => update("adminActive", e.target.value === "active")}
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="mt-6">
+            <span className={labelClass}>Initial Password</span>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(
+                [
+                  ["generate", "Generate temporary password"],
+                  ["manual", "Set password manually"],
+                  ["invite", "Send invitation email"],
+                ] as [PasswordMode, string][]
+              ).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => update("adminPasswordMode", mode)}
+                  className={`rounded-full px-4 py-2 text-xs font-black ${
+                    form.adminPasswordMode === mode
+                      ? "bg-[#06101f] text-white"
+                      : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {form.adminPasswordMode === "manual" ? (
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <label className="flex flex-col gap-2">
+                  <span className={labelClass}>Password *</span>
+                  <input
+                    type="password"
+                    className={inputClass}
+                    value={form.adminPassword}
+                    onChange={(e) => update("adminPassword", e.target.value)}
+                  />
+                </label>
+                <label className="flex flex-col gap-2">
+                  <span className={labelClass}>Confirm Password *</span>
+                  <input
+                    type="password"
+                    className={inputClass}
+                    value={form.adminConfirmPassword}
+                    onChange={(e) => update("adminConfirmPassword", e.target.value)}
+                  />
+                </label>
+                <p className="text-xs text-slate-500 md:col-span-2">{PASSWORD_POLICY_DESCRIPTION}</p>
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-slate-500">
+                {form.adminPasswordMode === "generate"
+                  ? "A strong password is generated on the server, set on the Supabase Auth account, and shown to you once on the next screen. It is never stored."
+                  : "The administrator receives an invitation email and chooses their own password."}
+              </p>
+            )}
+          </div>
+
+          <p className="mt-6 rounded-2xl bg-slate-50 p-4 text-xs leading-5 text-slate-600">
+            The administrator is created as a real Supabase Auth user and bound to this company
+            only. Platform Console access is a separate, VYRON-internal privilege and is never
+            granted here.
+          </p>
         </PlatformPanel>
       ) : null}
 
@@ -413,17 +535,78 @@ export default function CreateCustomerWizard() {
             <div><div className={labelClass}>Administrator</div><div className="font-bold text-slate-800">{form.adminFirstName} {form.adminLastName} ({form.adminEmail})</div></div>
           </div>
 
+          <div className="mt-4 grid gap-4 text-sm md:grid-cols-2">
+            <div>
+              <div className={labelClass}>Administrator Role</div>
+              <div className="font-bold text-slate-800">
+                {CUSTOMER_ROLE_OPTIONS.find((option) => option.value === form.adminRole)?.label}
+              </div>
+            </div>
+            <div>
+              <div className={labelClass}>Initial Password</div>
+              <div className="font-bold text-slate-800">
+                {form.adminPasswordMode === "generate"
+                  ? "Generated temporary password"
+                  : form.adminPasswordMode === "manual"
+                    ? "Set manually by operator"
+                    : "Invitation email"}
+              </div>
+            </div>
+          </div>
+
           {error ? <p className="mt-4 text-sm font-bold text-rose-700">{error}</p> : null}
           {success ? <p className="mt-4 text-sm font-bold text-emerald-700">{success}</p> : null}
 
-          <button
-            type="button"
-            onClick={handleProvision}
-            disabled={submitting}
-            className="mt-6 rounded-full bg-[#06101f] px-8 py-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:opacity-60"
-          >
-            {submitting ? "Provisioning customer…" : "Provision Customer"}
-          </button>
+          {temporaryPassword ? (
+            <div className="mt-5 rounded-[24px] border border-amber-300 bg-amber-50 p-5">
+              <div className="text-sm font-black text-amber-900">
+                Temporary password for {form.adminEmail}
+              </div>
+              <p className="mt-1 text-xs text-amber-800">
+                Shown once and not stored anywhere. Copy it now and share it securely — the
+                administrator will be asked to change it.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <code className="select-all rounded-xl border border-amber-300 bg-white px-4 py-2 font-mono text-sm font-bold text-slate-900">
+                  {temporaryPassword}
+                </code>
+                <button
+                  type="button"
+                  className="rounded-full border border-amber-400 px-4 py-2 text-xs font-black text-amber-900"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(temporaryPassword);
+                      setCopiedPassword(true);
+                    } catch {
+                      setCopiedPassword(false);
+                    }
+                  }}
+                >
+                  {copiedPassword ? "Copied" : "Copy"}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full bg-[#06101f] px-5 py-2 text-xs font-black text-white"
+                  onClick={() =>
+                    router.push(`/platform/customers/${provisionedCompanyId ?? ""}`)
+                  }
+                >
+                  Continue to customer
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {!temporaryPassword ? (
+            <button
+              type="button"
+              onClick={handleProvision}
+              disabled={submitting}
+              className="mt-6 rounded-full bg-[#06101f] px-8 py-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:opacity-60"
+            >
+              {submitting ? "Provisioning customer…" : "Provision Customer"}
+            </button>
+          ) : null}
         </PlatformPanel>
       ) : null}
 

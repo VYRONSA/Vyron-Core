@@ -73,6 +73,7 @@ export const PROTECTED_ROUTE_PREFIXES = [
   "/recruitment-vacancies",
   "/reports",
   "/route-history",
+  "/settings",
   "/staff-leave",
   "/documents",
   "/manager-centre",
@@ -106,8 +107,12 @@ const EMPLOYEE_ALLOWED_PREFIXES = [
   "/mobile-workforce",
 ] as const;
 
+// /settings is the workspace governance area (Users & Access). Company owners and
+// admins reach it — note that normalizeRbacRole maps the tenant "admin" role onto
+// "manager", so managers are allowed through here and the real owner/admin check is
+// enforced server-side by lib/tenant/user-management.ts, which is the security boundary.
 const MANAGER_BLOCKED_PREFIXES = ["/owner", "/enterprise"] as const;
-const SUPERVISOR_BLOCKED_PREFIXES = ["/owner"] as const;
+const SUPERVISOR_BLOCKED_PREFIXES = ["/owner", "/settings"] as const;
 
 function matchesRoutePrefix(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);

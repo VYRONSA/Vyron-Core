@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Users } from "lucide-react";
 import { platformFetch } from "@/lib/platform/platform-client";
 import { moduleLabel } from "@/lib/platform/module-catalog";
 import PlatformPanel from "./PlatformPanel";
@@ -220,7 +222,19 @@ export default function CustomerOverview({ companyId }: { companyId: string }) {
       <LicenceBillingPanel company={company} />
 
       <PlatformPanel>
-        <h3 className="text-lg font-black text-[#06101f]">Users & Login Activity</h3>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-lg font-black text-[#06101f]">Users & Login Activity</h3>
+          <Link
+            href={`/platform/customers/${company.id}/users`}
+            className="inline-flex items-center gap-2 rounded-full bg-[#06101f] px-5 py-2.5 text-xs font-black text-white transition hover:bg-slate-800"
+          >
+            <Users className="h-3.5 w-3.5" /> Manage Users
+          </Link>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Create administrators, reset passwords, change roles and module access, deactivate or
+          remove users. Every action is audited against your operator account.
+        </p>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[520px] text-left text-sm">
             <thead>

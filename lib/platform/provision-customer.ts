@@ -1,11 +1,17 @@
 import { getSupabaseAdminClient } from "@/lib/server-api-auth";
 import { provisionClientCompany, normalizeVyronEmail } from "@/lib/company-access";
-import { createClientLoginUser } from "@/lib/create-client-login-user";
 import { writeAuditLog } from "@/lib/audit-log";
 import { logQueueJob } from "@/lib/platform/job-queue";
 import { getPlatformDefaults } from "@/lib/platform/settings";
 import { welcomeEmail } from "@/lib/platform/email-templates";
 import { queueTemplatedNotification } from "@/lib/platform/notifications-dispatch";
+import { createSupabaseUserManagementStore } from "@/lib/tenant/user-management-store";
+import {
+  createCompanyUser,
+  UserManagementError,
+  type PasswordMode,
+} from "@/lib/tenant/user-management";
+import { isPlatformLevelRoleName, toCustomerRole } from "@/lib/tenant/user-roles";
 
 export type ProvisionPlatformCustomerInput = {
   companyName: string;
@@ -38,8 +44,20 @@ export type ProvisionPlatformCustomerInput = {
   adminLastName: string;
   adminEmail: string;
   adminMobile?: string;
-  /** Omit to send an invite email instead of setting a temporary password. */
+  /**
+   * How the first administrator's credential is established:
+   *   "invite"   — Supabase invitation email, the user chooses their own password
+   *   "manual"   — the operator types the initial password (adminPassword/Confirm)
+   *   "generate" — the server mints a strong temporary password, returned ONCE
+   */
+  adminPasswordMode?: PasswordMode;
   adminPassword?: string;
+  adminConfirmPassword?: string;
+  /** Company role for the first administrator. Platform-level roles are rejected. */
+  adminRole?: string;
+  adminActive?: boolean;
+  /** null / omitted = the administrator inherits every module the plan enables. */
+  adminModules?: string[] | null;
   inviteRedirectTo?: string;
   /** Platform operator performing this action — written to the audit log. */
   operatorEmail: string;
@@ -50,9 +68,18 @@ export type ProvisionPlatformCustomerResult =
       ok: true;
       companyId: string;
       companyName: string;
-      adminInvite: { ok: boolean; invited?: boolean; error?: string };
+      adminInvite: { ok: true; invited: boolean };
+      /** Present only when the server generated the password. Shown once, never stored. */
+      temporaryPassword?: string;
+      notices: string[];
     }
-  | { ok: false; message: string };
+  /**
+   * `companyId` is present when the company row was created but a later step failed.
+   * Provisioning is NOT reported as successful in that case — the operator is told
+   * exactly what is missing and can finish it from Customer → Users, which retries
+   * idempotently rather than creating a duplicate company or a duplicate auth user.
+   */
+  | { ok: false; message: string; companyId?: string; companyName?: string };
 
 type SubscriptionPlanRow = {
   id: string;
@@ -86,6 +113,19 @@ export async function provisionPlatformCustomer(
   if (!planCode) return { ok: false, message: "A subscription plan is required." };
   if (!adminEmail || !adminEmail.includes("@")) {
     return { ok: false, message: "A valid primary administrator email is required." };
+  }
+  if (!input.adminFirstName?.trim() || !input.adminLastName?.trim()) {
+    return { ok: false, message: "Administrator first name and surname are required." };
+  }
+
+  // Checked before any row is written: a customer must never be created only to fail at
+  // the administrator step for something that was knowable up front.
+  const adminRole = (input.adminRole || "owner").trim();
+  if (isPlatformLevelRoleName(adminRole)) {
+    return {
+      ok: false,
+      message: "Platform-level roles cannot be assigned to a customer administrator.",
+    };
   }
 
   let admin;
@@ -180,19 +220,6 @@ export async function provisionPlatformCustomer(
 
   if (updateError) return { ok: false, message: updateError.message };
 
-  const adminResult = await createClientLoginUser({
-    email: adminEmail,
-    password: input.adminPassword,
-    companyId: company.id,
-    role: "owner",
-    inviteRedirectTo: input.inviteRedirectTo,
-    metadata: {
-      first_name: input.adminFirstName,
-      last_name: input.adminLastName,
-      mobile: input.adminMobile || null,
-    },
-  });
-
   await writeAuditLog(admin, {
     companyId: company.id,
     userEmail: input.operatorEmail,
@@ -202,28 +229,86 @@ export async function provisionPlatformCustomer(
     metadata: { plan: planRow.code, template: templateRow?.code || null },
   });
 
-  if (adminResult.ok) {
-    if (adminResult.invited) {
-      await logQueueJob(admin, {
-        queueName: "email",
-        payload: { to: adminEmail, kind: "customer_admin_invite" },
-        status: "completed",
-      });
-    } else {
-      const template = welcomeEmail({
-        companyName: company.name,
-        adminName: `${input.adminFirstName} ${input.adminLastName}`.trim(),
-      });
-      await queueTemplatedNotification(admin, { to: adminEmail, template, companyId: company.id });
-    }
+  // --- First customer administrator -----------------------------------------
+  //
+  // Runs through the same service the Platform Console and Settings → Users & Access
+  // use, so the administrator gets a real Supabase Auth user (auth.admin.createUser),
+  // a company-scoped membership, module grants validated against the plan just written
+  // above, and an audit record — with no second code path to keep in sync.
+  //
+  // A failure here is NOT reported as a successful provision. The company row survives
+  // so the operator can finish from Customer → Users; that retry is idempotent because
+  // createCompanyUser links an existing auth user and an existing membership rather
+  // than duplicating either.
+  const passwordMode: PasswordMode = input.adminPasswordMode
+    ? input.adminPasswordMode
+    : input.adminPassword
+      ? "manual"
+      : "invite";
+
+  const store = createSupabaseUserManagementStore(admin);
+  let adminResult;
+  try {
+    adminResult = await createCompanyUser(
+      store,
+      {
+        email: input.operatorEmail,
+        companyId: company.id,
+        role: "owner",
+        platformOperator: true,
+        membershipId: null,
+      },
+      {
+        firstName: input.adminFirstName,
+        lastName: input.adminLastName,
+        email: adminEmail,
+        mobile: input.adminMobile || null,
+        role: toCustomerRole(adminRole),
+        status: input.adminActive === false ? "inactive" : "active",
+        passwordMode,
+        password: input.adminPassword,
+        confirmPassword: input.adminConfirmPassword ?? input.adminPassword,
+        modules: input.adminModules ?? null,
+        inviteRedirectTo: input.inviteRedirectTo,
+      }
+    );
+  } catch (error) {
+    const message =
+      error instanceof UserManagementError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : "The customer administrator could not be created.";
+    return {
+      ok: false,
+      companyId: company.id,
+      companyName: company.name,
+      message:
+        `${company.name} was created, but its first administrator could not be provisioned: ${message} ` +
+        "Open the customer and add the administrator from the Users tab to complete provisioning.",
+    };
+  }
+
+  if (passwordMode === "invite") {
+    await logQueueJob(admin, {
+      queueName: "email",
+      payload: { to: adminEmail, kind: "customer_admin_invite" },
+      status: "completed",
+    });
+  } else {
+    const template = welcomeEmail({
+      companyName: company.name,
+      adminName: `${input.adminFirstName} ${input.adminLastName}`.trim(),
+    });
+    await queueTemplatedNotification(admin, { to: adminEmail, template, companyId: company.id });
   }
 
   return {
     ok: true,
     companyId: company.id,
     companyName: company.name,
-    adminInvite: adminResult.ok
-      ? { ok: true, invited: adminResult.invited }
-      : { ok: false, error: adminResult.message },
+    adminInvite: { ok: true, invited: passwordMode === "invite" },
+    temporaryPassword: adminResult.temporaryPassword,
+    notices: adminResult.notices,
   };
 }

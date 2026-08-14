@@ -53,9 +53,16 @@ const ROLE_ALIASES: Record<string, VyronTenantRole> = {
 /** Routes reserved for company owners (billing, workspace governance). */
 export const TENANT_OWNER_ONLY_NAV = new Set([
   "Company Setup",
-  "Team Access Control",
   "Billing",
 ]);
+
+/**
+ * Users & Access is owner *and* admin, not owner-only: a Company Administrator must be
+ * able to run their own user management without VYRON entering the Platform Console.
+ * The authoritative check is server-side (canManageCompanyUsers in
+ * lib/tenant/user-roles.ts) — this only decides whether the nav entry is offered.
+ */
+export const TENANT_USERS_ACCESS_NAV = "Users & Access";
 
 /** Schedule + self-service routes for frontline employees. */
 export const TENANT_EMPLOYEE_NAV = new Set([
@@ -193,8 +200,9 @@ function formatRoleText(value: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+/** Owners and company admins manage workspace users; see canManageCompanyUsers server-side. */
 export function canTenantInviteUsers(layer: TenantPermissionLayer): boolean {
-  return layer === "owner";
+  return layer === "owner" || layer === "admin" || layer === "platform";
 }
 
 export function canTenantSubmitFeedback(layer: TenantPermissionLayer): boolean {
@@ -309,8 +317,10 @@ export function buildTenantWorkspaceNavGroup(
 ): { label: string; items: string[] } | null {
   const items: string[] = [];
   if (layer === "owner") {
-    items.push("Company Setup", "Document Hub", "Team Access Control");
-  } else if (layer === "admin" || layer === "manager") {
+    items.push("Company Setup", "Document Hub", TENANT_USERS_ACCESS_NAV);
+  } else if (layer === "admin") {
+    items.push("Document Hub", TENANT_USERS_ACCESS_NAV);
+  } else if (layer === "manager") {
     items.push("Document Hub");
   } else if (layer === "supervisor") {
     items.push("Document Hub");
