@@ -1733,13 +1733,22 @@ function FormInput({
   value,
   onChange,
   placeholder,
-  type = "text"
+  type = "text",
+  autoComplete
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   type?: string;
+  /**
+   * Optional because most fields in this app are not credential fields. Set it on the
+   * sign-in form: without an explicit hint, Chrome and Edge fall back to heuristic
+   * matching on `type="email"` and will offer a password-manager entry saved for an
+   * unrelated site, which then fails as `invalid_credentials` and reads like a
+   * misconfiguration rather than the wrong saved account.
+   */
+  autoComplete?: string;
 }) {
   return (
     <label className="text-sm font-bold">
@@ -1750,6 +1759,7 @@ function FormInput({
         onChange={(event) => onChange(event.target.value)}
         className="vyron-input vyron-focus-ring mt-2"
         placeholder={placeholder}
+        autoComplete={autoComplete}
       />
     </label>
   );
@@ -2366,8 +2376,8 @@ function LoginScreen({
             </div>
 
             <div className="mt-8 space-y-4">
-              <FormInput label="Email address" value={email} onChange={setEmail} placeholder="admin@company.co.za" type="email" />
-              <FormInput label="Password" value={password} onChange={setPassword} placeholder="Password" type="password" />
+              <FormInput label="Email address" value={email} onChange={setEmail} placeholder="admin@company.co.za" type="email" autoComplete="username" />
+              <FormInput label="Password" value={password} onChange={setPassword} placeholder="Password" type="password" autoComplete="current-password" />
             </div>
 
             {error && (

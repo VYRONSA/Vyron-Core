@@ -34,7 +34,7 @@ What to run (in order)
 | **4 (minimal RPC)** | `sql/004-provision-rpc-only.sql` | **Only** `vyron_provision_company` — use if 000/002 failed after tables, or PGRST202 on provision only |
 | **5 (verify)** | `sql/005-verify-companies-api.sql` | Read-only checks in Postgres (tables, RPCs, counts) — does **not** fix API exposure |
 | **7 (optional)** | `sql/007-client-profile-columns.sql` | Adds `contact_person`, `phone`, `physical_address` on `companies` for Client Setup / Company Setup |
-| **8 (optional)** | `sql/008-demo-tier-timestamp.sql` | Adds `demo_started_at` on `companies` for the 30-day unlimited **Demo** tier (Client Setup / directory / expiry guard) |
+| **8 (REQUIRED — was mislabelled optional)** | `sql/008-demo-tier-timestamp.sql` | Adds `demo_started_at` on `companies` for the 30-day unlimited **Demo** tier. **Not optional:** the client directory query selects this column, so a project without it fails with `column companies.demo_started_at does not exist` and the directory cannot load. |
 | **9 (optional)** | `sql/009-employee-documents.sql` | Creates `public.employee_documents` for Contract Centre / HR file uploads (fixes PGRST205 schema-cache banner on dashboard load) |
 | 3 | — | Hard-refresh the app (or sign out and back in) |
 
