@@ -25,6 +25,14 @@ export const MODULE_CATALOG: { code: string; label: string }[] = [
   { code: "client_portal", label: "Client Portal" },
   { code: "whatsapp", label: "WhatsApp" },
   { code: "api_access", label: "API Access" },
+  /**
+   * Road & Recovery vertical (sql/070). Registered so a Platform Operator can grant it
+   * per company and so per-user grants intersect with it like any other module.
+   *
+   * Appended rather than inserted: entries are ordered by position here, and inserting
+   * mid-list would silently reorder every existing customer's module display.
+   */
+  { code: "road_recovery", label: "Road & Recovery" },
 ];
 
 export function moduleLabel(code: string): string {

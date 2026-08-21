@@ -254,8 +254,8 @@ import {
 } from "../lib/vyron-dev-platform";
 import { validateClientLoginPassword } from "@/lib/create-client-login-user";
 import { requestCreateClientLoginUser } from "@/lib/create-client-login-user-client";
-import {
-} from "@/lib/server/auth-routing";
+import { canAccessRouteForRole, normalizeRbacRole } from "@/lib/server/auth-routing";
+import { useHasModule } from "@/lib/tenant/use-module-access";
 
 type ClientRecommendationRow = {
   id: string;
@@ -1967,6 +1967,7 @@ function Sidebar({
   coreSupportMode = false,
   tenantWorkspacePlan,
   platformOperator = false,
+  roadRecoveryEnabled = false,
 }: {
   active: string;
   setActive: (value: string) => void;
@@ -1977,6 +1978,7 @@ function Sidebar({
   userRole?: string;
   userEmail?: string | null;
   platformOperator?: boolean;
+  roadRecoveryEnabled?: boolean;
   hasCompanyAccess?: boolean;
   coreSupportMode?: boolean;
   tenantWorkspacePlan?: {
@@ -2047,6 +2049,29 @@ function Sidebar({
           >
             <span className="flex-1">Platform Console</span>
             <span className="text-xs font-bold tracking-wider text-white/70">VYRON</span>
+          </Link>
+        </div>
+      )}
+
+      {/* Road & Recovery (sql/070) is a standalone route tree rather than an `active`
+          screen in this shell, so it is linked the same way the Platform Console is
+          instead of being added to navGroups. Visibility follows the company's module
+          entitlement; the landing tab follows the same canAccessRouteForRole() the
+          middleware enforces, so a driver is sent to their own screen rather than to a
+          board that would bounce them to /dashboard. */}
+      {roadRecoveryEnabled && (
+        <div className="border-b border-white/10 px-4 py-4">
+          <Link
+            href={
+              canAccessRouteForRole(normalizeRbacRole(userRole), "/road-recovery/dispatch")
+                ? "/road-recovery/dispatch"
+                : "/road-recovery/driver"
+            }
+            onClick={() => closeMobile?.()}
+            className="vyron-focus-ring flex w-full items-center gap-3 rounded-xl bg-white/[0.06] px-3 py-3 text-left text-sm font-black text-white ring-1 ring-white/10 transition hover:bg-white/[0.12]"
+          >
+            <span className="flex-1">Road &amp; Recovery</span>
+            <span className="text-xs font-bold tracking-wider text-cyan-300">OPS</span>
           </Link>
         </div>
       )}
@@ -16263,6 +16288,8 @@ export default function Page() {
   /** Platform-operator claim read from the Supabase session's app_metadata. Drives the
    * Platform Console sidebar link only — middleware.ts is the authoritative gate. */
   const [platformOperatorSession, setPlatformOperatorSession] = useState(false);
+  // Display gate only — middleware.ts and requireApiContext() remain authoritative.
+  const { enabled: roadRecoveryEnabled } = useHasModule("road_recovery");
 
   const normalizedAuthEmail = useMemo(
     () => normalizeVyronEmail(authUserEmail),
@@ -18677,7 +18704,7 @@ return (
 
       <div className="hidden min-h-screen lg:grid lg:grid-cols-[300px_1fr]">
         <div className="hidden lg:block">
-          <Sidebar active={active} setActive={setActive} alertCounts={alertCounts} openGroup={activeSidebarGroup} setOpenGroup={setActiveSidebarGroup} userRole={layoutUserRole} userEmail={normalizedAuthEmail} hasCompanyAccess={hasTenantCompanyAccess} coreSupportMode={isVyronCoreSupportView} tenantWorkspacePlan={tenantWorkspaceSidebarPlan} platformOperator={platformOperatorSession} />
+          <Sidebar active={active} setActive={setActive} alertCounts={alertCounts} openGroup={activeSidebarGroup} setOpenGroup={setActiveSidebarGroup} userRole={layoutUserRole} userEmail={normalizedAuthEmail} hasCompanyAccess={hasTenantCompanyAccess} coreSupportMode={isVyronCoreSupportView} tenantWorkspacePlan={tenantWorkspaceSidebarPlan} platformOperator={platformOperatorSession} roadRecoveryEnabled={roadRecoveryEnabled} />
         </div>
 
         <section className={active === "Command Centre" ? "bg-[#07101f]" : "bg-[#f6f8fb] p-4 md:p-8"}>

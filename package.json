@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "bootstrap:admin": "node scripts/bootstrap-platform-admin.mjs",
     "bootstrap:operator": "node scripts/bootstrap-platform-operator.mjs",
-    "platform:supervisor-secret": "node scripts/generate-supervisor-secret.mjs"
+    "platform:supervisor-secret": "node scripts/generate-supervisor-secret.mjs",
+    "verify:deployment": "node scripts/verify-deployment.mjs",
+    "verify:env": "node scripts/rr-test-env.mjs verify"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

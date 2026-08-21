@@ -22,6 +22,24 @@ export const WORKFLOW_TRIGGERS = [
   "Compliance Failure",
   "Workforce Intelligence Alert",
   "Action Intelligence Alert",
+
+  // Road & Recovery vertical triggers (Phase 6).
+  //
+  // Road & Recovery is a VERTICAL INTELLIGENCE DOMAIN, not a second orchestration engine.
+  // Its operational findings enter the SAME pipeline as every workforce trigger: they are
+  // orchestrated here, prepared into workforce_automation_actions, approved through the
+  // existing queue, and measured by the existing outcome columns.
+  //
+  // Each of these is backed by a recorded fact and a deterministic condition declared in
+  // lib/road-recovery/intelligence/triggers.ts. Nothing speculative is listed.
+  "Dispatch Delay",
+  "Arrival Delay",
+  "Storage Ageing",
+  "Billing Blocked",
+  "Distance Dispute",
+  "Authorisation Delay",
+  "Critical Exception",
+  "Fleet Capacity Risk",
 ] as const;
 
 export type WorkflowTrigger = (typeof WORKFLOW_TRIGGERS)[number];
@@ -56,6 +74,19 @@ export const WORKFLOW_ACTION_LIBRARY = [
   "Update Payroll Readiness",
   "Recalculate Workforce Intelligence",
   "Generate Executive Alert",
+
+  // Road & Recovery recommendation vocabulary (Phase 6). These are the actions an
+  // operations director would actually name, and each is reachable from a trigger above.
+  "Escalate Dispatch",
+  "Reassign Vehicle",
+  "Notify Controller",
+  "Notify Counterparty",
+  "Escalate Exception",
+  "Schedule Vehicle Release",
+  "Request Authorisation",
+  "Request Billing Information",
+  "Review Distance Capture",
+  "Review Fleet Capacity",
 ] as const;
 
 export type WorkflowActionLibraryType = (typeof WORKFLOW_ACTION_LIBRARY)[number];
@@ -111,7 +142,56 @@ function s(value: unknown, fallback = ""): string {
   return value == null ? fallback : String(value);
 }
 
+/**
+ * True when the caller supplied a financial impact it actually calculated.
+ *
+ * Road & Recovery derives rand figures from recorded commercial facts — a storage rate
+ * multiplied by days held, a sealed expected charge measured against an authorised ceiling
+ * — so when it supplies one, that number is used VERBATIM. Running a heuristic multiplier
+ * over an already-calculated amount would replace a defensible figure with a guess.
+ *
+ * When Road & Recovery cannot calculate an amount it supplies NOTHING, and the caller
+ * records that the impact is unquantified rather than presenting a fabricated rand value.
+ */
+function suppliedFinancialImpact(evidence: Record<string, unknown>): number | null {
+  const raw = evidence.financialImpactZAR;
+  if (raw === null || raw === undefined || raw === "") return null;
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? Math.round(value) : null;
+}
+
+/** Road & Recovery triggers, which are scored from operational counts rather than payroll. */
+function isVerticalOperationsTrigger(trigger: WorkflowTrigger): boolean {
+  return (
+    trigger === "Dispatch Delay" ||
+    trigger === "Arrival Delay" ||
+    trigger === "Storage Ageing" ||
+    trigger === "Billing Blocked" ||
+    trigger === "Distance Dispute" ||
+    trigger === "Authorisation Delay" ||
+    trigger === "Critical Exception" ||
+    trigger === "Fleet Capacity Risk"
+  );
+}
+
 function impactFromEvidence(trigger: WorkflowTrigger, evidence: Record<string, unknown>): WorkflowRecommendation["impactEstimate"] {
+  // A vertical domain that measured its own commercial exposure keeps its number.
+  if (isVerticalOperationsTrigger(trigger)) {
+    const affected = n(evidence.affectedCount);
+    const supplied = suppliedFinancialImpact(evidence);
+    const severityWeight =
+      trigger === "Critical Exception" ? 3 : trigger === "Billing Blocked" || trigger === "Authorisation Delay" ? 2 : 1;
+
+    return {
+      // Zero here means "not quantified", and the Road & Recovery surface reports it as
+      // such rather than as R 0.00 of exposure.
+      financialImpactZAR: supplied ?? 0,
+      timeSavedHours: Number((affected * 0.25 * severityWeight).toFixed(2)),
+      payrollRiskReductionPct: 0,
+      operationalImprovementScore: clamp(40 + affected * 2 * severityWeight),
+    };
+  }
+
   const lateMinutes = n(evidence.lateMinutes);
   const overtimeHours = n(evidence.overtimeHours);
   const blockers = n(evidence.blockerCount);
@@ -294,23 +374,113 @@ export function orchestrateWorkflow(input: WorkflowOrchestrationInput): Workflow
       outcome: "Action insight converted into owned workflow and measurable resolution.",
       whyLikely: "Action alerts represent unresolved recommendations requiring execution ownership.",
     },
+
+    // ------------------------------------------------- Road & Recovery vertical
+    // The default root cause below is the one the operational facts most often support.
+    // Where Road & Recovery intelligence has determined a SPECIFIC cause from the
+    // evidence, it passes it as evidence.rootCause and that answer replaces this default —
+    // a stated cause backed by evidence always beats the general case.
+    "Dispatch Delay": {
+      actions: ["Escalate Dispatch", "Reassign Vehicle", "Notify Controller"],
+      approvals: ["Manager"],
+      outcome: "Jobs reach a truck within the configured target and the dispatch backlog clears.",
+      whyLikely:
+        "Time from a job becoming dispatchable to the first offer is usually driven by controller load or by a shortage of eligible trucks in the covering area at that hour.",
+    },
+    "Arrival Delay": {
+      actions: ["Escalate Dispatch", "Notify Controller", "Schedule Review"],
+      approvals: ["Manager"],
+      outcome: "Response time to scene returns within the configured target.",
+      whyLikely:
+        "Response time is usually driven by the distance of the accepting truck from the scene, by acceptance delay before it set off, or by depot coverage at that time of day.",
+    },
+    "Storage Ageing": {
+      actions: ["Schedule Vehicle Release", "Request Supporting Documents", "Notify Counterparty"],
+      approvals: ["Manager"],
+      outcome: "Aged vehicles are released or disposed of and bay capacity is recovered.",
+      whyLikely:
+        "Vehicles age in a yard when release or disposal authority has not been obtained, or when authority exists but the owner or insurer has not arranged collection.",
+    },
+    "Billing Blocked": {
+      actions: ["Request Billing Information", "Request Supporting Documents", "Create Follow-up Task"],
+      approvals: ["Manager"],
+      outcome:
+        "Finished jobs become billing-ready and the information pack can be handed to VYRON FINANCE.",
+      whyLikely:
+        "Billing is normally blocked by missing evidence, an unresolved rate, or an authorisation that was never captured — not by the billing team itself.",
+    },
+    "Distance Dispute": {
+      actions: ["Review Distance Capture", "Request Supporting Documents", "Notify Controller"],
+      approvals: ["Manager"],
+      outcome:
+        "Distance is defensible against the odometer capture and the GPS trail, and disputes fall.",
+      whyLikely:
+        "Distance variance usually comes from an odometer captured at the wrong point, a route that legitimately differed from the estimate, or a missing capture that forced an estimate to be used.",
+    },
+    "Authorisation Delay": {
+      actions: ["Request Authorisation", "Notify Controller", "Generate Executive Alert"],
+      approvals: ["Manager"],
+      outcome:
+        "Work is authorised before it is performed and commercial exposure on unauthorised jobs is closed.",
+      whyLikely:
+        "Authorisation delay usually reflects an out-of-date counterparty contact, an after-hours desk that is not answering, or a controller starting work before the number is issued.",
+    },
+    "Critical Exception": {
+      actions: ["Escalate Exception", "Generate Executive Alert", "Create Follow-up Task"],
+      approvals: ["Manager", "Owner"],
+      outcome: "Every open critical exception has a named owner, a due date and a recorded resolution.",
+      whyLikely:
+        "A critical exception is a judgement the operation already recorded. It stays open when nobody was assigned to it rather than because it was hard to resolve.",
+    },
+    "Fleet Capacity Risk": {
+      actions: ["Review Fleet Capacity", "Reassign Vehicle", "Generate Executive Alert"],
+      approvals: ["Manager", "Owner"],
+      outcome: "Available capacity returns above target and jobs stop queueing for a truck.",
+      whyLikely:
+        "Capacity is normally lost to trucks out of service awaiting repair and to drivers blocked by a lapsed certification, both of which are recoverable with notice.",
+    },
   };
 
   const template = triggerRules[input.trigger];
   const impactEstimate = impactFromEvidence(input.trigger, ev);
-  const confidence = clamp(68 + n(ev.signalStrength, 0) * 8 + (input.trigger === "Payroll Blocked" ? 10 : 0));
+  // A vertical that computed its own root-cause confidence from evidence keeps it. There
+  // is no floor of 68 in that case: a cause supported by two data points should not be
+  // presented with the same confidence as one supported by two hundred.
+  const suppliedConfidence = Number(ev.confidence);
+  const confidence = Number.isFinite(suppliedConfidence)
+    ? clamp(suppliedConfidence)
+    : clamp(68 + n(ev.signalStrength, 0) * 8 + (input.trigger === "Payroll Blocked" ? 10 : 0));
 
-  const conditions = [
-    `Trigger received from ${input.sourceModule}.`,
-    `Employee context: ${employeeLabel}.`,
-    `Department context: ${department}.`,
-  ];
+  const vertical = isVerticalOperationsTrigger(input.trigger);
 
-  const businessRules = [
-    `Escalate to critical when financial impact exceeds R 5,000.`,
-    `Require manager approval for all people-impacting actions.`,
-    `Require HR approval for compliance or disciplinary actions.`,
-  ];
+  // A vertical trigger is about JOBS, not about one employee, so describing it in employee
+  // terms would produce a workflow titled after a person who did nothing wrong.
+  const subjectLabel = vertical ? s(ev.subject, "Road & Recovery operations") : employeeLabel;
+
+  const conditions = vertical
+    ? [
+        `Trigger received from ${input.sourceModule}.`,
+        s(ev.condition, `Operational condition met for ${input.trigger.toLowerCase()}.`),
+        `Affected jobs: ${n(ev.affectedCount)}.`,
+        s(ev.measurement, "").trim() ? s(ev.measurement) : `Measured against the configured operational target.`,
+      ]
+    : [
+        `Trigger received from ${input.sourceModule}.`,
+        `Employee context: ${employeeLabel}.`,
+        `Department context: ${department}.`,
+      ];
+
+  const businessRules = vertical
+    ? [
+        `Escalate to critical when open critical exceptions exist or authorised amounts are exceeded.`,
+        `Require manager approval before any action that changes a dispatch, a release or a charge.`,
+        `Never raise a target-based finding where no operational target is configured.`,
+      ]
+    : [
+        `Escalate to critical when financial impact exceeds R 5,000.`,
+        `Require manager approval for all people-impacting actions.`,
+        `Require HR approval for compliance or disciplinary actions.`,
+      ];
 
   const tasks = [
     `Validate evidence for ${input.trigger.toLowerCase()} event.`,
@@ -324,8 +494,30 @@ export function orchestrateWorkflow(input: WorkflowOrchestrationInput): Workflow
     "WhatsApp update when configured",
   ];
 
+  // The BEFORE picture, captured at preparation so the outcome layer has something to
+  // measure the AFTER against. A vertical trigger records the operational numbers that
+  // actually moved; recording payroll blockers against a storage problem would give the
+  // outcome check nothing to compare.
+  const beforeMetrics: Record<string, number> = vertical
+    ? {
+        affectedJobs: n(ev.affectedCount),
+        measuredValue: n(ev.measuredValue),
+        targetValue: n(ev.targetValue),
+        openCriticalExceptions: n(ev.openCriticalExceptions),
+      }
+    : {
+        payrollBlockers: n(ev.payrollBlockers),
+        overtimeHours: n(ev.overtimeHours),
+        lateArrivals: n(ev.lateArrivals),
+        complianceBreaches: n(ev.complianceBreaches),
+      };
+
+  // A cause the vertical actually determined from evidence always beats the template's
+  // general case. The template stays as the fallback for when the facts support no cause.
+  const determinedRootCause = s(ev.rootCause).trim();
+
   return {
-    workflowTitle: `${input.trigger} - ${employeeLabel}`,
+    workflowTitle: `${input.trigger} - ${subjectLabel}`,
     trigger: input.trigger,
     conditions,
     businessRules,
@@ -334,18 +526,16 @@ export function orchestrateWorkflow(input: WorkflowOrchestrationInput): Workflow
     notifications,
     tasks,
     owner,
-    expectedOutcome: template.outcome,
-    beforeMetrics: {
-      payrollBlockers: n(ev.payrollBlockers),
-      overtimeHours: n(ev.overtimeHours),
-      lateArrivals: n(ev.lateArrivals),
-      complianceBreaches: n(ev.complianceBreaches),
-    },
+    expectedOutcome: s(ev.expectedOutcome).trim() || template.outcome,
+    beforeMetrics,
     impactEstimate,
-    whyLikely: template.whyLikely,
+    whyLikely: determinedRootCause || template.whyLikely,
     confidence,
     consequencesIfIgnored:
-      "Operational drift increases, recurring issues compound, and business cost/risk rises across payroll, compliance, and workforce stability.",
+      s(ev.consequenceIfIgnored).trim() ||
+      (vertical
+        ? "The operational gap persists, the affected jobs keep accumulating, and the commercial exposure grows until it surfaces as a dispute or a lost billing opportunity."
+        : "Operational drift increases, recurring issues compound, and business cost/risk rises across payroll, compliance, and workforce stability."),
     autoPreparationSummary:
       "System can pre-build owner assignment, approval chain, notifications, and follow-up tasks from this trigger.",
     stage: "Triggered",

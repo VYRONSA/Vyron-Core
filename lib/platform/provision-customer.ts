@@ -5,6 +5,7 @@ import { logQueueJob } from "@/lib/platform/job-queue";
 import { getPlatformDefaults } from "@/lib/platform/settings";
 import { welcomeEmail } from "@/lib/platform/email-templates";
 import { queueTemplatedNotification } from "@/lib/platform/notifications-dispatch";
+import { ensureCompanyModuleProvisioning } from "@/lib/platform/module-provisioning";
 import { createSupabaseUserManagementStore } from "@/lib/tenant/user-management-store";
 import {
   createCompanyUser,
@@ -220,13 +221,40 @@ export async function provisionPlatformCustomer(
 
   if (updateError) return { ok: false, message: updateError.message };
 
+  // --- Module baseline data -------------------------------------------------
+  //
+  // Some modules are unusable until their reference data exists. Road & Recovery is one:
+  // without its service catalogue, workflow definitions, BYSTAND reasons and requirement
+  // policies, the module appears in the navigation and every action fails.
+  //
+  // Runs AFTER enabled_modules is persisted, because the database function re-checks
+  // entitlement and refuses to seed a company that does not hold the module.
+  //
+  // A shortfall is surfaced as a NOTICE rather than failing the whole provision: the
+  // company and its administrator are real and usable, and re-saving the module selection
+  // retries idempotently. It is never reported as silently fine.
+  const moduleProvisioning = await ensureCompanyModuleProvisioning(
+    admin,
+    company.id,
+    enabledModules,
+    { trigger: "wizard", actorEmail: input.operatorEmail }
+  );
+
   await writeAuditLog(admin, {
     companyId: company.id,
     userEmail: input.operatorEmail,
     action: "create",
     entityType: "platform_customer",
     entityId: company.id,
-    metadata: { plan: planRow.code, template: templateRow?.code || null },
+    metadata: {
+      plan: planRow.code,
+      template: templateRow?.code || null,
+      modulesProvisioned: moduleProvisioning.ok,
+      moduleProvisioning: moduleProvisioning.results.map((entry) => ({
+        module: entry.moduleCode,
+        provisioned: entry.provisioned,
+      })),
+    },
   });
 
   // --- First customer administrator -----------------------------------------
@@ -309,6 +337,6 @@ export async function provisionPlatformCustomer(
     companyName: company.name,
     adminInvite: { ok: true, invited: passwordMode === "invite" },
     temporaryPassword: adminResult.temporaryPassword,
-    notices: adminResult.notices,
+    notices: [...adminResult.notices, ...moduleProvisioning.notices],
   };
 }

@@ -18,17 +18,37 @@ export default function ImpersonationBanner() {
 
   useEffect(() => {
     let cancelled = false;
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const stop = () => {
+      if (interval === null) return;
+      clearInterval(interval);
+      interval = null;
+    };
+
     async function load() {
       const result = await platformFetch<{ impersonating: ActiveImpersonation | null }>(
         "/api/platform/support/impersonate"
       );
-      if (!cancelled && result.ok) setSession(result.data.impersonating);
+      if (cancelled) return;
+      if (result.ok) {
+        setSession(result.data.impersonating);
+        return;
+      }
+      // This banner mounts on EVERY authenticated page, for every user. The endpoint it
+      // reads is operator-only, so an ordinary tenant user was being answered 401/403
+      // every thirty seconds, in every open tab, for the whole session — a console error
+      // on every page load and a permanent stream of rejected requests in production
+      // monitoring. A refusal is a definitive answer ("you are not an operator"), not a
+      // transient failure, so polling stops rather than repeating it forever.
+      if (result.status === 401 || result.status === 403) stop();
     }
-    load();
-    const interval = setInterval(load, 30_000);
+
+    void load();
+    interval = setInterval(() => void load(), 30_000);
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      stop();
     };
   }, []);
 

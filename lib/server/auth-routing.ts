@@ -72,6 +72,10 @@ export const PROTECTED_ROUTE_PREFIXES = [
   "/recruitment-succession",
   "/recruitment-vacancies",
   "/reports",
+  // Road & Recovery (sql/070, sql/071). Registered here because canAccessRouteForRole()
+  // default-denies any protected route it does not know, so an unregistered vertical is
+  // silently unreachable for every role.
+  "/road-recovery",
   "/route-history",
   "/settings",
   "/staff-leave",
@@ -105,6 +109,10 @@ const EMPLOYEE_ALLOWED_PREFIXES = [
   "/kiosk",
   "/staff-leave",
   "/mobile-workforce",
+  // Drivers are ordinary employees. They get their own Road & Recovery job list
+  // (accept / decline / en route / GPS arrival) and nothing else in the vertical — the
+  // Dispatch Board and Live Operations Wall stay with supervisors and above.
+  "/road-recovery/driver",
 ] as const;
 
 // /settings is the workspace governance area (Users & Access). Company owners and

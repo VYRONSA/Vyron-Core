@@ -24,6 +24,20 @@ export const AUTOMATION_ACTION_TYPES = [
   "Create Field Job",
   "Escalate Exception",
   "Mark Payroll Item For Review",
+
+  // Road & Recovery vertical action types (Phase 6).
+  //
+  // There is NO rr_actions table and no second action system. Road & Recovery
+  // recommendations are prepared into workforce_automation_actions like every other
+  // action, so they inherit the approval queue, the audit log and the outcome columns that
+  // already exist. Only action types with no existing equivalent are added: critical
+  // exceptions reuse "Escalate Exception" rather than duplicating it.
+  "Escalate Dispatch",
+  "Schedule Vehicle Release",
+  "Request Authorisation",
+  "Request Billing Information",
+  "Review Distance Capture",
+  "Review Fleet Capacity",
 ] as const;
 
 export type AutomationActionType = (typeof AUTOMATION_ACTION_TYPES)[number];
@@ -141,8 +155,30 @@ function deriveEscalationLevel(
   trigger: WorkflowTrigger | null | undefined,
 ): "Critical" | "High" | "Medium" | "Low" {
   if (impact >= 7000 || trigger === "Payroll Blocked" || trigger === "Compliance Failure") return "Critical";
+  // A recorded critical exception is already a judgement the operation made. It escalates
+  // on that fact alone, because a critical safety or compliance exception with no rand
+  // figure attached is not a low-priority item.
+  if (trigger === "Critical Exception") return "Critical";
   if (impact >= 3500) return "High";
+  if (
+    trigger === "Billing Blocked" ||
+    trigger === "Authorisation Delay" ||
+    trigger === "Fleet Capacity Risk" ||
+    trigger === "Arrival Delay"
+  ) {
+    return "High";
+  }
   if (impact >= 1200) return "Medium";
+  // Road & Recovery findings arrive with a measured operational impact even when no rand
+  // amount could be calculated, so they never fall through to "Low" purely for lack of a
+  // financial figure.
+  if (
+    trigger === "Dispatch Delay" ||
+    trigger === "Storage Ageing" ||
+    trigger === "Distance Dispute"
+  ) {
+    return "Medium";
+  }
   return "Low";
 }
 
@@ -158,6 +194,15 @@ function mapActionTypeToTrigger(actionType: AutomationActionType): WorkflowTrigg
     "Create Field Job": "Workforce Intelligence Alert",
     "Escalate Exception": "Compliance Failure",
     "Mark Payroll Item For Review": "Payroll Blocked",
+
+    // Road & Recovery. Each maps to the operational trigger that raises it, so an action
+    // prepared without an explicit trigger still lands in the right pipeline group.
+    "Escalate Dispatch": "Dispatch Delay",
+    "Schedule Vehicle Release": "Storage Ageing",
+    "Request Authorisation": "Authorisation Delay",
+    "Request Billing Information": "Billing Blocked",
+    "Review Distance Capture": "Distance Dispute",
+    "Review Fleet Capacity": "Fleet Capacity Risk",
   };
   return map[actionType];
 }
