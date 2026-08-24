@@ -1,0 +1,7 @@
+# Schema/data snapshots taken around production migrations.
+#
+# 04-data-*.sql contains auth.users and business rows, including bcrypt password
+# hashes. Git history is permanent, so these never enter the repository. Same
+# guard as audit/backups/.gitignore.
+*
+!.gitignore

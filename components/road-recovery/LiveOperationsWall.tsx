@@ -9,6 +9,7 @@
  * later phases and would be fabricated from data the Phase 0/1 model does not hold.
  */
 
+import { RREmptyState, RRLaneEmpty, RRLoading } from "@/components/road-recovery/ui";
 import React, { useMemo } from "react";
 import { RR_POLL_INTERVALS, rrFetchJson, useRrPoll } from "@/lib/road-recovery/use-rr-poll";
 
@@ -91,10 +92,9 @@ export default function LiveOperationsWall({ companyId }: { companyId: string })
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
+      <header className="flex flex-col gap-3 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_14px_40px_rgba(15,23,42,0.08)] md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-black text-slate-900">Live Operations</h1>
-          <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-1 text-sm text-slate-500">
             Refreshes every {RR_POLL_INTERVALS.liveOperations / 1000}s
             {board.paused ? " — paused while this tab is hidden" : ""}.
           </p>
@@ -102,14 +102,14 @@ export default function LiveOperationsWall({ companyId }: { companyId: string })
         <button
           onClick={board.refresh}
           disabled={board.loading}
-          className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-cyan-300 disabled:opacity-50"
+          className="vyron-focus-ring rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-cyan-300 transition hover:bg-slate-800 disabled:opacity-50"
         >
           {board.loading ? "Refreshing…" : "Refresh"}
         </button>
       </header>
 
       {board.error ? (
-        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+        <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
           {board.error}
         </p>
       ) : null}
@@ -121,12 +121,12 @@ export default function LiveOperationsWall({ companyId }: { companyId: string })
         <StatTile label="Awaiting dispatch" value={awaiting.length} tone="border-amber-200 bg-amber-50 text-amber-900" />
       </div>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
         <h2 className="text-sm font-black uppercase tracking-wide text-slate-700">Active operations</h2>
         {board.initialLoading ? (
-          <p className="mt-3 text-sm font-semibold text-slate-500">Loading…</p>
+          <RRLoading label="Loading live operations" />
         ) : active.length === 0 ? (
-          <p className="mt-3 text-sm font-semibold text-slate-400">No active recovery operations.</p>
+          <RREmptyState title="No active operations" description="Every crew currently travelling, on scene or recovering appears on this wall in real time. It stays empty while no job is in an active state." hint="The wall updates automatically" />
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">

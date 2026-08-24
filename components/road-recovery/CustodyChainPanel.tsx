@@ -11,6 +11,7 @@
  * new event, so the UI offers "record an event", never "edit".
  */
 
+import { RREmptyState, RRLaneEmpty, RRLoading } from "@/components/road-recovery/ui";
 import React, { useCallback, useMemo, useState } from "react";
 import { captureEvidence } from "@/lib/road-recovery/evidence-capture";
 import { RR_POLL_INTERVALS, rrFetchJson, useRrPoll } from "@/lib/road-recovery/use-rr-poll";
@@ -187,11 +188,11 @@ export default function CustodyChainPanel({
   ]);
 
   if (poll.initialLoading) {
-    return <p className="text-sm font-semibold text-slate-500">Loading the custody chain…</p>;
+    return <RRLoading label="Loading the custody chain" />;
   }
   if (poll.error) {
     return (
-      <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+      <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
         {poll.error}
       </p>
     );
@@ -246,7 +247,7 @@ export default function CustodyChainPanel({
       </section>
 
       {actionError ? (
-        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+        <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
           {actionError}
         </p>
       ) : null}

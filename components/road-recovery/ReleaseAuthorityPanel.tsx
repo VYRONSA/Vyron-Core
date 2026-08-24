@@ -11,6 +11,7 @@
  * fine" is not an authority.
  */
 
+import { RREmptyState, RRLaneEmpty, RRLoading } from "@/components/road-recovery/ui";
 import React, { useCallback, useMemo, useState } from "react";
 import { RR_POLL_INTERVALS, rrFetchJson, useRrPoll } from "@/lib/road-recovery/use-rr-poll";
 
@@ -165,11 +166,11 @@ export default function ReleaseAuthorityPanel({
   );
 
   if (poll.initialLoading) {
-    return <p className="text-sm font-semibold text-slate-500">Loading authorities…</p>;
+    return <RRLoading label="Loading release authorities" />;
   }
   if (poll.error) {
     return (
-      <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+      <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
         {poll.error}
       </p>
     );
@@ -204,7 +205,7 @@ export default function ReleaseAuthorityPanel({
       </header>
 
       {actionError ? (
-        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+        <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
           {actionError}
         </p>
       ) : null}

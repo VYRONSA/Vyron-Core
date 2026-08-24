@@ -99,6 +99,30 @@ export type VyronRbacRole = "platform_operator" | "owner" | "supervisor" | "mana
 /** Routes reserved for VYRON's own platform operators (Platform Console). */
 export const PLATFORM_ONLY_ROUTE_PREFIXES = ["/platform"] as const;
 
+/**
+ * Route families a workspace must hold a subscription module to open at all.
+ *
+ * RBAC (canAccessRouteForRole below) answers "may this ROLE open this route". It cannot
+ * answer "did this WORKSPACE buy this vertical" — that is the entitlement axis, and
+ * without an entry here a purchased-module route is reachable by URL for every tenant
+ * whose role permits it, with only the navigation hiding it.
+ *
+ * The codes are lib/platform/module-catalog.ts codes, the same ones stored in
+ * companies.enabled_modules. Enforcement is in middleware.ts for the pages and in
+ * lib/road-recovery/api.ts for that vertical's API surface.
+ */
+export const MODULE_GATED_ROUTE_PREFIXES = [
+  { prefix: "/road-recovery", module: "road_recovery" },
+] as const;
+
+/** The module code a route requires, or null when the route is not module-gated. */
+export function requiredModuleForRoute(pathname: string): string | null {
+  const match = MODULE_GATED_ROUTE_PREFIXES.find((entry) =>
+    matchesRoutePrefix(pathname, entry.prefix)
+  );
+  return match ? match.module : null;
+}
+
 const EMPLOYEE_ALLOWED_PREFIXES = [
   "/dashboard",
   "/leave",

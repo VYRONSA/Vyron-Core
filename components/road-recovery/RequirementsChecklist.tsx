@@ -239,7 +239,7 @@ export default function RequirementsChecklist({
   }
   if (poll.error) {
     return (
-      <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+      <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
         {poll.error}
       </p>
     );
@@ -421,7 +421,7 @@ export default function RequirementsChecklist({
             <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
               Evidence completeness
             </p>
-            <p className="text-2xl font-black text-slate-900">
+            <p className="text-2xl font-black tabular-nums text-slate-900">
               {compliance.completenessPercent}%
               <span className="ml-2 text-sm font-bold text-slate-500">
                 {compliance.satisfiedCount} of {compliance.applicableCount} required
@@ -445,13 +445,13 @@ export default function RequirementsChecklist({
       </div>
 
       {actionError ? (
-        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+        <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
           {actionError}
         </p>
       ) : null}
 
       {captureMessage ? (
-        <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+        <p role="status" className="rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900">
           {captureMessage}
         </p>
       ) : null}

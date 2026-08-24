@@ -18,6 +18,7 @@ import {
   requireApiContext as requireCompanyApiContext,
 } from "@/lib/employee-relations-api";
 import { normalizeRbacRole } from "@/lib/server/auth-routing";
+import { hasModuleEntitlement } from "@/lib/server/module-entitlement";
 import type { RrServiceResult } from "@/lib/road-recovery/job-service";
 
 export { parseError };
@@ -125,6 +126,32 @@ export async function requireApiContext(
 ): ReturnType<typeof requireCompanyApiContext> {
   const context = await requireCompanyApiContext(request, companyIdValue);
   if (!context.ok) return context;
+
+  /**
+   * Subscription entitlement, checked before any role question.
+   *
+   * middleware.ts gates the PAGES on companies.enabled_modules, but its matcher excludes
+   * /api — so without this the boundary would again exist only in the browser and a
+   * tenant that never bought the vertical could call all 43 endpoints directly.
+   *
+   * Applied to platform operators too, matching middleware.ts: the companyId here has
+   * already been verified against the caller's own membership, so this asks whether THAT
+   * workspace holds the module, which is the same question the page asks.
+   */
+  const entitled = await hasModuleEntitlement(
+    context.ctx.auth.supabase,
+    // AuthenticatedApiContext carries the verified email, not the auth user id, so the
+    // membership resolves by address here — the same either/or the helper applies.
+    { email: context.ctx.auth.email, companyId: context.ctx.companyId },
+    "road_recovery"
+  );
+  if (!entitled) {
+    return {
+      ok: false,
+      status: 403,
+      message: "Road & Recovery is not enabled for this workspace.",
+    };
+  }
 
   // Platform operators (VYRON staff) keep the access they have on the pages.
   if (context.ctx.auth.platformOperator) return context;

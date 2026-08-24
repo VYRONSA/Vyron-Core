@@ -6,8 +6,10 @@ import {
   isMarketingPath,
   isPasswordResetPath,
   isProtectedPath,
+  requiredModuleForRoute,
 } from "@/lib/server/auth-routing";
 import { resolveServerAuthorizationContext } from "@/lib/server/authorization";
+import { hasModuleEntitlement } from "@/lib/server/module-entitlement";
 import { getMaintenanceMode, MAINTENANCE_BYPASS_COOKIE } from "@/lib/platform/maintenance-mode";
 import { createMiddlewareSupabase, withSessionCookies } from "@/lib/supabase-middleware";
 
@@ -67,6 +69,36 @@ export async function middleware(request: NextRequest) {
     if (!authz.role || !canAccessRouteForRole(authz.role, pathname)) {
       return redirectToDashboard(request, response);
     }
+
+    /**
+     * Subscription entitlement for module-gated verticals (Road & Recovery today).
+     *
+     * The check above answers whether the ROLE may open the route. It cannot answer
+     * whether the WORKSPACE bought the vertical, so without this a tenant with
+     * road_recovery absent from companies.enabled_modules reached every board simply by
+     * typing the URL — the entitlement was enforced only by hiding navigation.
+     *
+     * Read lazily, and only for the handful of gated prefixes, so the overwhelming
+     * majority of protected requests still cost no extra query.
+     *
+     * Platform operators are NOT exempt here, and that is deliberate. Their exemption in
+     * canAccessRouteForRole() is on the ROLE axis — VYRON staff see every route their
+     * tenant seat can reach. Entitlement is a different axis: these pages resolve the
+     * operator's OWN workspace (useRoadRecoveryCompany -> getCompanyAccess), never a
+     * supported tenant's, so an operator whose workspace lacks the module would only ever
+     * be shown an empty vertical. Gating them keeps one answer for one workspace — the
+     * route now agrees with the navigation, which already hides the module from them.
+     */
+    const requiredModule = requiredModuleForRoute(pathname);
+    if (requiredModule) {
+      const entitled = await hasModuleEntitlement(
+        supabase,
+        { userId: authz.userId, email: authz.email, companyId: authz.companyId },
+        requiredModule
+      );
+      if (!entitled) return redirectToDashboard(request, response);
+    }
+
     if (authz.role !== "platform_operator") {
       const maintenance = await getMaintenanceMode();
       const bypassCookie = request.cookies.get(MAINTENANCE_BYPASS_COOKIE)?.value === "1";

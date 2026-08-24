@@ -11,6 +11,7 @@
  * shown to a counterparty stays reconcilable with the rule that produced it.
  */
 
+import { RREmptyState, RRLaneEmpty, RRLoading } from "@/components/road-recovery/ui";
 import React, { useCallback, useMemo, useState } from "react";
 import { RR_POLL_INTERVALS, rrFetchJson, useRrPoll } from "@/lib/road-recovery/use-rr-poll";
 
@@ -209,7 +210,7 @@ export default function RequirementPolicyEditor({ companyId }: { companyId: stri
         </p>
       ) : null}
       {saveError ? (
-        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+        <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
           {saveError}
         </p>
       ) : null}
@@ -217,9 +218,9 @@ export default function RequirementPolicyEditor({ companyId }: { companyId: stri
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
         <aside className="space-y-2">
           {poll.initialLoading ? (
-            <p className="text-sm font-semibold text-slate-500">Loading policies…</p>
+            <RRLoading label="Loading requirement policies" />
           ) : poll.error ? (
-            <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+            <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
               {poll.error}
             </p>
           ) : (

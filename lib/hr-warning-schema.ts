@@ -1,4 +1,4 @@
-/** Production hr_warnings columns (live DB on ldnrmgafsquzfitcuvxq). */
+/** Production hr_warnings columns (live DB on gpiqkwebizuqajgaoxhm). */
 
 export type HrWarningInsert = {
   company_id: string;

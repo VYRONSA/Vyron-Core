@@ -19,7 +19,9 @@ Generate operational decisions.
 
 # Supabase (production)
 
-Active project URL and env guidance: **`ACTIVE_SUPABASE.md`** at repo root. Never use deprecated project `ujgnhcwertihoqjgaofn`.
+Active project URL and env guidance: **`ACTIVE_SUPABASE.md`** at repo root.
+The authoritative production project is **`gpiqkwebizuqajgaoxhm`** (vyron-core, eu-west-1).
+Never use the deprecated projects `ujgnhcwertihoqjgaofn` or `ldnrmgafsquzfitcuvxq` — the latter no longer exists.
 
 # This is NOT the Next.js you know
 

@@ -223,11 +223,10 @@ export default function ThresholdEditor({ companyId }: { companyId: string }) {
 
   return (
     <div className="space-y-5">
-      <header className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <header className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-black text-slate-900">Operational targets</h1>
-            <p className="mt-1 max-w-3xl text-sm text-slate-500">
+                        <p className="mt-1 max-w-3xl text-sm text-slate-500">
               What good looks like for this business. Until a metric has a target it reads
               NO SLA CONFIGURED, is excluded from the health score rather than counted as
               zero, and can raise no recommendation. Nothing here is pre-filled — the system
@@ -249,7 +248,7 @@ export default function ThresholdEditor({ companyId }: { companyId: string }) {
             <button
               onClick={poll.refresh}
               disabled={poll.loading}
-              className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-cyan-300 disabled:opacity-50"
+              className="vyron-focus-ring rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-cyan-300 transition hover:bg-slate-800 disabled:opacity-50"
             >
               {poll.loading ? "Refreshing…" : "Refresh"}
             </button>
@@ -261,12 +260,12 @@ export default function ThresholdEditor({ companyId }: { companyId: string }) {
       </header>
 
       {error ? (
-        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+        <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
           {error}
         </p>
       ) : null}
       {notice ? (
-        <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+        <p role="status" className="rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900">
           {notice}
         </p>
       ) : null}
@@ -436,7 +435,7 @@ export default function ThresholdEditor({ companyId }: { companyId: string }) {
         </section>
       ) : null}
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
         <h2 className="text-sm font-black uppercase tracking-wide text-slate-700">
           In force ({active.length})
         </h2>
@@ -514,7 +513,7 @@ export default function ThresholdEditor({ companyId }: { companyId: string }) {
         )}
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-black uppercase tracking-wide text-slate-700">
             Retired versions ({retired.length})

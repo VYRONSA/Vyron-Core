@@ -29,7 +29,7 @@ Platform Console adds five files to the existing flat `sql/NNN-*.sql` sequence
 Same process as every other migration in this repo (see
 `sql/RUN_COMPANY_TABLES.md` / `sql/MIGRATION_MANIFEST.md`): paste each file into
 the Supabase SQL editor for the **production** project
-(`ldnrmgafsquzfitcuvxq` — see `ACTIVE_SUPABASE.md`), in order, after confirming
+(`gpiqkwebizuqajgaoxhm` — see `ACTIVE_SUPABASE.md`), in order, after confirming
 `sql/001`–`061` are already applied. Each file is idempotent (`IF NOT EXISTS`,
 `DROP POLICY IF EXISTS … CREATE POLICY`, guarded `DO $$` blocks with prerequisite
 checks) and ends with `NOTIFY pgrst, 'reload schema'`.

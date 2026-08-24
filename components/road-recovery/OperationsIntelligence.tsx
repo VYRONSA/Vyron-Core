@@ -267,7 +267,7 @@ export default function OperationsIntelligence({ companyId }: { companyId: strin
   }
   if (!data) {
     return (
-      <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+      <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
         Road &amp; Recovery intelligence could not be loaded.
       </p>
     );
@@ -314,7 +314,7 @@ export default function OperationsIntelligence({ companyId }: { companyId: strin
             <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
               Road &amp; Recovery Health
             </p>
-            <p className="mt-1 text-2xl font-black text-slate-900">
+            <p className="mt-1 text-2xl font-black tabular-nums text-slate-900">
               {health.score === null ? "Not scoreable" : `${health.score} / 100`}
             </p>
             <p className="mt-1 text-[11px] font-semibold text-slate-600">
@@ -323,21 +323,21 @@ export default function OperationsIntelligence({ companyId }: { companyId: strin
           </div>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Jobs in period</p>
-            <p className="mt-1 text-2xl font-black text-slate-900">{data.jobCount}</p>
+            <p className="mt-1 text-2xl font-black tabular-nums text-slate-900">{data.jobCount}</p>
             <p className="mt-1 text-[11px] font-semibold text-slate-600">
               {data.bystandCount} BYSTAND attendance(s), measured separately
             </p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Targets configured</p>
-            <p className="mt-1 text-2xl font-black text-slate-900">{data.thresholdsConfigured}</p>
+            <p className="mt-1 text-2xl font-black tabular-nums text-slate-900">{data.thresholdsConfigured}</p>
             <p className="mt-1 text-[11px] font-semibold text-slate-600">
               {health.configuredCoveragePct}% of scorable metrics
             </p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Recommended actions</p>
-            <p className="mt-1 text-2xl font-black text-slate-900">{data.recommendations.length}</p>
+            <p className="mt-1 text-2xl font-black tabular-nums text-slate-900">{data.recommendations.length}</p>
             <p className="mt-1 text-[11px] font-semibold text-slate-600">
               {data.recommendations.filter((entry) => entry.severity === "critical").length} critical
             </p>
@@ -373,12 +373,12 @@ export default function OperationsIntelligence({ companyId }: { companyId: strin
       ) : null}
 
       {notice ? (
-        <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+        <p role="status" className="rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900">
           {notice}
         </p>
       ) : null}
       {error ? (
-        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+        <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
           {error}
         </p>
       ) : null}

@@ -8,6 +8,7 @@
  * Operations Wall are operational views and are left exactly as they are.
  */
 
+import { RREmptyState, RRLaneEmpty, RRLoading } from "@/components/road-recovery/ui";
 import React, { useCallback, useMemo, useState } from "react";
 import CustodyChainPanel from "@/components/road-recovery/CustodyChainPanel";
 import EvidenceTimeline from "@/components/road-recovery/EvidenceTimeline";
@@ -81,9 +82,9 @@ export default function ComplianceWorkspace({ companyId }: { companyId: string }
           className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold"
         />
         {poll.initialLoading ? (
-          <p className="text-sm font-semibold text-slate-500">Loading jobs…</p>
+          <RRLoading label="Loading jobs" />
         ) : poll.error ? (
-          <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+          <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
             {poll.error}
           </p>
         ) : jobs.length === 0 ? (

@@ -268,7 +268,9 @@ export default function MobileAppShell({
         </div>
 
         <div className="mt-5">
-          <div className="text-xs font-black uppercase tracking-[0.34em] text-slate-400">VYRON COST</div>
+          {/* This shell belongs to VYRON CORE. The eyebrow previously named the sibling
+              product in lib/vyron-dev-platform.ts, on every mobile screen. */}
+          <div className="text-xs font-black uppercase tracking-[0.34em] text-slate-400">VYRON CORE</div>
           <h1 className="mt-3 text-[2rem] font-black tracking-tight text-slate-950 sm:text-[2.4rem]">{title}</h1>
         </div>
       </div>

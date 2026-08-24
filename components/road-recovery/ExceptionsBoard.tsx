@@ -9,6 +9,7 @@
  * view of them, not a second approval system.
  */
 
+import { RREmptyState, RRLaneEmpty, RRLoading } from "@/components/road-recovery/ui";
 import React, { useCallback, useMemo, useState } from "react";
 import { RR_POLL_INTERVALS, rrFetchJson, useRrPoll } from "@/lib/road-recovery/use-rr-poll";
 
@@ -152,20 +153,20 @@ export default function ExceptionsBoard({ companyId }: { companyId: string }) {
       </header>
 
       {actionError ? (
-        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+        <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
           {actionError}
         </p>
       ) : null}
 
       {poll.initialLoading ? (
-        <p className="text-sm font-semibold text-slate-500">Loading exceptions…</p>
+        <RRLoading label="Loading exceptions" />
       ) : poll.error ? (
-        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+        <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
           {poll.error}
         </p>
       ) : rows.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
-          <p className="text-sm font-bold text-slate-700">No exceptions.</p>
+          <RREmptyState title="No open exceptions" description="Exceptions are raised automatically when a job breaches a requirement, an SLA threshold or a compliance rule. High and critical ones are also routed to the approval queue." hint="Nothing to action right now" tone="ready" />
         </div>
       ) : (
         <ul className="space-y-3">

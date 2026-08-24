@@ -255,6 +255,7 @@ import {
 import { validateClientLoginPassword } from "@/lib/create-client-login-user";
 import { requestCreateClientLoginUser } from "@/lib/create-client-login-user-client";
 import { canAccessRouteForRole, normalizeRbacRole } from "@/lib/server/auth-routing";
+import { TAB_META, TAB_ORDER } from "@/components/road-recovery/RoadRecoveryShell";
 import { useHasModule } from "@/lib/tenant/use-module-access";
 
 type ClientRecommendationRow = {
@@ -2008,8 +2009,8 @@ function Sidebar({
   }
 
   return (
-    <aside className="flex h-full flex-col bg-[#050b16] text-white shadow-[22px_0_80px_rgba(15,23,42,0.35)]">
-      <div className="border-b border-white/10 bg-white/[0.025] px-5 py-6">
+    <aside className="flex h-full min-h-0 flex-col overflow-hidden bg-[#050b16] text-white shadow-[22px_0_80px_rgba(15,23,42,0.35)]">
+      <div className="shrink-0 border-b border-white/10 bg-white/[0.025] px-5 py-6">
         <div className="flex items-center gap-3">
           <div className="relative h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-400 shadow-lg shadow-blue-500/30">
             <div className="absolute left-[13px] top-[10px] h-8 w-3 rotate-[-28deg] rounded-sm bg-white" />
@@ -2025,7 +2026,7 @@ function Sidebar({
       </div>
 
       {tenantWorkspacePlan && (
-        <div className="border-b border-white/10 px-5 py-4">
+        <div className="shrink-0 border-b border-white/10 px-5 py-4">
           <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Plan usage</div>
           <div className="mt-2 text-sm font-black text-white">{tenantWorkspacePlan.staffLine}</div>
           {tenantWorkspacePlan.showUpgrade && (
@@ -2041,7 +2042,7 @@ function Sidebar({
       )}
 
       {platformOperator && (
-        <div className="border-b border-white/10 px-4 py-4">
+        <div className="shrink-0 border-b border-white/10 px-4 py-4">
           <Link
             href="/platform"
             onClick={() => closeMobile?.()}
@@ -2060,7 +2061,7 @@ function Sidebar({
           middleware enforces, so a driver is sent to their own screen rather than to a
           board that would bounce them to /dashboard. */}
       {roadRecoveryEnabled && (
-        <div className="border-b border-white/10 px-4 py-4">
+        <div className="shrink-0 border-b border-white/10 px-4 py-4">
           <Link
             href={
               canAccessRouteForRole(normalizeRbacRole(userRole), "/road-recovery/dispatch")
@@ -2076,7 +2077,10 @@ function Sidebar({
         </div>
       )}
 
-      <nav className="flex-1 space-y-3 overflow-y-auto px-4 py-5">
+      {/* min-h-0 is load-bearing: a flex child will not shrink below its content size
+          without it, so overflow-y-auto alone would never scroll and the tail of the
+          navigation would be clipped. */}
+      <nav className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-5">
         {visibleNavGroups.map((group) => {
           const isOpen = openGroup === group.label;
           const groupAlertCount = getGroupBadgeCount(group.items);
@@ -2166,14 +2170,12 @@ function MasterOperatorAccessBadge({ variant = "dark" }: { variant?: "dark" | "l
 
 function Header({
   active,
-  openMobileNav,
   loading,
   error,
   showMasterAccessBadge = false,
   onLogout,
 }: {
   active: string;
-  openMobileNav: () => void;
   loading: boolean;
   error: string | null;
   showMasterAccessBadge?: boolean;
@@ -2184,9 +2186,6 @@ function Header({
       <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <button onClick={openMobileNav} className="rounded-2xl bg-white/10 p-3 text-white lg:hidden">
-              <Menu className="h-5 w-5" />
-            </button>
             <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">VYRON CORE</div>
           </div>
 
@@ -16344,7 +16343,6 @@ export default function Page() {
       return copy;
     });
   }
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [addStoreOpen, setAddStoreOpen] = useState(false);
   const [addEmployeeOpen, setAddEmployeeOpen] = useState(false);
   const [createShiftOpen, setCreateShiftOpen] = useState(false);
@@ -17306,6 +17304,40 @@ export default function Page() {
     },
   ];
 
+  /**
+   * Road & Recovery destinations for the mobile "More" drawer.
+   *
+   * Built from the SAME TAB_META the desktop shell renders, so the two navigations cannot
+   * drift. Two gates apply, both reused rather than reimplemented:
+   *
+   *   1. roadRecoveryEnabled — the company's module entitlement, resolved server-side by
+   *      /api/tenant/modules. A tenant without the module gets an empty array here and no
+   *      section is added at all, so the drawer looks exactly as it does today.
+   *   2. canAccessRouteForRole — the same function middleware.ts enforces with, so a
+   *      driver sees only the destinations they can actually open.
+   *
+   * These live in the existing More sheet rather than the bottom bar: the bar holds five
+   * fixed items and eleven more would overcrowd it. That is already how this shell handles
+   * large module sets — every CORE nav group is a section in the same drawer.
+   */
+  const roadRecoveryMobileActions = useMemo(() => {
+    if (!roadRecoveryEnabled) return [];
+    const rbacRole = normalizeRbacRole(layoutUserRole);
+    return TAB_ORDER.map((key) => TAB_META[key])
+      .filter((tab) => canAccessRouteForRole(rbacRole, tab.href))
+      .map((tab) => ({
+        key: `road-recovery-${tab.href}`,
+        label: tab.label,
+        description: tab.blurb,
+        icon: <Truck className="h-5 w-5" />,
+        onPress: () => {
+          setMobileMoreOpen(false);
+          router.push(tab.href);
+        },
+      }));
+  }, [roadRecoveryEnabled, layoutUserRole, router]);
+
+
   const mobileMoreSections: MobileShellActionSection[] = [
     {
       key: "account",
@@ -17333,6 +17365,17 @@ export default function Page() {
         },
       ],
     },
+      // Entitlement-gated. Spreads to nothing when the company does not hold the module,
+      // so an unentitled tenant sees no trace of Road & Recovery anywhere on mobile.
+      ...(roadRecoveryMobileActions.length
+        ? [
+            {
+              key: "road-recovery",
+              title: "Road & Recovery",
+              actions: roadRecoveryMobileActions,
+            } as MobileShellActionSection,
+          ]
+        : []),
     ...visibleShellNavGroups.map<MobileShellActionSection>((group) => ({
       key: group.label,
       title: group.label,
@@ -17505,7 +17548,6 @@ export default function Page() {
     await supabase.auth.signOut();
     clearVyronSessionLocalStorage();
 
-    setMobileNavOpen(false);
     setAddStoreOpen(false);
     setAddEmployeeOpen(false);
     setCreateShiftOpen(false);
@@ -18703,7 +18745,11 @@ return (
       </div>
 
       <div className="hidden min-h-screen lg:grid lg:grid-cols-[300px_1fr]">
-        <div className="hidden lg:block">
+        {/* Sticky, viewport-height sidebar column. Without an explicit height here the
+            aside's h-full resolves against an auto-height grid row, the nav's
+            overflow-y-auto never engages, and anything below the fold — Road & Recovery
+            included — is clipped instead of scrolled. */}
+        <div className="hidden lg:sticky lg:top-0 lg:block lg:h-screen">
           <Sidebar active={active} setActive={setActive} alertCounts={alertCounts} openGroup={activeSidebarGroup} setOpenGroup={setActiveSidebarGroup} userRole={layoutUserRole} userEmail={normalizedAuthEmail} hasCompanyAccess={hasTenantCompanyAccess} coreSupportMode={isVyronCoreSupportView} tenantWorkspacePlan={tenantWorkspaceSidebarPlan} platformOperator={platformOperatorSession} roadRecoveryEnabled={roadRecoveryEnabled} />
         </div>
 
@@ -18711,7 +18757,6 @@ return (
           {active !== "Command Centre" && (
             <Header
               active={active}
-              openMobileNav={() => setMobileNavOpen(true)}
               loading={loading}
               error={error}
               showMasterAccessBadge={isMasterOperatorSession}

@@ -10,6 +10,7 @@
  * Standalone route under app/(app)/road-recovery/bystand. app/_app-shell.tsx untouched.
  */
 
+import { RREmptyState, RRLaneEmpty, RRLoading } from "@/components/road-recovery/ui";
 import React, { useMemo, useState } from "react";
 import StandbyTimer from "@/components/road-recovery/StandbyTimer";
 import { formatStandbyDuration } from "@/lib/road-recovery/standby-timer";
@@ -214,10 +215,9 @@ export default function BystandBoard({ companyId }: { companyId: string }) {
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
+      <header className="flex flex-col gap-3 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_14px_40px_rgba(15,23,42,0.08)] md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-black text-slate-900">BYSTAND Board</h1>
-          <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-1 text-sm text-slate-500">
             Attendance and standing time. Separate from tow dispatch. Refreshes every{" "}
             {RR_POLL_INTERVALS.dispatchBoard / 1000}s
             {board.paused ? " — paused while this tab is hidden" : ""}.
@@ -246,7 +246,7 @@ export default function BystandBoard({ companyId }: { companyId: string }) {
           <button
             onClick={board.refresh}
             disabled={board.loading}
-            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-cyan-300 disabled:opacity-50"
+            className="vyron-focus-ring rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-cyan-300 transition hover:bg-slate-800 disabled:opacity-50"
           >
             {board.loading ? "Refreshing…" : "Refresh"}
           </button>
@@ -267,23 +267,23 @@ export default function BystandBoard({ companyId }: { companyId: string }) {
       ) : null}
 
       {board.error ? (
-        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+        <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
           {board.error}
         </p>
       ) : null}
       {actionError ? (
-        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+        <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
           {actionError}
         </p>
       ) : null}
       {notice ? (
-        <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+        <p role="status" className="rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900">
           {notice}
         </p>
       ) : null}
 
       {board.initialLoading ? (
-        <p className="text-sm font-semibold text-slate-500">Loading BYSTAND board…</p>
+        <RRLoading label="Loading BYSTAND board" />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {LANES.map((lane) => {
@@ -291,7 +291,7 @@ export default function BystandBoard({ companyId }: { companyId: string }) {
             return (
               <section
                 key={lane.key}
-                className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
+                className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_14px_40px_rgba(15,23,42,0.08)]"
               >
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-black uppercase tracking-wide text-slate-700">
@@ -304,7 +304,7 @@ export default function BystandBoard({ companyId }: { companyId: string }) {
 
                 <div className="mt-3 space-y-3">
                   {jobs.length === 0 ? (
-                    <p className="text-xs font-semibold text-slate-400">Nothing here.</p>
+                    <RRLaneEmpty>No BYSTAND attendance in this state. Standing jobs appear here as they are logged and progressed.</RRLaneEmpty>
                   ) : null}
 
                   {jobs.map((job) => {
@@ -395,7 +395,7 @@ export default function BystandBoard({ companyId }: { companyId: string }) {
                                 )
                               }
                               disabled={busy}
-                              className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-cyan-300 disabled:opacity-50"
+                              className="vyron-focus-ring rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-black text-cyan-300 transition hover:bg-slate-800 disabled:opacity-50"
                             >
                               Request attendance
                             </button>
@@ -411,7 +411,7 @@ export default function BystandBoard({ companyId }: { companyId: string }) {
                                 )
                               }
                               disabled={busy}
-                              className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-cyan-300 disabled:opacity-50"
+                              className="vyron-focus-ring rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-black text-cyan-300 transition hover:bg-slate-800 disabled:opacity-50"
                             >
                               Request authorisation
                             </button>
@@ -474,7 +474,7 @@ export default function BystandBoard({ companyId }: { companyId: string }) {
                             <button
                               onClick={() => findDrivers(job.id)}
                               disabled={busy}
-                              className="rounded-lg bg-cyan-700 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                              className="vyron-focus-ring rounded-lg bg-cyan-700 px-3 py-1.5 text-xs font-black text-white transition hover:bg-cyan-600 disabled:opacity-50"
                             >
                               Find drivers
                             </button>

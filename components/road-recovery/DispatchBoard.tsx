@@ -18,6 +18,7 @@ import {
   useRrPoll,
 } from "@/lib/road-recovery/use-rr-poll";
 import { availableTransitions, stateForRole } from "@/lib/road-recovery/state-machine";
+import { RRLaneEmpty, RRLoading } from "@/components/road-recovery/ui";
 import JobIntakePanel from "@/components/road-recovery/JobIntakePanel";
 import AuthorisationPanel from "@/components/road-recovery/AuthorisationPanel";
 
@@ -90,17 +91,22 @@ type EvaluatedCandidate = {
 };
 
 /** Board lanes, in controller workflow order. */
-const LANES: { key: string; label: string; states: string[] }[] = [
-  { key: "new", label: "New", states: ["draft", "logged"] },
-  { key: "authorisation", label: "Awaiting authorisation", states: ["authorisation_pending"] },
-  { key: "ready", label: "Ready for dispatch", states: ["authorised", "dispatch_pending"] },
-  { key: "assigned", label: "Assigned", states: ["assigned"] },
-  { key: "accepted", label: "Accepted", states: ["accepted"] },
-  { key: "en_route", label: "En route", states: ["en_route"] },
-  { key: "on_scene", label: "Arrived", states: ["on_scene"] },
+/**
+ * `empty` is the operational sentence shown when a lane has no jobs. It names what WOULD
+ * sit here and what moves a job in, so a quiet board reads as quiet rather than unbuilt.
+ */
+const LANES: { key: string; label: string; states: string[]; empty: string }[] = [
+  { key: "new", label: "New", states: ["draft", "logged"], empty: "No callouts logged. New jobs land here the moment they are captured." },
+  { key: "authorisation", label: "Awaiting authorisation", states: ["authorisation_pending"], empty: "Nothing awaiting authority. Jobs needing an authorising party queue here." },
+  { key: "ready", label: "Ready for dispatch", states: ["authorised", "dispatch_pending"], empty: "No authorised jobs waiting. Once authority is captured, jobs land here to assign." },
+  { key: "assigned", label: "Assigned", states: ["assigned"], empty: "No crews assigned. Assigned jobs sit here until the driver accepts." },
+  { key: "accepted", label: "Accepted", states: ["accepted"], empty: "Nothing accepted yet. Driver acceptance moves a job into this lane." },
+  { key: "en_route", label: "En route", states: ["en_route"], empty: "No crews travelling. Jobs appear here when a driver departs for the scene." },
+  { key: "on_scene", label: "Arrived", states: ["on_scene"], empty: "Nobody on scene. Arrival at the incident moves a job here." },
   {
     key: "active",
     label: "Recovery / tow",
+    empty: "No recovery in progress. Loading, transit and handover states show here.",
     states: [
       "assessing",
       "loading",
@@ -117,6 +123,7 @@ const LANES: { key: string; label: string; states: string[] }[] = [
   {
     key: "completed",
     label: "Completed",
+    empty: "Nothing completed in this window. Closed jobs and their billing packs land here.",
     states: ["evidence_complete", "invoice_ready", "invoiced", "closed"],
   },
 ];
@@ -293,38 +300,50 @@ export default function DispatchBoard({ companyId }: { companyId: string }) {
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900">Dispatch Board</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Road &amp; Recovery live dispatch. Refreshes every {RR_POLL_INTERVALS.dispatchBoard / 1000}s
-            {board.paused ? " — paused while this tab is hidden" : ""}.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
+      {/*
+        Toolbar, not a second page title. RoadRecoveryShell already renders the hero with
+        this board's name and purpose; repeating "Dispatch Board" here pushed the lanes
+        below the fold and made the vertical look like a separate application.
+      */}
+      <div className="flex flex-col gap-3 rounded-[28px] border border-slate-200 bg-white px-5 py-4 shadow-[0_14px_40px_rgba(15,23,42,0.08)] md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-slate-600">
+            <span
+              className={`h-2 w-2 rounded-full ${board.paused ? "bg-slate-400" : "bg-emerald-500"}`}
+              aria-hidden="true"
+            />
+            {board.paused ? "Paused" : "Live"}
+          </span>
+          <span className="text-xs text-slate-500">
+            {board.paused
+              ? "Polling resumes when this tab is visible"
+              : `Refreshing every ${RR_POLL_INTERVALS.dispatchBoard / 1000}s`}
+          </span>
           {board.lastUpdatedAt ? (
-            <span className="text-xs font-semibold text-slate-400">
-              Updated {new Date(board.lastUpdatedAt).toLocaleTimeString()}
+            <span className="text-xs tabular-nums text-slate-400">
+              · updated {new Date(board.lastUpdatedAt).toLocaleTimeString()}
             </span>
           ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => {
               setIntakeOpen((open) => !open);
               setNotice(null);
             }}
-            className="rounded-xl bg-cyan-700 px-4 py-2 text-sm font-bold text-white"
+            className="vyron-focus-ring rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-2 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:brightness-110"
           >
             {intakeOpen ? "Close intake" : "Log a job"}
           </button>
           <button
             onClick={board.refresh}
             disabled={board.loading}
-            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-cyan-300 disabled:opacity-50"
+            className="vyron-focus-ring rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-cyan-300 transition hover:bg-slate-800 disabled:opacity-50"
           >
             {board.loading ? "Refreshing…" : "Refresh"}
           </button>
         </div>
-      </header>
+      </div>
 
       {intakeOpen ? (
         <JobIntakePanel
@@ -343,39 +362,43 @@ export default function DispatchBoard({ companyId }: { companyId: string }) {
       ) : null}
 
       {board.error ? (
-        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+        <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
           {board.error}
         </p>
       ) : null}
       {notice ? (
-        <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+        <p role="status" className="rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900">
           {notice}
         </p>
       ) : null}
 
       {board.initialLoading ? (
-        <p className="text-sm font-semibold text-slate-500">Loading dispatch board…</p>
+        <RRLoading label="Loading dispatch board" />
       ) : (
-        <div className="grid gap-4 overflow-x-auto md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {LANES.map((lane) => {
             const jobs = jobsByLane.get(lane.key) || [];
             return (
               <section
                 key={lane.key}
-                className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
+                className="flex min-w-0 flex-col rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_14px_40px_rgba(15,23,42,0.08)]"
               >
                 <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-black uppercase tracking-wide text-slate-700">
+                  <h2 className="truncate text-xs font-black uppercase tracking-[0.2em] text-slate-600">
                     {lane.label}
                   </h2>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-600">
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-black tabular-nums ${
+                      jobs.length ? "bg-slate-900 text-cyan-300" : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
                     {jobs.length}
                   </span>
                 </div>
 
                 <div className="mt-3 space-y-3">
                   {jobs.length === 0 ? (
-                    <p className="text-xs font-semibold text-slate-400">Nothing here.</p>
+                    <RRLaneEmpty>{lane.empty}</RRLaneEmpty>
                   ) : null}
 
                   {jobs.map((job) => {
@@ -418,7 +441,7 @@ export default function DispatchBoard({ companyId }: { companyId: string }) {
                             <button
                               onClick={() => transition(job.id, "authorisation_pending")}
                               disabled={busy}
-                              className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-cyan-300 disabled:opacity-50"
+                              className="vyron-focus-ring rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-black text-cyan-300 transition hover:bg-slate-800 disabled:opacity-50"
                             >
                               Request authorisation
                             </button>
@@ -438,7 +461,7 @@ export default function DispatchBoard({ companyId }: { companyId: string }) {
                             <button
                               onClick={() => transition(job.id, "dispatch_pending")}
                               disabled={busy}
-                              className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-cyan-300 disabled:opacity-50"
+                              className="vyron-focus-ring rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-black text-cyan-300 transition hover:bg-slate-800 disabled:opacity-50"
                             >
                               Release to dispatch
                             </button>
@@ -448,7 +471,7 @@ export default function DispatchBoard({ companyId }: { companyId: string }) {
                             <button
                               onClick={() => evaluateCandidates(job.id)}
                               disabled={busy}
-                              className="rounded-lg bg-cyan-700 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                              className="vyron-focus-ring rounded-lg bg-cyan-700 px-3 py-1.5 text-xs font-black text-white transition hover:bg-cyan-600 disabled:opacity-50"
                             >
                               Find drivers
                             </button>
@@ -640,7 +663,7 @@ function CandidatePanel({
                 <button
                   onClick={() => onDispatch(candidate.employeeId)}
                   disabled={busy}
-                  className="rounded-lg bg-cyan-700 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                  className="vyron-focus-ring rounded-lg bg-cyan-700 px-3 py-1.5 text-xs font-black text-white transition hover:bg-cyan-600 disabled:opacity-50"
                 >
                   Dispatch
                 </button>

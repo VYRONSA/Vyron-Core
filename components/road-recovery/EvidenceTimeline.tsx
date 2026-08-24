@@ -8,6 +8,7 @@
  * point of linking semantics to the LINK rather than to the evidence row.
  */
 
+import { RREmptyState, RRLaneEmpty, RRLoading } from "@/components/road-recovery/ui";
 import React, { useCallback, useMemo } from "react";
 import { RR_POLL_INTERVALS, rrFetchJson, useRrPoll } from "@/lib/road-recovery/use-rr-poll";
 
@@ -90,11 +91,11 @@ export default function EvidenceTimeline({
   }, [poll.data]);
 
   if (poll.initialLoading) {
-    return <p className="text-sm font-semibold text-slate-500">Loading evidence…</p>;
+    return <RRLoading label="Loading evidence" />;
   }
   if (poll.error) {
     return (
-      <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+      <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
         {poll.error}
       </p>
     );

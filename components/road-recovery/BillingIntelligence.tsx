@@ -214,7 +214,7 @@ export default function BillingIntelligence({ companyId }: { companyId: string }
       {poll.initialLoading ? (
         <p className="text-sm font-semibold text-slate-500">Loading {active?.label}…</p>
       ) : poll.error ? (
-        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+        <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
           {poll.error}
         </p>
       ) : !report ? null : (
@@ -228,7 +228,7 @@ export default function BillingIntelligence({ companyId }: { companyId: string }
                     <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
                       {key.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase())}
                     </p>
-                    <p className="text-2xl font-black text-slate-900">
+                    <p className="text-2xl font-black tabular-nums text-slate-900">
                       {(value as number).toLocaleString("en-ZA")}
                     </p>
                   </div>

@@ -123,7 +123,7 @@ export default function YardManager({ companyId }: { companyId: string }) {
       </header>
 
       {actionError ? (
-        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+        <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
           {actionError}
         </p>
       ) : null}
@@ -237,7 +237,7 @@ export default function YardManager({ companyId }: { companyId: string }) {
       {poll.initialLoading ? (
         <p className="text-sm font-semibold text-slate-500">Loading yards…</p>
       ) : poll.error ? (
-        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+        <p role="alert" className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
           {poll.error}
         </p>
       ) : yards.length === 0 ? (
