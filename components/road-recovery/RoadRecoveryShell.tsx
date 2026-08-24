@@ -27,7 +27,8 @@ export type RoadRecoveryTab =
   | "yards"
   | "billing"
   | "intelligence"
-  | "targets";
+  | "targets"
+  | "notifications";
 
 /**
  * Short descriptions used as the page subtitle, so every board states its own purpose.
@@ -93,6 +94,14 @@ export const TAB_META: Record<RoadRecoveryTab, { label: string; href: string; bl
     href: "/road-recovery/targets",
     blurb: "SLA thresholds the Intelligence Centre measures every job against.",
   },
+  notifications: {
+    // NOT "Notifications": VYRON CORE already has an item by that name in the same mobile
+    // drawer, and two identical labels one above the other is a guessing game. "Job Alerts"
+    // says what this list is about.
+    label: "Job Alerts",
+    href: "/road-recovery/notifications",
+    blurb: "Offers, driver responses, authorisations and escalations as they happen.",
+  },
 };
 
 export const TAB_ORDER: RoadRecoveryTab[] = [
@@ -107,6 +116,7 @@ export const TAB_ORDER: RoadRecoveryTab[] = [
   "billing",
   "intelligence",
   "targets",
+  "notifications",
 ];
 
 export default function RoadRecoveryShell({

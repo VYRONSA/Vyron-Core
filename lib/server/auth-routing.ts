@@ -137,6 +137,11 @@ const EMPLOYEE_ALLOWED_PREFIXES = [
   // (accept / decline / en route / GPS arrival) and nothing else in the vertical — the
   // Dispatch Board and Live Operations Wall stay with supervisors and above.
   "/road-recovery/driver",
+  // A driver's own notification inbox. The endpoint behind it resolves the recipient from
+  // the session and returns only their rows plus control-room broadcasts, so this exposes
+  // nothing belonging to another driver — and without it a driver could be told about a
+  // job and have nowhere to read it.
+  "/road-recovery/notifications",
 ] as const;
 
 // /settings is the workspace governance area (Users & Access). Company owners and

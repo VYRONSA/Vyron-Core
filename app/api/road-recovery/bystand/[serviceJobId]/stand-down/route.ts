@@ -6,7 +6,7 @@ import {
   parseError,
   readJson,
   requireApiContext,
-  serviceResponse,
+  runIdempotentMutation,
 } from "@/lib/road-recovery/api";
 
 /** Stand-down: request (controller or driver) then confirm, which SEALS the billing. */
@@ -25,7 +25,12 @@ export async function POST(
     if (!serviceJobId) return errorResponse("serviceJobId is required.", 400);
 
     if (action === "request") {
-      return serviceResponse(
+      return await runIdempotentMutation(
+      context.ctx,
+      body,
+      "transition",
+      serviceJobId,
+      async () =>
         await requestStandDown(context.ctx.auth.supabase, {
           companyId: context.ctx.companyId,
           actorEmail: context.ctx.auth.email,
@@ -38,7 +43,12 @@ export async function POST(
     }
 
     if (action === "confirm") {
-      return serviceResponse(
+      return await runIdempotentMutation(
+      context.ctx,
+      body,
+      "transition",
+      serviceJobId,
+      async () =>
         await confirmStandDown(context.ctx.auth.supabase, {
           companyId: context.ctx.companyId,
           actorEmail: context.ctx.auth.email,

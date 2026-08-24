@@ -17,11 +17,20 @@ import {
   parseError,
   requireApiContext as requireCompanyApiContext,
 } from "@/lib/employee-relations-api";
+import { asText } from "@/lib/road-recovery/coerce";
 import { normalizeRbacRole } from "@/lib/server/auth-routing";
 import { hasModuleEntitlement } from "@/lib/server/module-entitlement";
+import {
+  readOperationId,
+  withIdempotency,
+  type RrOperationKind,
+} from "@/lib/road-recovery/idempotency";
 import type { RrServiceResult } from "@/lib/road-recovery/job-service";
 
 export { parseError };
+// Pure coercions live in their own module so they are unit-testable without
+// pulling next/server into the test loader. Re-exported so call sites are unchanged.
+export { asText, asNumberOrNull, asBooleanOrNull } from "@/lib/road-recovery/coerce";
 
 /**
  * The Road & Recovery endpoints a DRIVER may call.
@@ -46,6 +55,10 @@ const DRIVER_ALLOWED_API_PREFIXES = [
   "/api/road-recovery/driver",
   "/api/road-recovery/assignments",
   "/api/road-recovery/bystand/reason-codes",
+  // A driver's own notification inbox. The endpoint resolves the recipient from the
+  // session and returns only their rows plus control-room broadcasts, so opening it to
+  // employees exposes nothing another driver owns.
+  "/api/road-recovery/notifications",
 ] as const;
 
 /** Job-scoped routes a driver's own screen calls, matched on the trailing segment. */
@@ -175,21 +188,6 @@ export async function requireApiContext(
   return context;
 }
 
-export function asText(value: unknown): string {
-  return String(value ?? "").trim();
-}
-
-export function asNumberOrNull(value: unknown): number | null {
-  if (value === null || value === undefined || value === "") return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-export function asBooleanOrNull(value: unknown): boolean | null {
-  if (value === null || value === undefined || value === "") return null;
-  return value === true || value === "true";
-}
-
 /** Body parser that never throws — an unparseable body is an empty object. */
 export async function readJson(request: NextRequest): Promise<Record<string, unknown>> {
   const body = await request.json().catch(() => null);
@@ -235,4 +233,80 @@ export async function resolveDriverEmployeeId(
     };
   }
   return { ok: true, employeeId: String((data as { id: string }).id) };
+}
+
+/**
+ * Runs a mutation at most once per (tenant, operationId).
+ *
+ * Wraps the existing serviceResponse() flow so a route adopts idempotency by
+ * changing one line. When the body carries no operationId the mutation runs
+ * exactly as it always has — every online path is unaffected, and routes can be
+ * migrated one at a time.
+ *
+ * OWNERSHIP IS NEVER TAKEN FROM THE BODY. companyId and actorEmail come from the
+ * verified context, and the database's WITH CHECK refuses anything else, so a
+ * client cannot file a receipt against another tenant or another user.
+ *
+ * The receipt is only marked succeeded once `execute` has resolved, which for
+ * PostgREST means the underlying writes have committed. A mutation that throws
+ * marks the receipt failed and lets the next retry through.
+ */
+export async function runIdempotentMutation<T>(
+  ctx: { auth: { supabase: SupabaseClient; email: string }; companyId: string },
+  body: Record<string, unknown>,
+  operationKind: RrOperationKind,
+  serviceJobId: string | null,
+  execute: () => Promise<RrServiceResult<T>>
+): Promise<NextResponse> {
+  const operationId = readOperationId(body.operationId);
+
+  if (!operationId) {
+    return serviceResponse(await execute());
+  }
+
+  // The receipt hashes the request MINUS the operation id itself: the id
+  // identifies the attempt, it is not part of what was asked for.
+  const { operationId: _ignored, ...requestBody } = body;
+
+  let serviceResult: RrServiceResult<T> | null = null;
+
+  const outcome = await withIdempotency(
+    ctx.auth.supabase,
+    {
+      companyId: ctx.companyId,
+      actorEmail: ctx.auth.email,
+      operationId,
+      operationKind,
+      serviceJobId,
+      requestBody,
+    },
+    async () => {
+      serviceResult = await execute();
+      // A refused mutation is a real answer, not a failure to record: replaying
+      // it keeps a retry from re-attempting something the workflow already
+      // rejected. Only a THROWN error marks the receipt failed.
+      return serviceResult;
+    }
+  );
+
+  if (outcome.status === "conflict") {
+    return NextResponse.json(
+      { ok: false, error: outcome.message, code: outcome.code },
+      { status: 409 }
+    );
+  }
+  if (outcome.status === "in_progress") {
+    return NextResponse.json(
+      { ok: false, error: outcome.message, code: outcome.code },
+      { status: 409 }
+    );
+  }
+
+  const replayed = outcome.status === "replayed";
+  const result = (serviceResult ?? outcome.result) as RrServiceResult<T>;
+  const response = serviceResponse(result);
+  // Lets the client's outbox tell "this ran now" from "this had already run",
+  // without exposing the receipt itself.
+  response.headers.set("x-rr-operation", replayed ? "replayed" : "executed");
+  return response;
 }

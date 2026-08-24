@@ -22,7 +22,9 @@ export async function GET(request: NextRequest) {
     let query = context.ctx.auth.supabase
       .from("rr_service_jobs")
       .select(
-        "id,field_job_id,service_type_id,workflow_key,service_state,state_entered_at,counterparty_id,origin_label,origin_address,origin_latitude,origin_longitude,destination_label,vehicle_registration,vehicle_make,vehicle_model,created_at"
+        // The three safety flags travel with every job: a control room that cannot see
+        // casualty, hazmat or an undriveable vehicle is dispatching blind.
+        "id,field_job_id,service_type_id,workflow_key,service_state,state_entered_at,counterparty_id,origin_label,origin_address,origin_latitude,origin_longitude,destination_label,vehicle_registration,vehicle_make,vehicle_model,casualty_flag,hazmat_flag,vehicle_is_drivable,created_at"
       )
       .eq("company_id", context.ctx.companyId)
       .eq("record_status", "active")
@@ -73,6 +75,11 @@ export async function POST(request: NextRequest) {
       vehicleMake: asText(body.vehicleMake) || null,
       vehicleModel: asText(body.vehicleModel) || null,
       vehicleIsDrivable: asBooleanOrNull(body.vehicleIsDrivable),
+      // Coerced to a strict boolean, so a truthy string or a missing field can
+      // never produce an ambiguous safety state. companyId and actor still come
+      // from the verified context above, never from this body.
+      casualtyFlag: asBooleanOrNull(body.casualtyFlag) === true,
+      hazmatFlag: asBooleanOrNull(body.hazmatFlag) === true,
       priority: asText(body.priority) || "high",
     });
 

@@ -7,6 +7,7 @@ import {
   parseError,
   readJson,
   requireApiContext,
+  runIdempotentMutation,
 } from "@/lib/road-recovery/api";
 
 /**
@@ -79,7 +80,20 @@ export async function POST(
       ? body.requirementCodes.map((code: unknown) => asText(code)).filter(Boolean)
       : [];
 
-    const result = await captureJobEvidence(supabase, {
+    /**
+     * Idempotent when the client supplies an operationId.
+     *
+     * Evidence is the case that most needs it: the binary is uploaded to storage
+     * FIRST and this call records it. If the response is lost after the row was
+     * written, a naive retry would file the same photograph twice against the
+     * same job. The receipt replays the original result instead.
+     */
+    return await runIdempotentMutation(
+      context.ctx,
+      body,
+      "capture_evidence",
+      serviceJobId,
+      async () => await captureJobEvidence(supabase, {
       companyId,
       actorEmail: context.ctx.auth.email,
       employeeId: String((employee as { id: string }).id),
@@ -97,10 +111,8 @@ export async function POST(
         typeof body.metadata === "object" && body.metadata !== null && !Array.isArray(body.metadata)
           ? (body.metadata as Record<string, unknown>)
           : {},
-    });
-
-    if (!result.ok) return errorResponse(result.message, result.status);
-    return NextResponse.json({ ok: true, ...result.data });
+      })
+    );
   } catch (error: unknown) {
     return errorResponse(parseError(error), 500);
   }

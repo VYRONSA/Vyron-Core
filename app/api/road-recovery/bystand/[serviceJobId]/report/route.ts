@@ -6,7 +6,7 @@ import {
   parseError,
   readJson,
   requireApiContext,
-  serviceResponse,
+  runIdempotentMutation,
 } from "@/lib/road-recovery/api";
 
 export async function POST(
@@ -29,7 +29,12 @@ export async function POST(
         ? (body.observations as Record<string, unknown>)
         : {};
 
-    return serviceResponse(
+    return await runIdempotentMutation(
+      context.ctx,
+      body,
+      "add_note",
+      serviceJobId,
+      async () =>
       await submitObservationReport(context.ctx.auth.supabase, {
         companyId: context.ctx.companyId,
         actorEmail: context.ctx.auth.email,

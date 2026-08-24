@@ -7,8 +7,8 @@ import {
   parseError,
   readJson,
   requireApiContext,
+  runIdempotentMutation,
   resolveDriverEmployeeId,
-  serviceResponse,
 } from "@/lib/road-recovery/api";
 
 /**
@@ -34,7 +34,17 @@ export async function POST(request: NextRequest) {
     );
     if (!driver.ok) return errorResponse(driver.message, driver.status);
 
-    const result = await driverRecordArrival(context.ctx.auth.supabase, {
+    /**
+     * Idempotent when the client supplies an operationId: a queued offline
+     * action retried after the network returns must not move the job twice.
+     * The server receipt is the authority, never the device.
+     */
+    return await runIdempotentMutation(
+      context.ctx,
+      body,
+      "arrive",
+      serviceJobId || null,
+      async () => driverRecordArrival(context.ctx.auth.supabase, {
       companyId: context.ctx.companyId,
       actorEmail: context.ctx.auth.email,
       serviceJobId,
@@ -44,9 +54,9 @@ export async function POST(request: NextRequest) {
       accuracy: asNumberOrNull(body.accuracy),
       radiusMeters: asNumberOrNull(body.radiusMeters) ?? undefined,
       overrideReason: asText(body.overrideReason) || null,
-    });
+    })
+    );
 
-    return serviceResponse(result);
   } catch (error: unknown) {
     return errorResponse(parseError(error), 500);
   }

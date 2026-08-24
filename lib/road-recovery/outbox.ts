@@ -1,0 +1,310 @@
+"use client";
+
+/**
+ * The Road & Recovery offline outbox.
+ *
+ * ONE place that touches IndexedDB. Screens call `enqueue()` and subscribe;
+ * nothing else in the application opens a database, so there is a single answer
+ * to "what is queued and what state is it in".
+ *
+ * THE CONTRACT WITH THE SERVER
+ *
+ *   operationId is generated ONCE, at enqueue, and is written to IndexedDB
+ *   before any network attempt. Every retry sends that same id. That id is the
+ *   key of rr_operation_receipts (sql/095), which is what makes the server able
+ *   to say "already ran" instead of running it twice.
+ *
+ *   Generating the id at SEND time instead would defeat the entire mechanism:
+ *   each retry would look like a new operation and the receipt would never match.
+ *
+ * The queue is written first and sent second, always. A driver who taps Complete
+ * and immediately loses signal — or closes the browser — has their work on disk
+ * before the request is even attempted.
+ */
+
+import {
+  applyOutcome,
+  classifyNetworkError,
+  classifyResponse,
+  driverStatusFor,
+  isDue,
+  type RrDriverStatus,
+  type RrOutboxItem,
+} from "@/lib/road-recovery/outbox-policy";
+
+const DB_NAME = "vyron-rr-outbox";
+/**
+ * ONE version for ONE database.
+ *
+ * The evidence queue keeps its blobs in the same database so there is a single
+ * store to reason about, which means the schema must be owned in one place: two
+ * modules opening the same name at different versions makes whichever opens
+ * second throw VersionError, and silently kills the queue.
+ */
+const DB_VERSION = 2;
+const STORE = "operations";
+const BLOB_STORE = "evidenceBlobs";
+
+/** Guards against two tabs (or a tab and the SW-triggered drain) sending the same item. */
+const inFlight = new Set<string>();
+
+type Listener = (items: RrOutboxItem[]) => void;
+const listeners = new Set<Listener>();
+
+function browser(): boolean {
+  return typeof window !== "undefined" && typeof indexedDB !== "undefined";
+}
+
+/** Opens the one Road & Recovery database, creating every store it owns. */
+export function openRrDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        const store = db.createObjectStore(STORE, { keyPath: "operationId" });
+        store.createIndex("state", "state", { unique: false });
+        store.createIndex("serviceJobId", "serviceJobId", { unique: false });
+      }
+      if (!db.objectStoreNames.contains(BLOB_STORE)) {
+        const store = db.createObjectStore(BLOB_STORE, { keyPath: "operationId" });
+        store.createIndex("serviceJobId", "record.serviceJobId", { unique: false });
+        store.createIndex("state", "record.state", { unique: false });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+const openDb = openRrDb;
+
+async function tx<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+  const db = await openDb();
+  return new Promise<T>((resolve, reject) => {
+    const transaction = db.transaction(STORE, mode);
+    const request = run(transaction.objectStore(STORE));
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+    transaction.oncomplete = () => db.close();
+  });
+}
+
+export async function allItems(): Promise<RrOutboxItem[]> {
+  if (!browser()) return [];
+  const rows = await tx<RrOutboxItem[]>("readonly", (store) => store.getAll() as IDBRequest<RrOutboxItem[]>);
+  return rows.sort((a, b) => a.createdAt - b.createdAt);
+}
+
+async function put(item: RrOutboxItem): Promise<void> {
+  await tx("readwrite", (store) => store.put(item) as IDBRequest<IDBValidKey>);
+  void notify();
+}
+
+export async function removeItem(operationId: string): Promise<void> {
+  await tx("readwrite", (store) => store.delete(operationId) as unknown as IDBRequest<undefined>);
+  void notify();
+}
+
+async function notify(): Promise<void> {
+  if (listeners.size === 0) return;
+  const items = await allItems();
+  listeners.forEach((listener) => listener(items));
+}
+
+/** Subscribe to queue changes. Returns an unsubscribe function. */
+export function subscribe(listener: Listener): () => void {
+  listeners.add(listener);
+  void allItems().then((items) => listener(items));
+  return () => listeners.delete(listener);
+}
+
+export type EnqueueInput = {
+  operationType: string;
+  route: string;
+  payload: Record<string, unknown>;
+  serviceJobId?: string | null;
+  label: string;
+  /**
+   * An id generated EARLIER by a caller that already committed to it.
+   *
+   * Evidence is the only such caller: its storage path is derived from the id at
+   * capture time, so the row must be filed under that same id for one receipt to
+   * cover both halves. Everything else omits this and gets a fresh id here.
+   */
+  operationId?: string;
+  /**
+   * May this operation execute LATER than the driver performed it?
+   *
+   * Defaults to FALSE. Deferring almost anything falsifies a server-stamped
+   * timestamp, so an action must opt IN to being deferrable rather than opt out.
+   */
+  offlineSafe?: boolean;
+};
+
+/**
+ * Puts an operation on the queue and tries to send it.
+ *
+ * The write to IndexedDB completes BEFORE the first attempt, so the operation
+ * survives a crash, a refresh or a closed browser between tap and response.
+ */
+export async function enqueue(input: EnqueueInput): Promise<RrOutboxItem> {
+  const item: RrOutboxItem = {
+    // Once, and never regenerated — either here, or by the caller that already
+    // built something else (an evidence storage path) out of it.
+    operationId: input.operationId ?? crypto.randomUUID(),
+    operationType: input.operationType,
+    route: input.route,
+    payload: input.payload,
+    serviceJobId: input.serviceJobId ?? null,
+    label: input.label,
+    createdAt: Date.now(),
+    state: "QUEUED",
+    attempts: 0,
+    lastError: null,
+    failureKind: null,
+    nextAttemptAt: null,
+    offlineSafe: input.offlineSafe === true,
+  };
+
+  if (!browser()) return item;
+
+  await put(item);
+
+  if (!item.offlineSafe && typeof navigator !== "undefined" && navigator.onLine === false) {
+    const failed = applyOutcome(item, classifyNetworkError("", false), Date.now());
+    await put(failed);
+    return failed;
+  }
+
+  void processQueue();
+  return item;
+}
+
+/** One attempt for one item. Returns the item's new state. */
+async function attempt(item: RrOutboxItem): Promise<RrOutboxItem> {
+  // The operationId travels in the body, alongside the payload the route expects.
+  const body = JSON.stringify({ ...item.payload, operationId: item.operationId });
+
+  let outcome;
+  try {
+    const response = await fetch(item.route, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      // Never let a queued mutation be served from a cache.
+      cache: "no-store",
+    });
+    const parsed = await response.json().catch(() => null);
+    outcome = classifyResponse({
+      status: response.status,
+      operationHeader: response.headers.get("x-rr-operation"),
+      body: parsed,
+    });
+  } catch (error: unknown) {
+    outcome = classifyNetworkError(
+      error instanceof Error ? error.message : "No connection.",
+      item.offlineSafe
+    );
+  }
+
+  const next = applyOutcome(item, outcome, Date.now());
+  await put(next);
+  return next;
+}
+
+let draining = false;
+
+/**
+ * Sends everything that is due.
+ *
+ * Serialised: `draining` stops two concurrent callers (a reconnect event and the
+ * service worker, say) from processing the same queue at once, and `inFlight`
+ * stops the same operation being sent twice even if that guard is bypassed.
+ */
+export async function processQueue(): Promise<void> {
+  if (!browser() || draining) return;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+
+  draining = true;
+  try {
+    const now = Date.now();
+    const due = (await allItems()).filter((item) => isDue(item, now) && !inFlight.has(item.operationId));
+
+    for (const item of due) {
+      inFlight.add(item.operationId);
+      try {
+        await put({ ...item, state: "SENDING" });
+        await attempt(item);
+      } finally {
+        inFlight.delete(item.operationId);
+      }
+    }
+  } finally {
+    draining = false;
+    void notify();
+  }
+}
+
+/**
+ * Manual retry for an item the driver was asked to attend to.
+ *
+ * Keeps the SAME operationId — this is a retry of the same operation, not a new
+ * one, so the server can still recognise it if the original did land.
+ */
+export async function retryItem(operationId: string): Promise<void> {
+  const items = await allItems();
+  const item = items.find((row) => row.operationId === operationId);
+  if (!item) return;
+  await put({ ...item, state: "QUEUED", attempts: 0, lastError: null, failureKind: null, nextAttemptAt: null });
+  void processQueue();
+}
+
+/** Clear operations that completed, so the queue does not grow forever. */
+export async function pruneSucceeded(olderThanMs = 60_000): Promise<void> {
+  const cutoff = Date.now() - olderThanMs;
+  const items = await allItems();
+  await Promise.all(
+    items
+      .filter((item) => item.state === "SUCCEEDED" && item.createdAt < cutoff)
+      .map((item) => removeItem(item.operationId))
+  );
+}
+
+/* ── Wiring ───────────────────────────────────────────────────────────────── */
+
+let started = false;
+
+/**
+ * Starts the drivers of the queue: reconnect, tab focus, a slow timer for
+ * backoff windows, and messages from the service worker.
+ *
+ * Idempotent, so a component may call it on every mount.
+ */
+export function startOutbox(): void {
+  if (!browser() || started) return;
+  started = true;
+
+  // The moment signal returns. This is what removes the manual "Sync" button.
+  window.addEventListener("online", () => void processQueue());
+  // Coming back to the tab is the other common moment connectivity has returned
+  // without an 'online' event having fired.
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) void processQueue();
+  });
+  // Backoff windows expire on their own schedule; nothing else would wake them.
+  setInterval(() => void processQueue(), 15_000);
+
+  navigator.serviceWorker?.addEventListener?.("message", (event: MessageEvent) => {
+    if (event.data?.type === "rr-outbox-drain") void processQueue();
+  });
+
+  void processQueue();
+}
+
+/** Driver-facing status for one item. Re-exported so screens import one module. */
+export function statusFor(item: RrOutboxItem, online: boolean): RrDriverStatus {
+  return driverStatusFor(item, online);
+}
+
+export type { RrOutboxItem, RrDriverStatus };

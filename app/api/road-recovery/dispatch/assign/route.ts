@@ -3,6 +3,11 @@ import { NextRequest } from "next/server";
 import { evaluateAndPersistCandidates } from "@/lib/road-recovery/dispatch-data";
 import { offerAssignment } from "@/lib/road-recovery/job-service";
 import {
+  composeAssignmentOffered,
+  emitRrNotification,
+  loadRrJobSummary,
+} from "@/lib/road-recovery/notifications";
+import {
   asText,
   errorResponse,
   parseError,
@@ -66,7 +71,36 @@ export async function POST(request: NextRequest) {
       employeeId,
       fieldVehicleId: chosen.fieldVehicleId,
       candidateId: (candidateRow as { id?: string } | null)?.id || null,
+      // Controller's instructions for this driver, stored on the column the assignment
+      // table already has. Trimmed and capped rather than passed through untouched.
+      notes: asText(body.notes).slice(0, 2000) || null,
     });
+
+    /**
+     * Tell the driver, so the office does not have to phone them.
+     *
+     * Emitted only on success, and deliberately not awaited into the result: a failed
+     * notification must not fail a dispatch that already happened. The driver's board
+     * polls independently, so the job still reaches them either way.
+     */
+    if (result.ok) {
+      const job = await loadRrJobSummary(
+        context.ctx.auth.supabase,
+        context.ctx.companyId,
+        serviceJobId
+      );
+      if (job) {
+        await emitRrNotification(
+          context.ctx.auth.supabase,
+          composeAssignmentOffered(
+            context.ctx.companyId,
+            employeeId,
+            job,
+            result.data?.assignmentId || ""
+          )
+        );
+      }
+    }
 
     return serviceResponse(result);
   } catch (error: unknown) {

@@ -140,6 +140,15 @@ export type CreateServiceJobInput = {
   vehicleMake?: string | null;
   vehicleModel?: string | null;
   vehicleIsDrivable?: boolean | null;
+  /**
+   * Safety flags. Captured at intake because the controller taking the call is
+   * the only person who knows, and the driver needs them before they arrive.
+   * Absent means "not reported", which is stored as false rather than null: a
+   * driver reads a missing warning as "no casualty", so the column should say
+   * the same thing rather than leaving it unknown.
+   */
+  casualtyFlag?: boolean | null;
+  hazmatFlag?: boolean | null;
   priority?: string;
 };
 
@@ -256,6 +265,8 @@ export async function createServiceJob(
       vehicle_make: input.vehicleMake || null,
       vehicle_model: input.vehicleModel || null,
       vehicle_is_drivable: input.vehicleIsDrivable ?? null,
+      casualty_flag: input.casualtyFlag === true,
+      hazmat_flag: input.hazmatFlag === true,
       created_by: input.actorEmail,
     })
     .select("id")
@@ -656,6 +667,8 @@ export type OfferAssignmentInput = {
   employeeId: string;
   fieldVehicleId?: string | null;
   candidateId?: string | null;
+  /** Controller instructions for the driver. Stored on rr_dispatch_assignments.notes. */
+  notes?: string | null;
 };
 
 /**
@@ -704,6 +717,7 @@ export async function offerAssignment(
       assignment_status: "offered",
       sequence_number: nextSequence,
       offered_by: input.actorEmail,
+      notes: input.notes || null,
     })
     .select("id")
     .single();
@@ -1027,17 +1041,39 @@ export async function driverRecordArrival(
     overrideReason?: string | null;
   }
 ): Promise<RrServiceResult<ArrivalResult>> {
-  if (input.latitude == null || input.longitude == null) {
+  /**
+   * GPS, or an explicit stated reason. Never neither.
+   *
+   * The requirement is NOT relaxed: an arrival with no coordinates and no reason
+   * is still refused, exactly as before. What is added is the controlled
+   * exception the field genuinely needs — a driver in a signal shadow, or with
+   * location switched off, must still be able to record that they arrived, and
+   * the record must say plainly that it was not verified and why.
+   *
+   * The alternative is worse than it looks: with no exception path a driver
+   * either cannot progress the job at all, or the crew starts recording arrivals
+   * from somewhere with signal, which corrupts the evidence silently rather than
+   * visibly.
+   *
+   * The exception is auditable: it takes the UNVERIFIED branch below, the reason
+   * is written into the state event and the field event, and gpsVerified comes
+   * back false so no caller can mistake it for a confirmed arrival.
+   */
+  const hasCoordinates = input.latitude != null && input.longitude != null;
+  const statedReason = asText(input.overrideReason);
+
+  if (!hasCoordinates && !statedReason) {
     return fail(
       "GPS coordinates are required to record scene arrival. Enable location services and try again.",
       400
     );
   }
   if (
-    !Number.isFinite(input.latitude) ||
-    !Number.isFinite(input.longitude) ||
-    Math.abs(input.latitude) > 90 ||
-    Math.abs(input.longitude) > 180
+    hasCoordinates &&
+    (!Number.isFinite(input.latitude) ||
+      !Number.isFinite(input.longitude) ||
+      Math.abs(input.latitude as number) > 90 ||
+      Math.abs(input.longitude as number) > 180)
   ) {
     return fail("The supplied GPS coordinates are not valid.", 400);
   }
@@ -1056,7 +1092,7 @@ export async function driverRecordArrival(
   const sceneLat = asNumberOrNull(row.origin_latitude);
   const sceneLng = asNumberOrNull(row.origin_longitude);
 
-  if (sceneLat == null || sceneLng == null) {
+  if (hasCoordinates && (sceneLat == null || sceneLng == null)) {
     return fail(
       "This job has no scene coordinates, so an arrival cannot be GPS-verified. Add the scene location first.",
       409
@@ -1067,18 +1103,22 @@ export async function driverRecordArrival(
   const fieldJobId = asText(row.field_job_id);
 
   // The EXISTING GPS validation implementation. It writes mobile_gps_validations.
-  const validation = await validateMobileGpsRadius(supabase, {
+  // Skipped entirely on the exception path: there is no position to measure, and
+  // inventing one would be the silent fallback this design refuses.
+  const validation = hasCoordinates
+    ? await validateMobileGpsRadius(supabase, {
     companyId: input.companyId,
     employeeId: input.employeeId,
-    employeeLat: input.latitude,
-    employeeLng: input.longitude,
-    siteLat: sceneLat,
-    siteLng: sceneLng,
+    employeeLat: input.latitude as number,
+    employeeLng: input.longitude as number,
+    siteLat: sceneLat as number,
+    siteLng: sceneLng as number,
     radiusMeters,
     jobId: fieldJobId,
     referenceType: "rr_scene_arrival",
     createException: true,
-  });
+      })
+    : { insideRadius: false, distanceMeters: null, validationId: null, radiusMeters };
 
   if (!validation.insideRadius && !asText(input.overrideReason)) {
     return {
@@ -1106,7 +1146,11 @@ export async function driverRecordArrival(
     actorRole: "driver",
     serviceJobId: input.serviceJobId,
     toState: arrivalState.state,
-    reason: validation.insideRadius ? null : `Off-scene arrival: ${input.overrideReason}`,
+    reason: validation.insideRadius
+      ? null
+      : hasCoordinates
+        ? `Off-scene arrival: ${statedReason}`
+        : `Arrival recorded without location. Reason: ${statedReason}`,
     latitude: input.latitude,
     longitude: input.longitude,
     gpsAccuracy: input.accuracy ?? null,
@@ -1126,7 +1170,9 @@ export async function driverRecordArrival(
     accuracy: input.accuracy ?? null,
     notes: validation.insideRadius
       ? `GPS verified: ${Math.round(validation.distanceMeters ?? 0)}m from scene.`
-      : `GPS UNVERIFIED (${Math.round(validation.distanceMeters ?? 0)}m from scene): ${input.overrideReason}`,
+      : hasCoordinates
+        ? `GPS UNVERIFIED (${Math.round(validation.distanceMeters ?? 0)}m from scene): ${statedReason}`
+        : `GPS UNAVAILABLE — arrival recorded on the driver's explicit statement: ${statedReason}`,
   });
 
   return {

@@ -11,7 +11,7 @@ import {
   parseError,
   readJson,
   requireApiContext,
-  serviceResponse,
+  runIdempotentMutation,
 } from "@/lib/road-recovery/api";
 
 /**
@@ -42,7 +42,12 @@ export async function POST(
     };
 
     if (action === "begin") {
-      return serviceResponse(
+      return await runIdempotentMutation(
+      context.ctx,
+      body,
+      "transition",
+      serviceJobId,
+      async () =>
         await beginStandingBy(context.ctx.auth.supabase, {
           ...shared,
           latitude: asNumberOrNull(body.latitude),
@@ -53,7 +58,12 @@ export async function POST(
     }
 
     if (action === "pause") {
-      return serviceResponse(
+      return await runIdempotentMutation(
+      context.ctx,
+      body,
+      "transition",
+      serviceJobId,
+      async () =>
         await pauseStanding(context.ctx.auth.supabase, {
           ...shared,
           pauseState: asText(body.pauseState),
@@ -63,7 +73,12 @@ export async function POST(
     }
 
     if (action === "resume") {
-      return serviceResponse(await resumeStanding(context.ctx.auth.supabase, shared));
+      return await runIdempotentMutation(
+      context.ctx,
+      body,
+      "transition",
+      serviceJobId,
+      async () =>await resumeStanding(context.ctx.auth.supabase, shared));
     }
 
     return errorResponse('action must be one of "begin", "pause" or "resume".', 400);

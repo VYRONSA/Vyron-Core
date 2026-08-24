@@ -23,6 +23,22 @@ const PLACEHOLDER_HOST_RE =
 
 const PLACEHOLDER_ANON_RE = /^(your-anon-key|YOUR_SUPABASE_ANON_KEY)$/i;
 
+/**
+ * The `supabase start` stack, which serves plain HTTP on a fixed loopback port.
+ *
+ * Without this the guard makes it impossible to build the app against a local database,
+ * which is the only safe place to exercise write workflows — every alternative points a
+ * developer at the production project.
+ *
+ * Deliberately narrow, and it cannot weaken the production check: the host must be
+ * loopback and the port must be the CLI's fixed 54321. No deployed environment can reach
+ * a loopback address, so a real deployment that somehow carried this value would fail at
+ * request time regardless — this only decides whether `next build` refuses up front.
+ */
+function isLocalSupabaseUrl(url: string): boolean {
+  return /^http:\/\/(127\.0\.0\.1|localhost)(:54321)$/i.test(url);
+}
+
 export function validatePublicSupabaseEnv(): string[] {
   const { url, anonKey } = readPublicSupabaseEnv();
   const problems: string[] = [];
@@ -35,9 +51,10 @@ export function validatePublicSupabaseEnv(): string[] {
       problems.push("NEXT_PUBLIC_SUPABASE_URL is still a placeholder");
     }
     const normalized = url.replace(/\/+$/, "");
-    if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(normalized)) {
+    if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(normalized) && !isLocalSupabaseUrl(normalized)) {
       problems.push(
-        "NEXT_PUBLIC_SUPABASE_URL must be https://<project-ref>.supabase.co (no trailing path, no extra quotes)"
+        "NEXT_PUBLIC_SUPABASE_URL must be https://<project-ref>.supabase.co, " +
+          "or the local Supabase stack on http://127.0.0.1:54321"
       );
     }
   }

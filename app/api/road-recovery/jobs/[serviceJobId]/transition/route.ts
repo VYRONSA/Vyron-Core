@@ -7,7 +7,7 @@ import {
   parseError,
   readJson,
   requireApiContext,
-  serviceResponse,
+  runIdempotentMutation,
 } from "@/lib/road-recovery/api";
 
 export async function POST(
@@ -26,7 +26,17 @@ export async function POST(
       return errorResponse("serviceJobId and toState are required.", 400);
     }
 
-    const result = await transitionServiceJob(context.ctx.auth.supabase, {
+    /**
+     * Idempotent when the client supplies an operationId: a queued offline
+     * action retried after the network returns must not move the job twice.
+     * The server receipt is the authority, never the device.
+     */
+    return await runIdempotentMutation(
+      context.ctx,
+      body,
+      "transition",
+      serviceJobId || null,
+      async () => transitionServiceJob(context.ctx.auth.supabase, {
       companyId: context.ctx.companyId,
       actorEmail: context.ctx.auth.email,
       serviceJobId,
@@ -35,9 +45,9 @@ export async function POST(
       latitude: asNumberOrNull(body.latitude),
       longitude: asNumberOrNull(body.longitude),
       gpsAccuracy: asNumberOrNull(body.accuracy),
-    });
+    })
+    );
 
-    return serviceResponse(result);
   } catch (error: unknown) {
     return errorResponse(parseError(error), 500);
   }

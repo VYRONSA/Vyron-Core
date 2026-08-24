@@ -18753,7 +18753,28 @@ return (
           <Sidebar active={active} setActive={setActive} alertCounts={alertCounts} openGroup={activeSidebarGroup} setOpenGroup={setActiveSidebarGroup} userRole={layoutUserRole} userEmail={normalizedAuthEmail} hasCompanyAccess={hasTenantCompanyAccess} coreSupportMode={isVyronCoreSupportView} tenantWorkspacePlan={tenantWorkspaceSidebarPlan} platformOperator={platformOperatorSession} roadRecoveryEnabled={roadRecoveryEnabled} />
         </div>
 
-        <section className={active === "Command Centre" ? "bg-[#07101f]" : "bg-[#f6f8fb] p-4 md:p-8"}>
+        {/*
+          Content column.
+
+          `min-w-0` is required on a grid child: its default `min-width: auto` refuses to
+          shrink below its content, so one wide table would widen the 1fr track and push
+          the whole page into a horizontal scroll.
+
+          The padding is load-bearing, not decoration. The Command Centre screens render a
+          full-bleed hero built the conventional way — `-m-6 md:-m-8` cancelling the
+          parent's padding, then re-applying its own inside. This column previously had NO
+          padding in Command Centre mode, so there was nothing for that negative margin to
+          cancel: the hero escaped 32px to the LEFT, painting over the sticky sidebar and
+          covering the right edge of the Road & Recovery row, and 32px to the RIGHT, making
+          the document 32px wider than the viewport. Matching the padding to the margin the
+          children already cancel fixes the overlap and the overflow together, and leaves
+          the hero rendering exactly as designed.
+        */}
+        <section
+          className={`min-w-0 ${
+            active === "Command Centre" ? "bg-[#07101f] p-6 md:p-8" : "bg-[#f6f8fb] p-4 md:p-8"
+          }`}
+        >
           {active !== "Command Centre" && (
             <Header
               active={active}

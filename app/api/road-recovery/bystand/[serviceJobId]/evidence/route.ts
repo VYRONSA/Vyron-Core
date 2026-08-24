@@ -13,8 +13,8 @@ import {
   parseError,
   readJson,
   requireApiContext,
+  runIdempotentMutation,
   resolveDriverEmployeeId,
-  serviceResponse,
 } from "@/lib/road-recovery/api";
 
 export async function GET(
@@ -88,7 +88,12 @@ export async function POST(
       );
     }
 
-    return serviceResponse(
+    return await runIdempotentMutation(
+      context.ctx,
+      body,
+      "capture_evidence",
+      serviceJobId,
+      async () =>
       await recordBystandEvidence(context.ctx.auth.supabase, {
         companyId: context.ctx.companyId,
         actorEmail: context.ctx.auth.email,
