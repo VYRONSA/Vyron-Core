@@ -42,7 +42,12 @@ import DriverJobWorkflow from "@/components/road-recovery/DriverJobWorkflow";
 import IncidentReporter from "@/components/mobile/IncidentReporter";
 import { useRoadRecoveryCompany } from "@/lib/road-recovery/use-company";
 import { rrFetchJson, RR_POLL_INTERVALS, useRrPoll } from "@/lib/road-recovery/use-rr-poll";
-import { allDrafts, markSubmitted, type RrIncidentDraft } from "@/lib/mobile/incident-drafts";
+import {
+  allDrafts,
+  draftSendState,
+  markSubmitted,
+  type RrIncidentDraft,
+} from "@/lib/mobile/incident-drafts";
 import { allItems, startOutbox, subscribe } from "@/lib/road-recovery/outbox";
 import { drainEvidence } from "@/lib/road-recovery/evidence-queue";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
@@ -223,7 +228,10 @@ export default function EmployeeApp() {
     [incidents.data]
   );
 
+  // Everything still on the device, for the list and the tab badge.
   const unsent = drafts.filter((d) => d.state !== "submitted");
+  // Counted apart for the Home summary, because only one of these sends itself.
+  const sendState = draftSendState(drafts);
 
   if (loading) {
     return <Splash message="Signing you in…" />;
@@ -235,7 +243,7 @@ export default function EmployeeApp() {
   return (
     <div className="flex min-h-dvh flex-col bg-[#f6f8fb]">
       {/* Connection state lives in the chrome, so it is answerable at any moment. */}
-      <header className="sticky top-0 z-20 flex items-center justify-between gap-3 bg-[#07101f] px-4 py-3 text-white">
+      <header className="sticky top-0 z-20 flex items-center justify-between gap-3 bg-[#07101f] px-4 pb-3 pt-[calc(env(safe-area-inset-top,0px)_+_0.75rem)] text-white">
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300">VYRON CORE</p>
           <p className="truncate text-sm font-black">{TABS.find((t) => t.id === tab)?.label}</p>
@@ -268,7 +276,7 @@ export default function EmployeeApp() {
               <HomeTab
                 unread={unread}
                 openIncidents={openIncidents.length}
-                unsentDrafts={unsent.length}
+                sendState={sendState}
                 online={online}
                 onReport={() => { setReporting(true); setTab("incidents"); }}
                 onGo={setTab}
@@ -352,19 +360,24 @@ function Splash({ message, tone = "info" }: { message: string; tone?: "info" | "
 function HomeTab({
   unread,
   openIncidents,
-  unsentDrafts,
+  sendState,
   online,
   onReport,
   onGo,
 }: {
   unread: number;
   openIncidents: number;
-  unsentDrafts: number;
+  sendState: { queued: number; unfinished: number; needsAttention: number };
   online: boolean;
   onReport: () => void;
   onGo: (tab: Tab) => void;
 }) {
-  const nothingOutstanding = unread === 0 && openIncidents === 0 && unsentDrafts === 0;
+  const nothingOutstanding =
+    unread === 0 &&
+    openIncidents === 0 &&
+    sendState.queued === 0 &&
+    sendState.unfinished === 0 &&
+    sendState.needsAttention === 0;
 
   return (
     <div className="flex flex-col gap-3">
@@ -375,11 +388,35 @@ function HomeTab({
         </p>
       )}
 
-      {unsentDrafts > 0 && (
+      {sendState.queued > 0 && (
         <Card
           tone="amber"
-          title={`${unsentDrafts} report${unsentDrafts === 1 ? "" : "s"} waiting to send`}
+          title={`${sendState.queued} report${sendState.queued === 1 ? "" : "s"} waiting to send`}
           detail="Saved on this device. They will send themselves when you have signal."
+          onClick={() => onGo("incidents")}
+        />
+      )}
+
+      {/* An unfinished report will never send on its own — say so, and say what
+          to do about it, rather than promising it is already handled. */}
+      {sendState.unfinished > 0 && (
+        <Card
+          tone="amber"
+          title={`${sendState.unfinished} unfinished report${sendState.unfinished === 1 ? "" : "s"}`}
+          detail={
+            sendState.unfinished === 1
+              ? "Not sent yet. Open it to finish and send it."
+              : "Not sent yet. Open them to finish and send them."
+          }
+          onClick={() => onGo("incidents")}
+        />
+      )}
+
+      {sendState.needsAttention > 0 && (
+        <Card
+          tone="amber"
+          title={`${sendState.needsAttention} report${sendState.needsAttention === 1 ? "" : "s"} need attention`}
+          detail="These could not be sent. Open them to see why."
           onClick={() => onGo("incidents")}
         />
       )}

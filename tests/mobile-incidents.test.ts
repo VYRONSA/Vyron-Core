@@ -241,6 +241,7 @@ describe("incidents — what a control room sees first", () => {
 
 import {
   canSubmit,
+  draftSendState,
   draftStatusText,
   missingFromDraft,
   newDraft,
@@ -301,5 +302,57 @@ describe("incident drafts — nothing an employee writes is lost or overclaimed"
         assert.doesNotMatch(`${status.title} ${status.detail}`, forbidden, `leaked in ${state}`);
       }
     }
+  });
+});
+
+/**
+ * The Home summary counts, and the promise attached to them.
+ *
+ * The bug this covers shipped as: an unfinished draft was counted alongside
+ * queued work and shown as "waiting to send … they will send themselves when
+ * you have signal." Nobody had pressed send on it, so it never would.
+ */
+describe("what Home may promise about reports on the device", () => {
+  const at = (state: RrIncidentDraft["state"]): RrIncidentDraft =>
+    ({ ...newDraft("c1"), state }) as RrIncidentDraft;
+
+  it("counts work the queue owns as waiting to send", () => {
+    const counts = draftSendState([at("submitting"), at("saved_on_device")]);
+    assert.equal(counts.queued, 2);
+    assert.equal(counts.unfinished, 0);
+  });
+
+  it("never counts an unfinished draft as waiting to send", () => {
+    const counts = draftSendState([at("draft")]);
+    assert.equal(counts.queued, 0, "a draft sends itself only if somebody sends it");
+    assert.equal(counts.unfinished, 1);
+  });
+
+  it("keeps failures separate from work still on its way", () => {
+    const counts = draftSendState([at("failed"), at("submitting")]);
+    assert.equal(counts.needsAttention, 1);
+    assert.equal(counts.queued, 1);
+    assert.equal(counts.unfinished, 0);
+  });
+
+  it("ignores reports the control room already has", () => {
+    const counts = draftSendState([at("submitted"), at("submitted")]);
+    assert.deepEqual(counts, { queued: 0, unfinished: 0, needsAttention: 0 });
+  });
+
+  it("separates a mixed device the way an employee would read it", () => {
+    const counts = draftSendState([
+      at("draft"),
+      at("submitting"),
+      at("saved_on_device"),
+      at("failed"),
+      at("submitted"),
+    ]);
+    assert.deepEqual(counts, { queued: 2, unfinished: 1, needsAttention: 1 });
+  });
+
+  it("still tells the truth about a single draft on its own card", () => {
+    const status = draftStatusText(at("draft"), true);
+    assert.match(status.detail, /not sent yet/i);
   });
 });

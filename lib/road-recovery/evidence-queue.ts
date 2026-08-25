@@ -43,6 +43,7 @@
  * second throw VersionError, which is exactly how a queue dies silently.
  */
 import { enqueue, openRrDb as openDb } from "@/lib/road-recovery/outbox";
+import { newOperationId } from "@/lib/operation-id";
 
 const BLOB_STORE = "evidenceBlobs";
 
@@ -162,7 +163,7 @@ export type CaptureInput = {
  * still has the image.
  */
 export async function captureEvidence(input: CaptureInput): Promise<RrEvidenceRecord> {
-  const operationId = crypto.randomUUID();
+  const operationId = newOperationId();
   const contentType = input.blob.type || "image/jpeg";
   const record: RrEvidenceRecord = {
     operationId,

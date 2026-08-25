@@ -33,6 +33,7 @@
  */
 
 import { enqueue, openRrDb } from "@/lib/road-recovery/outbox";
+import { newOperationId } from "@/lib/operation-id";
 
 const STORE = "incidentDrafts";
 
@@ -98,7 +99,7 @@ async function put(draft: RrIncidentDraft): Promise<void> {
 export function newDraft(companyId: string): RrIncidentDraft {
   const now = Date.now();
   return {
-    incidentId: crypto.randomUUID(),
+    incidentId: newOperationId(),
     companyId,
     category: null,
     severity: null,
@@ -220,6 +221,37 @@ export async function markSubmitted(incidentId: string): Promise<void> {
 /**
  * The employee-facing status. Never claims the server has it until it does.
  */
+/**
+ * How many reports are genuinely on their way, and how many are not.
+ *
+ * These must be counted separately because only one of them is true without
+ * the employee doing anything else. A report in `submitting` or
+ * `saved_on_device` has been handed to the outbox and will drain by itself.
+ * A `draft` has not — it is an unfinished report that nobody has pressed send
+ * on, and it will sit on the device forever.
+ *
+ * Collapsing the two into a single "waiting to send … they will send themselves
+ * when you have signal" is the worst possible error for this app to make: it
+ * tells somebody who walked away from a half-written incident report that it is
+ * already handled. A driver has to be able to trust that sentence completely,
+ * so it may only ever be shown for work the queue actually owns.
+ */
+export function draftSendState(drafts: RrIncidentDraft[]): {
+  queued: number;
+  unfinished: number;
+  needsAttention: number;
+} {
+  let queued = 0;
+  let unfinished = 0;
+  let needsAttention = 0;
+  for (const draft of drafts) {
+    if (draft.state === "submitting" || draft.state === "saved_on_device") queued += 1;
+    else if (draft.state === "draft") unfinished += 1;
+    else if (draft.state === "failed") needsAttention += 1;
+  }
+  return { queued, unfinished, needsAttention };
+}
+
 export function draftStatusText(
   draft: RrIncidentDraft,
   online: boolean

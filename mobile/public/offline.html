@@ -34,7 +34,7 @@
     <button id="retry" style="margin-top:1rem;min-height:52px;padding:0 1.75rem;border:0;border-radius:18px;
       background:#0e7490;color:#fff;font-weight:900;font-size:1rem">Try again</button>
   </div>
-  <script>
+    <script>
     var msg = document.getElementById('msg');
     var work = document.getElementById('work');
     msg.textContent = navigator.onLine
@@ -61,8 +61,26 @@
       };
     } catch (e) { /* storage unavailable: say nothing rather than something wrong */ }
 
-    document.getElementById('retry').onclick = function () { location.reload(); };
-    window.addEventListener('online', function () { location.reload(); });
+  /**
+     * This page deliberately does NOT navigate anywhere.
+     *
+     * It is served from the app bundle, so returning to the app means a
+     * cross-origin navigation — and Capacitor's navigation policy refuses that,
+     * handing the URL to the system browser instead. An employee who is simply
+     * waiting for signal gets ejected into Chrome, away from the reports queued
+     * on their device. Every attempt to do it from here ends that way.
+     *
+     * Recovery is therefore the native shell's job: MainActivity watches for a
+     * usable network and reloads the app into this same WebView, which is not
+     * subject to that policy. All this page does is tell the truth while it
+     * waits, and let somebody ask for an immediate re-check.
+     */
+    document.getElementById('retry').onclick = function () {
+      msg.textContent = navigator.onLine
+        ? 'Reconnecting to your workspace…'
+        : 'Still no connection. Your work is safe on this device.';
+      location.reload();
+    };
   </script>
 </body>
 </html>

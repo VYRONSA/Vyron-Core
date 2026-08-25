@@ -21,7 +21,19 @@ import type { CapacitorConfig } from "@capacitor/cli";
  *   tenant-safety constraints it must respect.
  */
 
-const appUrl = process.env.VYRON_APP_URL || "https://vyron-core-rr-pilot.vercel.app";
+const appOrigin = process.env.VYRON_APP_URL || "https://vyron-core-rr-pilot.vercel.app";
+
+/**
+ * Where a cold launch lands.
+ *
+ * The origin root serves the public marketing site. An employee who taps the
+ * VYRON CORE icon on their phone is not a prospect — opening the app to "Book a
+ * Demo" is the wrong product entirely. The native shell therefore starts at the
+ * employee app, and because /app is a protected route the server sends anyone
+ * without a session to /login and back again after they sign in. Tap, sign in,
+ * work: nothing about the marketing site is ever reachable from the icon.
+ */
+const appUrl = `${appOrigin.replace(/\/+$/, "")}/app`;
 
 const config: CapacitorConfig = {
   appId: "za.co.vyronsoft.core",
@@ -49,12 +61,32 @@ const config: CapacitorConfig = {
     // HTTPS only. A cleartext WebView would let anything on the same Wi-Fi read
     // a driver's session cookie.
     cleartext: false,
-    androidScheme: "https",
+    /**
+     * The scheme the bundled files are served under, matched to the app's own.
+     *
+     * The offline bootstrap lives in the bundle, so it runs on
+     * <androidScheme>://localhost. When it sends the driver back into the app it
+     * performs a cross-origin navigation, and a page served over https may not
+     * navigate to http — Chromium refuses the downgrade and Android hands the
+     * URL to the system browser instead, dropping the employee out of the app
+     * and away from the work queued on their device.
+     *
+     * Production is https, so this stays "https" there and nothing changes. A
+     * cleartext host (only ever a local QA server) gets a matching http bundle
+     * origin, so the way back is a same-scheme navigation rather than a
+     * downgrade. allowMixedContent stays false either way.
+     */
+    androidScheme: new URL(appOrigin).protocol === "http:" ? "http" : "https",
     // The app is allowed to navigate to its own origin and to Supabase (auth
     // and storage). Anything else opens in the system browser instead of
     // inside a WebView that carries the session.
     allowNavigation: [
-      new URL(appUrl).host,
+      // Hostnames only. Capacitor matches this list against the host NAME and
+      // ignores the port, so passing `host` ("192.168.101.175:3100") never
+      // matches and every in-app navigation to our own server is treated as an
+      // external link — which hands the driver to the system browser and away
+      // from the work queued on their device.
+      new URL(appOrigin).hostname,
       "*.supabase.co",
     ],
   },

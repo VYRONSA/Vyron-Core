@@ -5,6 +5,9 @@ import {
   applyOutcome,
   classifyNetworkError,
   driverStatusFor,
+  isDue,
+  shouldCancelBackoff,
+  shouldRequeueAfterSignIn,
   type RrOutboxItem,
 } from "@/lib/road-recovery/outbox-policy";
 
@@ -104,5 +107,85 @@ describe("offline policy — the deferrable set is deliberately tiny", () => {
     for (const kind of ONLINE_ONLY) {
       assert.equal(OFFLINE_SAFE.has(kind), false, `${kind} must not be deferrable — it carries a server timestamp`);
     }
+  });
+});
+
+/**
+ * Regaining signal, and what it should do to a queue that backed off in a dead
+ * zone. The bug this covers: a driver surfaced with coverage and their safety
+ * report sat unsent, waiting out a delay caused by the outage itself.
+ */
+describe("backoff after a dead zone", () => {
+  const NOW = 100_000;
+
+  it("cancels a delay that is still running", () => {
+    const waiting = item({ state: "RETRY", attempts: 6, nextAttemptAt: NOW + 240_000 });
+    assert.equal(shouldCancelBackoff(waiting, NOW), true);
+    assert.equal(isDue(waiting, NOW), false, "precondition: it was not due");
+    assert.equal(isDue({ ...waiting, nextAttemptAt: null }, NOW), true, "and now it is");
+  });
+
+  it("leaves an item whose delay has already expired alone", () => {
+    // Nothing to cancel; it is due on its own terms.
+    const ready = item({ state: "RETRY", attempts: 2, nextAttemptAt: NOW - 1 });
+    assert.equal(shouldCancelBackoff(ready, NOW), false);
+    assert.equal(isDue(ready, NOW), true);
+  });
+
+  it("does not touch work that is already queued or in flight", () => {
+    assert.equal(shouldCancelBackoff(item({ state: "QUEUED" }), NOW), false);
+    assert.equal(
+      shouldCancelBackoff(item({ state: "SENDING", sendingSince: NOW }), NOW),
+      false
+    );
+  });
+
+  it("keeps the attempt history, so the failure cap still applies", () => {
+    // Only the waiting is cancelled. A queue that reconnects repeatedly must not
+    // be able to retry forever by laundering its attempt count.
+    const waiting = item({ state: "RETRY", attempts: 9, nextAttemptAt: NOW + 60_000 });
+    const revived = { ...waiting, nextAttemptAt: null };
+    assert.equal(revived.attempts, 9);
+  });
+});
+
+/**
+ * A session that expired while the phone had no signal. The report must survive
+ * it, and signing back in must be enough to make it send.
+ */
+describe("work parked by an expired session", () => {
+  it("is requeued once the employee has signed in again", () => {
+    const parked = item({ state: "FAILED", failureKind: "unauthorised", attempts: 3 });
+    assert.equal(shouldRequeueAfterSignIn(parked), true);
+  });
+
+  it("does not requeue failures that signing in cannot fix", () => {
+    // A conflict means the job moved on; a rejected payload is malformed.
+    // Retrying either on sign-in would hide a real problem behind a loop.
+    for (const failureKind of ["conflict", "rejected", "connection_required"] as const) {
+      assert.equal(
+        shouldRequeueAfterSignIn(item({ state: "FAILED", failureKind })),
+        false,
+        `${failureKind} must not be requeued by signing in`
+      );
+    }
+  });
+
+  it("leaves healthy work alone", () => {
+    assert.equal(shouldRequeueAfterSignIn(item({ state: "QUEUED" })), false);
+    assert.equal(
+      shouldRequeueAfterSignIn(item({ state: "RETRY", nextAttemptAt: 1 })),
+      false
+    );
+  });
+
+  it("tells the employee their update is still saved", () => {
+    // The wording matters: a driver who reads "failed" assumes it is gone.
+    const status = driverStatusFor(
+      item({ state: "FAILED", failureKind: "unauthorised" }),
+      true
+    );
+    assert.match(status.detail ?? "", /still saved/i);
+    assert.equal(status.action, "sign_in");
   });
 });

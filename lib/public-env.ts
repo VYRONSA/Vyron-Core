@@ -85,15 +85,34 @@ export function assertPublicSupabaseEnvForBuild(): void {
   );
 }
 
+/**
+ * The deployment diagnostic behind a sign-in network failure.
+ *
+ * This is written for whoever operates the deployment, so it names the
+ * environment variables and where they are set. It goes to the console, never
+ * to the screen — see formatSupabaseAuthErrorMessage for why.
+ */
+const SUPABASE_UNREACHABLE_DIAGNOSTIC = [
+  "Sign-in could not reach Supabase (network error).",
+  "Usually the build lacks NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY,",
+  "or the URL is not reachable from this device — note that 127.0.0.1 resolves to the",
+  "device itself, so a phone or tablet needs a routable host, not localhost.",
+].join(" ");
+
 export function formatSupabaseAuthErrorMessage(raw: string): string {
   const msg = raw.trim();
   if (/failed to fetch|networkerror|load failed|network request failed/i.test(msg)) {
-    return [
-      "Cannot reach Supabase (network error). This usually means Production was built without",
-      "NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY.",
-      "Add both in Vercel → Environment Variables → Production, redeploy, then hard-refresh.",
-      "Confirm the URL is https://<your-ref>.supabase.co with no surrounding quotes.",
-    ].join(" ");
+    // The person who hits this on a phone is an employee at the start of a
+    // shift, not the person who configures deployments. Telling a driver to
+    // open Vercel and redeploy asks them to fix something they cannot see and
+    // have no access to, so the deployment detail goes to the console and the
+    // screen says what they can actually act on. The reassurance is load-bearing
+    // and true: the outbox and evidence queue hold their work on the device, so
+    // a failed sign-in never means lost work.
+    if (typeof console !== "undefined") {
+      console.error(SUPABASE_UNREACHABLE_DIAGNOSTIC, { cause: msg });
+    }
+    return "Can't reach VYRON CORE. Check your connection and try again. Anything you have already recorded stays saved on this device.";
   }
   return msg;
 }

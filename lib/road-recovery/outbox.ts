@@ -28,9 +28,12 @@ import {
   classifyResponse,
   driverStatusFor,
   isDue,
+  shouldCancelBackoff,
+  shouldRequeueAfterSignIn,
   type RrDriverStatus,
   type RrOutboxItem,
 } from "@/lib/road-recovery/outbox-policy";
+import { newOperationId } from "@/lib/operation-id";
 
 const DB_NAME = "vyron-rr-outbox";
 /**
@@ -163,7 +166,7 @@ export async function enqueue(input: EnqueueInput): Promise<RrOutboxItem> {
   const item: RrOutboxItem = {
     // Once, and never regenerated — either here, or by the caller that already
     // built something else (an evidence storage path) out of it.
-    operationId: input.operationId ?? crypto.randomUUID(),
+    operationId: input.operationId ?? newOperationId(),
     operationType: input.operationType,
     route: input.route,
     payload: input.payload,
@@ -313,18 +316,76 @@ async function reclaimAbandonedAttempts(): Promise<void> {
   }
 }
 
+/**
+ * Cancel backoff that was accrued while the device had no signal.
+ *
+ * Exponential backoff exists to stop a client hammering a server that is
+ * struggling. Losing signal is a different failure with the same symptom: every
+ * attempt fails, the delay doubles, and by the time a driver reaches somewhere
+ * with coverage their next attempt can be minutes away. Nothing about the
+ * server was ever wrong, so making them wait out that delay serves no one — and
+ * for a safety report, minutes is the whole point of the feature.
+ *
+ * A connectivity transition is therefore treated as evidence that the reason
+ * for waiting has gone: the scheduled delay is dropped so the item is due at
+ * once. `attempts` is deliberately left alone, so the failure cap and its
+ * accounting still apply — only the waiting is cancelled, not the history.
+ */
+async function cancelBackoffAfterReconnect(): Promise<void> {
+  const now = Date.now();
+  const waiting = (await allItems()).filter((item) => shouldCancelBackoff(item, now));
+  for (const item of waiting) {
+    await put({ ...item, nextAttemptAt: null });
+  }
+}
+
+/**
+ * Put work parked by an expired session back in the queue.
+ *
+ * The app shell this runs inside is server-gated, so reaching it at all means
+ * the employee holds a valid session right now. Anything parked as
+ * "unauthorised" was parked against a session that has since been replaced, so
+ * the reason it failed is gone and it deserves another attempt.
+ *
+ * `attempts` is reset because the previous failures were all the same expired
+ * credential rather than a struggling server, and keeping them would push a
+ * freshly authorised item straight into a long backoff.
+ */
+async function requeueAfterSignIn(): Promise<void> {
+  const parked = (await allItems()).filter(shouldRequeueAfterSignIn);
+  for (const item of parked) {
+    await put({
+      ...item,
+      state: "QUEUED",
+      attempts: 0,
+      nextAttemptAt: null,
+      lastError: null,
+      failureKind: null,
+      sendingSince: null,
+    });
+  }
+}
+
 export function startOutbox(): void {
   if (!browser() || started) return;
   started = true;
 
-  void reclaimAbandonedAttempts().then(() => processQueue());
+  void reclaimAbandonedAttempts()
+    .then(() => requeueAfterSignIn())
+    .then(() => processQueue());
 
   // The moment signal returns. This is what removes the manual "Sync" button.
-  window.addEventListener("online", () => void processQueue());
+  window.addEventListener("online", () => {
+    void cancelBackoffAfterReconnect().then(() => processQueue());
+  });
   // Coming back to the tab is the other common moment connectivity has returned
   // without an 'online' event having fired.
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) void processQueue();
+    if (document.hidden) return;
+    // Reopening the app after a trip through a dead zone is the same signal as
+    // an 'online' event, and on Android it is often the only one that fires.
+    if (navigator.onLine) void cancelBackoffAfterReconnect().then(() => processQueue());
+    else void processQueue();
   });
   // Backoff windows expire on their own schedule; nothing else would wake them.
   setInterval(() => void processQueue(), 15_000);

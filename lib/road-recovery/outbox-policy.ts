@@ -241,6 +241,41 @@ export function applyOutcome(
 }
 
 /** Items eligible to be sent right now. */
+/**
+ * Whether regaining connectivity should make this item due immediately.
+ *
+ * Exponential backoff protects a server that is struggling. Having no signal
+ * produces the same symptom for a completely different reason: every attempt
+ * fails, the delay doubles, and a driver who spent twenty minutes in a dead
+ * zone can surface with their next attempt still minutes away. Nothing was ever
+ * wrong with the server, so that wait buys nothing — and for a safety report it
+ * is exactly the wait the offline queue exists to prevent.
+ *
+ * A connectivity transition is therefore treated as evidence that the reason
+ * for waiting has gone. Only items actually sitting out a delay are affected;
+ * `attempts` is left untouched so the failure cap and its accounting survive.
+ */
+/**
+ * Whether signing in again should put this item back in the queue.
+ *
+ * An expired session parks work rather than discarding it, which is right — but
+ * it then waits for the driver to find each parked card and press its Sign in
+ * button. They have already done the thing that was being asked of them, so
+ * making the queue drain only after a scavenger hunt turns "your update is
+ * still saved" into work that quietly never sends.
+ *
+ * Only authentication failures qualify. A conflict or a rejected payload is not
+ * fixed by signing in, and requeueing those would hide a real problem behind a
+ * retry loop.
+ */
+export function shouldRequeueAfterSignIn(item: RrOutboxItem): boolean {
+  return item.state === "FAILED" && item.failureKind === "unauthorised";
+}
+
+export function shouldCancelBackoff(item: RrOutboxItem, now: number): boolean {
+  return item.state === "RETRY" && (item.nextAttemptAt ?? 0) > now;
+}
+
 export function isDue(item: RrOutboxItem, now: number): boolean {
   if (item.state === "QUEUED") return true;
   if (item.state === "RETRY") return (item.nextAttemptAt ?? 0) <= now;

@@ -33,6 +33,7 @@ import {
 } from "@/lib/road-recovery/evidence-queue";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import DriverMobileJob from "@/components/road-recovery/DriverMobileJob";
+import { newOperationId } from "@/lib/operation-id";
 
 type AssignmentRow = {
   id: string;
@@ -384,7 +385,7 @@ export default function DriverJobWorkflow({ companyId }: { companyId: string }) 
   const arriveWithoutGps = (serviceJobId: string, reason: string) =>
     act(async () => {
       arriveOperationIds.current[serviceJobId] =
-        arriveOperationIds.current[serviceJobId] || crypto.randomUUID();
+        arriveOperationIds.current[serviceJobId] || newOperationId();
       await rrFetchJson("/api/road-recovery/driver/arrive", {
         method: "POST",
         body: JSON.stringify({
@@ -410,7 +411,7 @@ export default function DriverJobWorkflow({ companyId }: { companyId: string }) 
         );
       }
       arriveOperationIds.current[serviceJobId] =
-        arriveOperationIds.current[serviceJobId] || crypto.randomUUID();
+        arriveOperationIds.current[serviceJobId] || newOperationId();
       const result = await rrFetchJson<{ gpsVerified: boolean; distanceMeters: number | null }>(
         "/api/road-recovery/driver/arrive",
         {
