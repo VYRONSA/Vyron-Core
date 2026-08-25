@@ -84,6 +84,9 @@ type EvaluatedCandidate = {
   registration: string | null;
   eligible: boolean;
   eligibilityFailures: { code: string; detail: string }[];
+  /** True when this driver already refused THIS job. */
+  previouslyDeclined?: boolean;
+  declineReason?: string | null;
   distanceKm: number | null;
   finalScore: number;
   rank: number | null;
@@ -197,6 +200,7 @@ export default function DispatchBoard({ companyId }: { companyId: string }) {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<CandidateResponse | null>(null);
   const [candidateError, setCandidateError] = useState<string | null>(null);
+  const [includeDeclined, setIncludeDeclined] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [intakeOpen, setIntakeOpen] = useState(false);
@@ -248,16 +252,25 @@ export default function DispatchBoard({ companyId }: { companyId: string }) {
     return row ? `${row.first_name} ${row.last_name}`.trim() : "Unknown driver";
   };
 
-  async function evaluateCandidates(jobId: string) {
+  /**
+   * `includeDeclined` is the controller's deliberate override.
+   *
+   * A driver who refused this job is excluded from it by default. When every
+   * other option is exhausted a controller may still want them back on the
+   * list — but as a decision they make with the refusal in front of them, not
+   * because the system quietly forgot.
+   */
+  async function evaluateCandidates(jobId: string, includeDeclined = false) {
     setSelectedJobId(jobId);
     setCandidates(null);
     setCandidateError(null);
     setNotice(null);
+    setIncludeDeclined(includeDeclined);
     setBusy(true);
     try {
       const result = await rrFetchJson<CandidateResponse>("/api/road-recovery/dispatch/candidates", {
         method: "POST",
-        body: JSON.stringify({ companyId, serviceJobId: jobId }),
+        body: JSON.stringify({ companyId, serviceJobId: jobId, includeDeclined }),
       });
       setCandidates(result);
     } catch (error: unknown) {
@@ -595,7 +608,9 @@ export default function DispatchBoard({ companyId }: { companyId: string }) {
                             candidates={candidates}
                             error={candidateError}
                             busy={busy}
+                            includeDeclined={includeDeclined}
                             onDispatch={(employeeId) => dispatchTo(job.id, employeeId)}
+                            onIncludeDeclined={(include) => evaluateCandidates(job.id, include)}
                             onClose={() => {
                               setSelectedJobId(null);
                               setCandidates(null);
@@ -627,15 +642,20 @@ function CandidatePanel({
   candidates,
   error,
   busy,
+  includeDeclined,
   onDispatch,
+  onIncludeDeclined,
   onClose,
 }: {
   candidates: CandidateResponse | null;
   error: string | null;
   busy: boolean;
+  includeDeclined: boolean;
   onDispatch: (employeeId: string) => void;
+  onIncludeDeclined: (include: boolean) => void;
   onClose: () => void;
 }) {
+  const declinedCount = (candidates?.candidates || []).filter((entry) => entry.previouslyDeclined).length;
   return (
     <div className="mt-3 rounded-2xl border border-cyan-200 bg-white p-3">
       <div className="flex items-center justify-between">
@@ -706,6 +726,13 @@ function CandidatePanel({
               )}
             </div>
 
+            {candidate.previouslyDeclined ? (
+              <p className="mt-1 text-[11px] font-bold text-amber-800">
+                Already declined this job
+                {candidate.declineReason ? ` — “${candidate.declineReason}”` : ""}
+              </p>
+            ) : null}
+
             {!candidate.eligible && candidate.eligibilityFailures.length > 0 ? (
               <ul className="mt-1 list-disc pl-4 text-[11px] text-rose-700">
                 {candidate.eligibilityFailures.map((failure, index) => (
@@ -716,6 +743,26 @@ function CandidatePanel({
           </li>
         ))}
       </ul>
+
+      {/*
+        The override, offered only when it could change anything.
+
+        Shown once at least one driver has refused this job, so a controller who
+        has run out of options can put them back on the list deliberately —
+        with the refusal still printed beside the name.
+      */}
+      {candidates && (declinedCount > 0 || includeDeclined) ? (
+        <label className="mt-2 flex items-center gap-2 text-[11px] font-bold text-slate-700">
+          <input
+            type="checkbox"
+            checked={includeDeclined}
+            disabled={busy}
+            onChange={(event) => onIncludeDeclined(event.target.checked)}
+            className="vyron-focus-ring h-4 w-4"
+          />
+          Include drivers who declined this job
+        </label>
+      ) : null}
 
       {candidates ? (
         <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
