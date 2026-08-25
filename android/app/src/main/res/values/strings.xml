@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">VYRON CORE</string>
+    <string name="title_activity_main">VYRON CORE</string>
+    <string name="package_name">za.co.vyronsoft.core</string>
+    <string name="custom_url_scheme">za.co.vyronsoft.core</string>
+</resources>

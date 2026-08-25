@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VYRON CORE</title>
+<style>
+  html,body{margin:0;height:100%;background:#07101f;color:#e2e8f0;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{height:100%;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:.75rem;text-align:center;padding:2rem}
+  .brand{font-size:.7rem;font-weight:900;letter-spacing:.3em;color:#67e8f9}
+  .msg{font-size:.9rem;font-weight:700;color:#94a3b8;max-width:28ch;line-height:1.5}
+</style>
+</head>
+<body>
+  <!--
+    The offline bootstrap.
+
+    Capacitor loads the application from the server (see capacitor.config.ts).
+    This document is what the WebView shows when that server cannot be reached
+    on a cold start. It is deliberately empty of tenant data: a shared yard
+    tablet must never render the previous user's work from a cache, which is the
+    same reason public/rr-sw.js caches nothing.
+
+    What survives a cold start is the WORK, not the shell — queued operations,
+    incident drafts and captured photographs all live in IndexedDB and are sent
+    the moment the app reaches the server again.
+  -->
+  <div class="wrap">
+    <div class="brand">VYRON CORE</div>
+    <div class="msg" id="msg">No connection.</div>
+    <div class="msg" id="work" style="color:#67e8f9"></div>
+    <button id="retry" style="margin-top:1rem;min-height:52px;padding:0 1.75rem;border:0;border-radius:18px;
+      background:#0e7490;color:#fff;font-weight:900;font-size:1rem">Try again</button>
+  </div>
+  <script>
+    var msg = document.getElementById('msg');
+    var work = document.getElementById('work');
+    msg.textContent = navigator.onLine
+      ? 'Reconnecting to your workspace…'
+      : 'No connection. Anything you have already recorded is safe on this device and will be sent automatically.';
+
+    /*
+      Count what is still waiting, so the employee can see their work was not
+      lost. Counts only — never the contents, and never anything identifying a
+      tenant, because this screen can be reached by whoever is holding the phone.
+    */
+    try {
+      var open = indexedDB.open('vyron-rr-outbox');
+      open.onsuccess = function () {
+        var db = open.result;
+        var names = [].slice.call(db.objectStoreNames);
+        if (names.indexOf('operations') < 0) { db.close(); return; }
+        var tx = db.transaction('operations', 'readonly').objectStore('operations').count();
+        tx.onsuccess = function () {
+          var n = tx.result;
+          if (n > 0) work.textContent = n + (n === 1 ? ' update is' : ' updates are') + ' saved on this device, waiting to send.';
+          db.close();
+        };
+      };
+    } catch (e) { /* storage unavailable: say nothing rather than something wrong */ }
+
+    document.getElementById('retry').onclick = function () { location.reload(); };
+    window.addEventListener('online', function () { location.reload(); });
+  </script>
+</body>
+</html>

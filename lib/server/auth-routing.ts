@@ -37,6 +37,14 @@ export const MARKETING_ROUTES = [
 export const PUBLIC_ROUTE_PREFIXES = ["/sign-contract", "/maintenance"] as const;
 
 export const PROTECTED_ROUTE_PREFIXES = [
+  /**
+   * The VYRON CORE Employee App.
+   *
+   * Registered here because canAccessRouteForRole() default-denies any protected
+   * route it does not recognise — an unregistered surface is silently
+   * unreachable for every role, including its own users.
+   */
+  "/app",
   "/dashboard",
   "/automation",
   "/client-portal",
@@ -142,6 +150,16 @@ const EMPLOYEE_ALLOWED_PREFIXES = [
   // nothing belonging to another driver — and without it a driver could be told about a
   // job and have nowhere to read it.
   "/road-recovery/notifications",
+  /**
+   * The VYRON CORE Employee App.
+   *
+   * The whole point of it is that an ordinary employee opens it, so it belongs
+   * here rather than behind a supervisor role. It exposes nothing new: every
+   * screen inside reads the same session-scoped endpoints the driver list and
+   * notification inbox already use, and the incident API resolves the employee
+   * from the session rather than from anything the app sends.
+   */
+  "/app",
 ] as const;
 
 // /settings is the workspace governance area (Users & Access). Company owners and

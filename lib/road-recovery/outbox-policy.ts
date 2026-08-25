@@ -45,6 +45,17 @@ export type RrOutboxItem = {
   /** Epoch ms. Null when the item is not waiting. */
   nextAttemptAt: number | null;
   /**
+   * When this attempt was started, or null when nothing is in flight.
+   *
+   * Exists because SENDING is the one state a process can DIE inside. The page
+   * is reloaded, the app is killed, the tab is closed — and the item is left
+   * marked as sending with nobody sending it. Without this timestamp such an
+   * item is unreachable: isDue() would never return true for it again and the
+   * driver's work would sit on the device forever, looking like it was on its
+   * way.
+   */
+  sendingSince: number | null;
+  /**
    * Whether this operation may be executed LATER than the driver performed it.
    *
    * Almost nothing may. Every operational timestamp in this system is stamped
@@ -67,6 +78,18 @@ export type RrOutboxItem = {
 export const RR_OUTBOX_MAX_ATTEMPTS = 8;
 const BASE_DELAY_MS = 2_000;
 const MAX_DELAY_MS = 5 * 60_000;
+
+/**
+ * How long an in-flight attempt is honoured before it is presumed dead.
+ *
+ * Long enough that a slow request on a bad connection is never stolen from
+ * itself; short enough that a driver who force-closed the app mid-send is not
+ * left waiting. Mirrors RR_RECEIPT_STALE_AFTER_MS on the server, and is safe
+ * for the same reason: re-attempting carries the ORIGINAL operationId, so the
+ * receipt (or the incident's own primary key) answers "already ran" rather than
+ * running it twice.
+ */
+export const RR_SENDING_STALE_AFTER_MS = 60_000;
 
 /**
  * Bounded exponential backoff with jitter.
@@ -178,7 +201,7 @@ export function applyOutcome(
   const attempts = item.attempts + 1;
 
   if (outcome.kind === "succeeded") {
-    return { ...item, state: "SUCCEEDED", attempts, lastError: null, failureKind: null, nextAttemptAt: null };
+    return { ...item, state: "SUCCEEDED", attempts, lastError: null, failureKind: null, nextAttemptAt: null, sendingSince: null };
   }
 
   if (outcome.kind === "failed") {
@@ -189,6 +212,7 @@ export function applyOutcome(
       lastError: outcome.reason,
       failureKind: outcome.failureKind,
       nextAttemptAt: null,
+      sendingSince: null,
     };
   }
 
@@ -201,6 +225,7 @@ export function applyOutcome(
       lastError: outcome.reason,
       failureKind: "exhausted",
       nextAttemptAt: null,
+      sendingSince: null,
     };
   }
 
@@ -211,6 +236,7 @@ export function applyOutcome(
     lastError: outcome.reason,
     failureKind: null,
     nextAttemptAt: now + backoffDelayMs(attempts, random),
+    sendingSince: null,
   };
 }
 
@@ -218,6 +244,17 @@ export function applyOutcome(
 export function isDue(item: RrOutboxItem, now: number): boolean {
   if (item.state === "QUEUED") return true;
   if (item.state === "RETRY") return (item.nextAttemptAt ?? 0) <= now;
+  /**
+   * An attempt nobody is making any more.
+   *
+   * The process that marked this SENDING is gone — killed, reloaded, or
+   * crashed — so the item is reclaimed rather than abandoned. Exactly-once
+   * still holds: the retry carries the same operationId, and the server has the
+   * final say on whether it already ran.
+   */
+  if (item.state === "SENDING") {
+    return now - (item.sendingSince ?? 0) >= RR_SENDING_STALE_AFTER_MS;
+  }
   return false;
 }
 

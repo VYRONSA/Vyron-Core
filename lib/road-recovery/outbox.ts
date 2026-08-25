@@ -41,9 +41,10 @@ const DB_NAME = "vyron-rr-outbox";
  * modules opening the same name at different versions makes whichever opens
  * second throw VersionError, and silently kills the queue.
  */
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE = "operations";
 const BLOB_STORE = "evidenceBlobs";
+const INCIDENT_DRAFT_STORE = "incidentDrafts";
 
 /** Guards against two tabs (or a tab and the SW-triggered drain) sending the same item. */
 const inFlight = new Set<string>();
@@ -70,6 +71,16 @@ export function openRrDb(): Promise<IDBDatabase> {
         const store = db.createObjectStore(BLOB_STORE, { keyPath: "operationId" });
         store.createIndex("serviceJobId", "record.serviceJobId", { unique: false });
         store.createIndex("state", "record.state", { unique: false });
+      }
+      /**
+       * Incident drafts. An employee half-way through writing up an injury must
+       * not lose it because the app was killed, so the draft is on disk from the
+       * first keystroke — long before anything is submitted.
+       */
+      if (!db.objectStoreNames.contains(INCIDENT_DRAFT_STORE)) {
+        const store = db.createObjectStore(INCIDENT_DRAFT_STORE, { keyPath: "incidentId" });
+        store.createIndex("state", "state", { unique: false });
+        store.createIndex("updatedAt", "updatedAt", { unique: false });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -164,6 +175,7 @@ export async function enqueue(input: EnqueueInput): Promise<RrOutboxItem> {
     lastError: null,
     failureKind: null,
     nextAttemptAt: null,
+    sendingSince: null,
     offlineSafe: input.offlineSafe === true,
   };
 
@@ -234,7 +246,7 @@ export async function processQueue(): Promise<void> {
     for (const item of due) {
       inFlight.add(item.operationId);
       try {
-        await put({ ...item, state: "SENDING" });
+        await put({ ...item, state: "SENDING", sendingSince: Date.now() });
         await attempt(item);
       } finally {
         inFlight.delete(item.operationId);
@@ -281,9 +293,31 @@ let started = false;
  *
  * Idempotent, so a component may call it on every mount.
  */
+/**
+ * Anything left SENDING when the app starts was abandoned.
+ *
+ * This process has just begun, so it cannot be the one sending. An item marked
+ * in-flight therefore belongs to a page that was reloaded, an app that was
+ * force-closed, or a tab that was killed — and waiting out the staleness window
+ * would leave a driver watching "Sending…" for a minute after they reopened the
+ * app.
+ *
+ * Reclaiming immediately is safe because it is the whole point of the
+ * protocol: the retry carries the ORIGINAL operationId, so the server replays
+ * its receipt instead of running the work twice.
+ */
+async function reclaimAbandonedAttempts(): Promise<void> {
+  const stranded = (await allItems()).filter((item) => item.state === "SENDING");
+  for (const item of stranded) {
+    await put({ ...item, state: "QUEUED", sendingSince: null });
+  }
+}
+
 export function startOutbox(): void {
   if (!browser() || started) return;
   started = true;
+
+  void reclaimAbandonedAttempts().then(() => processQueue());
 
   // The moment signal returns. This is what removes the manual "Sync" button.
   window.addEventListener("online", () => void processQueue());

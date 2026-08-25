@@ -21,7 +21,7 @@ import RequirementsChecklist from "@/components/road-recovery/RequirementsCheckl
 import StandbyTimer from "@/components/road-recovery/StandbyTimer";
 import { RR_POLL_INTERVALS, rrFetchJson, useRrPoll } from "@/lib/road-recovery/use-rr-poll";
 import OutboxStatus from "@/components/road-recovery/OutboxProvider";
-import { allItems, enqueue } from "@/lib/road-recovery/outbox";
+import { allItems, enqueue, subscribe } from "@/lib/road-recovery/outbox";
 import {
   allEvidence,
   captureEvidence as saveCaptureToDevice,
@@ -208,10 +208,20 @@ export default function DriverJobWorkflow({ companyId }: { companyId: string }) 
       if (live) await refreshCaptures();
     };
     void pump();
+    /**
+     * Reconcile the moment the QUEUE changes, not on the next tick of a timer.
+     *
+     * The timer below is a safety net for backoff windows; without this
+     * subscription a photograph that the server accepted seconds ago still read
+     * "Uploading…" until the next sweep, which is a driver being told something
+     * untrue about work that is already done.
+     */
+    const unsubscribe = subscribe(() => void refreshCaptures());
     window.addEventListener("online", pump);
     const timer = setInterval(pump, 20_000);
     return () => {
       live = false;
+      unsubscribe();
       window.removeEventListener("online", pump);
       clearInterval(timer);
     };

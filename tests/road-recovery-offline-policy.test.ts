@@ -33,6 +33,7 @@ function item(overrides: Partial<RrOutboxItem> = {}): RrOutboxItem {
     lastError: null,
     failureKind: null,
     nextAttemptAt: null,
+    sendingSince: null,
     offlineSafe: false,
     ...overrides,
   };

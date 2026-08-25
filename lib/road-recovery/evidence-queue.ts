@@ -72,6 +72,15 @@ export type RrEvidenceRecord = {
   storagePath: string;
   contentType: string;
   byteSize: number;
+  /**
+   * Where the ROW is filed once the bytes are up.
+   *
+   * Defaults to the Road & Recovery job route. An incident supplies its own,
+   * because mobile_workforce_evidence.service_job_id is foreign-keyed to
+   * rr_service_jobs and an incident is not a job — so one queue serves both by
+   * being told where to post rather than by being duplicated.
+   */
+  uploadRoute: string;
   state: RrEvidenceState;
   attempts: number;
   lastError: string | null;
@@ -139,6 +148,10 @@ export type CaptureInput = {
   accuracy?: number | null;
   actorEmail?: string | null;
   metadata?: Record<string, unknown>;
+  /** Overrides where the evidence ROW is filed. */
+  uploadRoute?: string;
+  /** Overrides the storage folder. Must still begin with the company id. */
+  storagePrefix?: string;
 };
 
 /**
@@ -163,10 +176,14 @@ export async function captureEvidence(input: CaptureInput): Promise<RrEvidenceRe
     accuracy: input.accuracy ?? null,
     actorEmail: input.actorEmail ?? null,
     metadata: input.metadata ?? {},
-    // Deterministic, so every retry writes to the same object.
-    storagePath: `${input.companyId}/${input.serviceJobId}/${operationId}.${extensionFor(contentType)}`,
+    // Deterministic, so every retry writes to the same object. The prefix always
+    // starts with the company id, which is what the storage policy (sql/072)
+    // authorises a caller to write beneath.
+    storagePath: `${input.storagePrefix ?? `${input.companyId}/${input.serviceJobId}`}/${operationId}.${extensionFor(contentType)}`,
     contentType,
     byteSize: input.blob.size,
+    uploadRoute:
+      input.uploadRoute ?? `/api/road-recovery/jobs/${input.serviceJobId}/evidence`,
     state: "saved_on_device",
     attempts: 0,
     lastError: null,
@@ -214,7 +231,7 @@ export async function uploadEvidence(
     // The id the bytes were stored under, so ONE receipt covers upload + row.
     operationId: record.operationId,
     operationType: "capture_evidence",
-    route: `/api/road-recovery/jobs/${record.serviceJobId}/evidence`,
+    route: record.uploadRoute,
     label: "Evidence",
     serviceJobId: record.serviceJobId,
     // A photograph means the same thing whenever it is filed; its capture time

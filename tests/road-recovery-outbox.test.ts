@@ -9,6 +9,7 @@ import {
   driverStatusFor,
   isDue,
   RR_OUTBOX_MAX_ATTEMPTS,
+  RR_SENDING_STALE_AFTER_MS,
   type RrOutboxItem,
 } from "@/lib/road-recovery/outbox-policy";
 
@@ -33,6 +34,7 @@ function item(overrides: Partial<RrOutboxItem> = {}): RrOutboxItem {
     lastError: null,
     failureKind: null,
     nextAttemptAt: null,
+    sendingSince: null,
     offlineSafe: true,
     ...overrides,
   };
@@ -285,5 +287,68 @@ describe("outbox — a failed receipt is retried, not abandoned", () => {
         assert.doesNotMatch(`${s.title} ${s.detail ?? ""} ${s.actionLabel ?? ""}`, forbidden);
       }
     }
+  });
+});
+
+describe("outbox — an attempt nobody is making any more", () => {
+  /**
+   * Found by the release gate, and it was a real defect rather than a flaky
+   * test. SENDING is the one state a process can die inside: the page reloads,
+   * the app is force-closed, the tab is killed. isDue() used to return false for
+   * SENDING unconditionally, so such an item became unreachable — the driver's
+   * work sat on the device forever, displayed as though it were on its way.
+   */
+  it("reclaims an attempt whose process died", () => {
+    const abandoned = item({ state: "SENDING", sendingSince: 1_000 });
+    assert.equal(isDue(abandoned, 1_000 + RR_SENDING_STALE_AFTER_MS), true);
+  });
+
+  it("does NOT steal an attempt that is still running", () => {
+    const live = item({ state: "SENDING", sendingSince: 1_000 });
+    assert.equal(isDue(live, 1_000 + RR_SENDING_STALE_AFTER_MS - 1), false);
+  });
+
+  it("treats a SENDING item with no start time as abandoned", () => {
+    // Written by an older build that did not stamp the field. Reclaiming is the
+    // safe reading: exactly-once is enforced by the server, not by this flag.
+    assert.equal(isDue(item({ state: "SENDING", sendingSince: null }), 10_000_000), true);
+  });
+
+  it("clears the in-flight marker on every outcome", () => {
+    const sending = item({ state: "SENDING", sendingSince: 1_000 });
+    for (const outcome of [
+      { kind: "succeeded", replayed: false } as const,
+      { kind: "retry", reason: "no signal" } as const,
+      { kind: "failed", failureKind: "conflict", reason: "x" } as const,
+    ]) {
+      assert.equal(applyOutcome(sending, outcome, 5_000).sendingSince, null, `${outcome.kind} left it marked in flight`);
+    }
+  });
+
+  it("a reclaimed attempt reuses the SAME operation id, so the server can refuse a double run", () => {
+    const abandoned = item({ state: "SENDING", sendingSince: 1_000 });
+    const settled = applyOutcome(abandoned, { kind: "succeeded", replayed: true }, 90_000);
+    assert.equal(settled.operationId, abandoned.operationId);
+    assert.equal(settled.state, "SUCCEEDED");
+  });
+});
+
+describe("outbox — reopening the app after it was killed", () => {
+  /**
+   * The staleness window exists for a process that is still alive somewhere. A
+   * FRESH start is different: this process cannot be the one sending, so an
+   * item marked in-flight is definitionally abandoned and should be picked up
+   * at once rather than after a minute of the driver watching "Sending…".
+   */
+  it("an item left in flight is due again the moment it goes back to QUEUED", () => {
+    const reclaimed: RrOutboxItem = { ...item({ state: "SENDING", sendingSince: 1_000 }), state: "QUEUED", sendingSince: null };
+    assert.equal(isDue(reclaimed, 1_100), true, "a reclaimed item must be sent without waiting");
+  });
+
+  it("reclaiming does not consume an attempt or change the id", () => {
+    const stranded = item({ state: "SENDING", sendingSince: 1_000, attempts: 2 });
+    const reclaimed: RrOutboxItem = { ...stranded, state: "QUEUED", sendingSince: null };
+    assert.equal(reclaimed.attempts, 2, "reclaiming is not a failed attempt");
+    assert.equal(reclaimed.operationId, stranded.operationId, "the id must survive, or the server cannot recognise it");
   });
 });
