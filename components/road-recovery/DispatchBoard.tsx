@@ -37,6 +37,10 @@ type JobRow = {
   vehicle_registration: string | null;
   vehicle_make: string | null;
   vehicle_model: string | null;
+  /** The three facts that change which truck and which crew get sent. */
+  vehicle_is_drivable: boolean | null;
+  casualty_flag: boolean | null;
+  hazmat_flag: boolean | null;
   created_at: string;
 };
 
@@ -415,6 +419,34 @@ export default function DispatchBoard({ companyId }: { companyId: string }) {
                           </div>
                           <DwellBadge enteredAt={job.state_entered_at} />
                         </div>
+
+                        {/*
+                          Safety, above everything except the vehicle itself.
+
+                          A controller chooses the truck and the crew from this card.
+                          Casualty, hazmat and an undrivable vehicle each change that
+                          choice, so they cannot sit further down where a busy board
+                          scrolls them out of view.
+                        */}
+                        {(job.casualty_flag || job.hazmat_flag || job.vehicle_is_drivable === false) && (
+                          <div className="mt-2 flex flex-wrap gap-1" data-testid="rr-board-safety">
+                            {job.casualty_flag && (
+                              <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
+                                Casualty
+                              </span>
+                            )}
+                            {job.hazmat_flag && (
+                              <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
+                                Hazmat
+                              </span>
+                            )}
+                            {job.vehicle_is_drivable === false && (
+                              <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
+                                Not drivable
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <p className="mt-1 text-xs text-slate-600">
                           {[job.vehicle_make, job.vehicle_model].filter(Boolean).join(" ") || "—"}
                         </p>

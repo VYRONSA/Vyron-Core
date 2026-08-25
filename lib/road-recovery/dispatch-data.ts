@@ -245,6 +245,12 @@ export async function evaluateAndPersistCandidates(
     evaluatedAt: string;
     evaluationId: string;
     requirementOverrides?: Partial<RrServiceRequirement>;
+    /**
+     * Deliberately re-include drivers who already declined THIS job.
+     *
+     * The controller's override, off by default.
+     */
+    includeDeclined?: boolean;
   }
 ): Promise<{ evaluation: RrDispatchEvaluation | null; error: string | null }> {
   const { context, error: contextError } = await loadJobDispatchContext(
@@ -263,6 +269,29 @@ export async function evaluateAndPersistCandidates(
 
   const requirement = requirementForService(context.serviceCode, params.requirementOverrides ?? {});
 
+  /**
+   * Who already refused THIS job.
+   *
+   * Read from the job's own assignment history, so the exclusion is job-scoped:
+   * a driver who declines one recovery is unaffected on every other job. Read
+   * under the caller's RLS like everything else here.
+   */
+  const { data: declinedRows } = await supabase
+    .from("rr_dispatch_assignments")
+    .select("employee_id,decline_reason,responded_at")
+    .eq("company_id", params.companyId)
+    .eq("service_job_id", params.serviceJobId)
+    .eq("assignment_status", "declined");
+
+  const declined = (declinedRows || []).map((row) => {
+    const typed = row as { employee_id: string; decline_reason: string | null; responded_at: string | null };
+    return {
+      employeeId: String(typed.employee_id),
+      reason: typed.decline_reason,
+      declinedAt: typed.responded_at,
+    };
+  });
+
   const evaluation = evaluateDispatchCandidates({
     companyId: params.companyId,
     serviceJobId: params.serviceJobId,
@@ -270,6 +299,8 @@ export async function evaluateAndPersistCandidates(
     requirement,
     candidates,
     evaluatedAt: params.evaluatedAt,
+    declined,
+    includeDeclined: params.includeDeclined === true,
   });
 
   if (evaluation.candidates.length > 0) {

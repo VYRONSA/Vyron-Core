@@ -27,6 +27,9 @@ export async function POST(request: NextRequest) {
     const { evaluation, error } = await evaluateAndPersistCandidates(context.ctx.auth.supabase, {
       companyId: context.ctx.companyId,
       serviceJobId,
+      // Controller override: re-include drivers who declined this job. Never
+      // taken from anything but an explicit boolean.
+      includeDeclined: body.includeDeclined === true,
       evaluatedBy: context.ctx.auth.email,
       evaluatedAt: new Date().toISOString(),
       evaluationId: randomUUID(),

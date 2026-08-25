@@ -21,6 +21,9 @@ type JobRow = {
   origin_address: string | null;
   destination_label: string | null;
   vehicle_registration: string | null;
+  casualty_flag: boolean | null;
+  hazmat_flag: boolean | null;
+  vehicle_is_drivable: boolean | null;
 };
 
 type BoardPayload = {
@@ -146,7 +149,31 @@ export default function LiveOperationsWall({ companyId }: { companyId: string })
                   return (
                     <tr key={job.id} className="border-b border-slate-100">
                       <td className="py-2 font-bold text-slate-900">
-                        {job.vehicle_registration || "—"}
+                        <span className="align-middle">{job.vehicle_registration || "—"}</span>
+                        {/*
+                          Safety travels with the registration, not in a column that
+                          scrolls off a wall display. One glance must answer "is anyone
+                          hurt and is anything leaking".
+                        */}
+                        {(job.casualty_flag || job.hazmat_flag || job.vehicle_is_drivable === false) && (
+                          <span className="ml-2 inline-flex gap-1 align-middle" data-testid="rr-wall-safety">
+                            {job.casualty_flag && (
+                              <span title="Casualty on scene" className="rounded-full bg-rose-600 px-1.5 py-0.5 text-[10px] font-black uppercase text-white">
+                                Casualty
+                              </span>
+                            )}
+                            {job.hazmat_flag && (
+                              <span title="Hazardous material" className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-black uppercase text-white">
+                                Hazmat
+                              </span>
+                            )}
+                            {job.vehicle_is_drivable === false && (
+                              <span title="Vehicle cannot be driven" className="rounded-full bg-slate-800 px-1.5 py-0.5 text-[10px] font-black uppercase text-white">
+                                Not drivable
+                              </span>
+                            )}
+                          </span>
+                        )}
                       </td>
                       <td className="py-2">
                         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700">

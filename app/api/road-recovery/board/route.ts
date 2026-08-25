@@ -20,7 +20,10 @@ export async function GET(request: NextRequest) {
         supabase
           .from("rr_service_jobs")
           .select(
-            "id,field_job_id,service_type_id,workflow_key,workflow_version,service_state,state_entered_at,counterparty_id,origin_label,origin_address,origin_latitude,origin_longitude,destination_label,vehicle_registration,vehicle_make,vehicle_model,scene_description,created_at"
+            // The three safety flags travel with every job on the board. A controller
+            // deciding who to send must see casualty, hazmat and an undrivable vehicle
+            // before they choose a truck, not after the driver arrives.
+            "id,field_job_id,service_type_id,workflow_key,workflow_version,service_state,state_entered_at,counterparty_id,origin_label,origin_address,origin_latitude,origin_longitude,destination_label,vehicle_registration,vehicle_make,vehicle_model,vehicle_is_drivable,casualty_flag,hazmat_flag,scene_description,created_at"
           )
           .eq("company_id", companyId)
           .eq("record_status", "active")

@@ -76,6 +76,15 @@ export const RR_ELIGIBILITY_FAILURES = [
   "outside_operating_radius",
   "scene_location_unknown",
   "candidate_location_unknown",
+  /**
+   * This driver already declined THIS job.
+   *
+   * Job-specific by construction: it is recorded against the job's own declined
+   * assignments, never against the driver, so they remain a normal candidate for
+   * every other job. A controller who wants them anyway can re-include them
+   * deliberately (see `includeDeclined`) rather than the system forgetting.
+   */
+  "previously_declined",
 ] as const;
 
 export type RrEligibilityFailureCode = (typeof RR_ELIGIBILITY_FAILURES)[number];
@@ -161,6 +170,29 @@ export type RrDispatchEvaluationInput = {
   candidates: readonly RrCandidateInput[];
   /** ISO timestamp the evaluation is made at — supplied, never read from the clock. */
   evaluatedAt: string;
+  /**
+   * Drivers who already declined THIS job, with the reason they gave.
+   *
+   * Offering a job back to the person who just refused it wastes the one thing
+   * a control room does not have at a scene: time. Keyed by employee id and
+   * scoped to this job only.
+   */
+  declined?: readonly RrDeclinedCandidate[];
+  /**
+   * Deliberately re-include drivers who declined this job.
+   *
+   * The controller's override. They are still marked `previouslyDeclined` and
+   * their reason is still shown, so the decision is made with the refusal in
+   * view rather than by the system quietly forgetting it.
+   */
+  includeDeclined?: boolean;
+};
+
+/** One driver's refusal of one job. */
+export type RrDeclinedCandidate = {
+  employeeId: string;
+  reason: string | null;
+  declinedAt: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -205,6 +237,10 @@ export type RrEvaluatedCandidate = {
   registration: string | null;
   eligible: boolean;
   eligibilityFailures: RrEligibilityFailure[];
+  /** True when this driver already declined THIS job. */
+  previouslyDeclined: boolean;
+  /** What they said when they declined, so the controller can judge. */
+  declineReason: string | null;
   distanceKm: number | null;
   capabilityResult: RrCapabilityResult;
   certificationResult: RrCertificationResult;
@@ -490,6 +526,26 @@ function gate(
     });
   }
 
+  /**
+   * Already refused THIS job.
+   *
+   * Not a blacklist: the check is against this job's own declined assignments,
+   * so the driver stays a normal candidate everywhere else. A controller who
+   * wants them anyway passes `includeDeclined`, which keeps them eligible while
+   * still showing the refusal.
+   */
+  const declined = (input.declined || []).find(
+    (row) => row.employeeId === driver.employeeId
+  );
+  if (declined && !input.includeDeclined) {
+    failures.push({
+      code: "previously_declined",
+      detail: declined.reason
+        ? `${driver.displayName} declined this job: ${declined.reason}`
+        : `${driver.displayName} already declined this job.`,
+    });
+  }
+
   const maxRadius = requirement.maxDispatchRadiusKm;
   if (maxRadius != null && distanceKm != null && distanceKm > maxRadius) {
     failures.push({
@@ -614,6 +670,9 @@ export function evaluateDispatchCandidates(
     const capabilityResult = evaluateCapability(truck, input.requirement);
     const certificationResult = evaluateCertifications(driver, input.requirement, input.evaluatedAt);
     const distanceKm = distanceKmBetween(input.scene, truck);
+    const declinedRow = (input.declined || []).find(
+      (row) => row.employeeId === driver.employeeId
+    );
     const eligibilityFailures = gate(
       candidate,
       input,
@@ -634,6 +693,8 @@ export function evaluateDispatchCandidates(
       registration: truck?.registration ?? null,
       eligible,
       eligibilityFailures,
+      previouslyDeclined: Boolean(declinedRow),
+      declineReason: declinedRow?.reason ?? null,
       distanceKm,
       capabilityResult,
       certificationResult,
@@ -650,6 +711,14 @@ export function evaluateDispatchCandidates(
   const eligible = evaluated
     .filter((candidate) => candidate.eligible)
     .sort((a, b) => {
+      /**
+       * A driver who already refused this job never outranks one who has not,
+       * even when the controller re-includes them. They remain selectable; they
+       * are simply not the recommendation.
+       */
+      if (a.previouslyDeclined !== b.previouslyDeclined) {
+        return a.previouslyDeclined ? 1 : -1;
+      }
       if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
       // Stable, reproducible tie-break rather than input order.
       return a.employeeId.localeCompare(b.employeeId);

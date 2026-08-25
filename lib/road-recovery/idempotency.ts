@@ -62,7 +62,30 @@ export type RrIdempotencyOutcome<T> =
   | { status: "executed"; result: T }
   | { status: "replayed"; result: T }
   | { status: "conflict"; code: "OPERATION_CONFLICT"; message: string }
-  | { status: "in_progress"; code: "OPERATION_IN_PROGRESS"; message: string };
+  | { status: "in_progress"; code: "OPERATION_IN_PROGRESS"; message: string }
+  /**
+   * The receipt itself could not be written — a constraint, a permission, a
+   * dropped connection. NOT a conflict: nothing disagreed, the bookkeeping
+   * simply failed, and trying again is the right move.
+   *
+   * Keeping this separate matters more than it looks. The outbox treats
+   * OPERATION_CONFLICT as terminal and stops retrying, so classifying an
+   * infrastructure failure as a conflict silently abandons a driver's queued
+   * work and tells them to refresh a job that never moved.
+   */
+  | { status: "unavailable"; code: "RECEIPT_UNAVAILABLE"; message: string };
+
+/** unique_violation — the only claim failure that means "this id is taken". */
+const PG_UNIQUE_VIOLATION = "23505";
+
+/**
+ * What the caller is told when the receipt could not be written.
+ *
+ * Deliberately free of table names, constraint names and SQL: a driver reads
+ * this, and an attacker should learn nothing about the schema from it.
+ */
+const RECEIPT_UNAVAILABLE_MESSAGE =
+  "We could not save your update just now. It will be retried automatically.";
 
 /**
  * Canonical JSON so the fingerprint is stable.
@@ -155,13 +178,36 @@ export async function withIdempotency<T>(
     const existing = existingRow as ReceiptRow | null;
 
     if (!existing) {
-      // The insert failed for a reason other than the conflict (a constraint,
-      // a permission). Fail closed rather than guess: executing here is exactly
-      // the double-run this module prevents.
+      /**
+       * We could not claim the operation AND cannot read a receipt back. Two
+       * very different causes, and telling them apart decides whether the
+       * driver's work is retried or abandoned.
+       */
+      const code = (claimError as { code?: string } | null)?.code;
+
+      if (code === PG_UNIQUE_VIOLATION) {
+        // The id genuinely is taken — by a receipt this caller is not allowed
+        // to see, since the policy is own-rows-only. We cannot compare
+        // fingerprints, so we must not execute, and retrying will not help.
+        return {
+          status: "conflict",
+          code: "OPERATION_CONFLICT",
+          message:
+            "This operation id was already used for a different request. " +
+            "Generate a new operation id rather than reusing one.",
+        };
+      }
+
+      /**
+       * Anything else — a foreign key, a permission, a lost connection — is the
+       * bookkeeping failing, not a disagreement about the operation. Fail
+       * closed (execute nothing) but say RETRYABLE, and never repeat the
+       * database's own words back to the caller.
+       */
       return {
-        status: "conflict",
-        code: "OPERATION_CONFLICT",
-        message: claimError?.message || "Could not record this operation.",
+        status: "unavailable",
+        code: "RECEIPT_UNAVAILABLE",
+        message: RECEIPT_UNAVAILABLE_MESSAGE,
       };
     }
 

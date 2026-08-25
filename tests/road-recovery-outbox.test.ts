@@ -241,3 +241,49 @@ describe("outbox — the worst realistic case", () => {
     assert.equal(status.detail, "Saved.");
   });
 });
+
+describe("outbox — a failed receipt is retried, not abandoned", () => {
+  /**
+   * The counterpart to the server-side fix. RECEIPT_UNAVAILABLE arrives as 503
+   * precisely so the queue keeps trying; if it ever arrived as 409
+   * OPERATION_CONFLICT the driver's work would be dropped on the floor.
+   */
+  it("retries a 503 RECEIPT_UNAVAILABLE", () => {
+    const out = classifyResponse({
+      status: 503,
+      body: { ok: false, code: "RECEIPT_UNAVAILABLE", error: "We could not save your update just now." },
+    });
+    assert.equal(out.kind, "retry");
+  });
+
+  it("keeps OPERATION_CONFLICT terminal, so a real conflict is not retried forever", () => {
+    const out = classifyResponse({ status: 409, body: { ok: false, code: "OPERATION_CONFLICT", error: "x" } });
+    assert.equal(out.kind, "failed");
+    assert.equal(out.kind === "failed" ? out.failureKind : null, "conflict");
+  });
+
+  it("tells the driver it is still being sent, in their words, while retrying", () => {
+    const retrying = applyOutcome(item({ state: "QUEUED" }), { kind: "retry", reason: "server unavailable" }, 1_000);
+    const online = driverStatusFor(retrying, true);
+    assert.equal(online.tone, "sending");
+    assert.match(online.detail || "", /saved|being sent/i);
+    assert.equal(online.action, null, "a retry needs nothing from the driver");
+
+    const offline = driverStatusFor(retrying, false);
+    assert.match(offline.detail || "", /safely saved|automatically/i);
+  });
+
+  it("never shows the driver a database word, whatever the server said", () => {
+    const forbidden = /rr_operation_receipts|constraint|foreign key|sqlstate|503|RECEIPT_UNAVAILABLE|postgres|relation/i;
+    const states: RrOutboxItem[] = [
+      applyOutcome(item(), { kind: "retry", reason: 'violates constraint "rr_operation_receipts_service_job_id_fkey"' }, 1),
+      applyOutcome(item({ attempts: RR_OUTBOX_MAX_ATTEMPTS - 1 }), { kind: "retry", reason: "permission denied for table rr_operation_receipts" }, 1),
+    ];
+    for (const state of states) {
+      for (const online of [true, false]) {
+        const s = driverStatusFor(state, online);
+        assert.doesNotMatch(`${s.title} ${s.detail ?? ""} ${s.actionLabel ?? ""}`, forbidden);
+      }
+    }
+  });
+});

@@ -237,3 +237,158 @@ describe("withIdempotency — the protocol", () => {
     assert.equal(rows[0].actor_email, "driver@qa.invalid");
   });
 });
+
+/**
+ * A receipt store whose claim INSERT always fails, with a chosen SQLSTATE and a
+ * database message that must never reach the caller.
+ */
+function failingClaimStore(pgCode: string | undefined, pgMessage: string) {
+  const client = {
+    from() {
+      const builder: Record<string, unknown> = {
+        insert: () => builder,
+        update: () => builder,
+        select: () => builder,
+        eq: () => builder,
+        async maybeSingle() {
+          // The claim fails, and no receipt can be read back afterwards.
+          return { data: null, error: pgCode ? { code: pgCode, message: pgMessage } : { message: pgMessage } };
+        },
+      };
+      return builder;
+    },
+  };
+  return client as never;
+}
+
+const LEAKY = 'insert or update on table "rr_operation_receipts" violates foreign key '
+  + 'constraint "rr_operation_receipts_service_job_id_fkey"';
+
+const claimInput = {
+  companyId: "11111111-1111-1111-1111-111111111111",
+  actorEmail: "driver@example.invalid",
+  operationId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+  operationKind: "transition" as const,
+  serviceJobId: null,
+  requestBody: { toState: "en_route" },
+};
+
+describe("idempotency — infrastructure failure is not a conflict", () => {
+  /**
+   * The production constraint probe found this: a foreign-key failure while
+   * writing the receipt was reported as OPERATION_CONFLICT, which the outbox
+   * treats as terminal. A driver's queued work was abandoned and they were told
+   * to refresh a job that had never moved.
+   */
+  it("classifies a foreign-key failure as retryable, NOT as a conflict", async () => {
+    const outcome = await withIdempotency(
+      failingClaimStore("23503", LEAKY),
+      claimInput,
+      async () => "must not run"
+    );
+    assert.equal(outcome.status, "unavailable");
+    assert.equal(outcome.status === "unavailable" ? outcome.code : null, "RECEIPT_UNAVAILABLE");
+  });
+
+  it("classifies a permission failure as retryable", async () => {
+    const outcome = await withIdempotency(
+      failingClaimStore("42501", "permission denied for table rr_operation_receipts"),
+      claimInput,
+      async () => "must not run"
+    );
+    assert.equal(outcome.status, "unavailable");
+  });
+
+  it("classifies a connection failure with no SQLSTATE as retryable", async () => {
+    const outcome = await withIdempotency(
+      failingClaimStore(undefined, "fetch failed"),
+      claimInput,
+      async () => "must not run"
+    );
+    assert.equal(outcome.status, "unavailable");
+  });
+
+  it("NEVER executes the mutation when the receipt could not be written", async () => {
+    let ran = 0;
+    await withIdempotency(failingClaimStore("23503", LEAKY), claimInput, async () => {
+      ran += 1;
+      return "ran";
+    });
+    assert.equal(ran, 0, "a failed claim must not execute the operation");
+  });
+
+  it("leaks no table name, constraint name or SQL to the caller", async () => {
+    const forbidden =
+      /rr_operation_receipts|_fkey|foreign key|constraint|insert or update|permission denied|relation|pg_|sqlstate/i;
+    for (const code of ["23503", "42501", undefined]) {
+      const outcome = await withIdempotency(
+        failingClaimStore(code, LEAKY),
+        claimInput,
+        async () => "x"
+      );
+      const message = outcome.status === "unavailable" ? outcome.message : "";
+      assert.doesNotMatch(message, forbidden, `leaked database detail for SQLSTATE ${code}: ${message}`);
+      assert.match(message, /try again|retried/i, "the driver must be told it will be retried");
+    }
+  });
+
+  /**
+   * The one claim failure that IS terminal: the id is genuinely taken by a
+   * receipt this caller cannot read, because the policy is own-rows-only.
+   * Retrying would never succeed, and executing would risk a double run.
+   */
+  it("still treats an unreadable unique violation as a real conflict", async () => {
+    const outcome = await withIdempotency(
+      failingClaimStore("23505", "duplicate key value violates unique constraint"),
+      claimInput,
+      async () => "must not run"
+    );
+    assert.equal(outcome.status, "conflict");
+    assert.equal(outcome.status === "conflict" ? outcome.code : null, "OPERATION_CONFLICT");
+  });
+
+  it("a genuine fingerprint conflict is still terminal, and says what to do", async () => {
+    const store = receiptStore([
+      {
+        id: "r1",
+        company_id: claimInput.companyId,
+        operation_id: claimInput.operationId,
+        status: "succeeded",
+        result: { ok: true },
+        request_fingerprint: fingerprintRequest({ toState: "cancelled" }),
+        created_at: new Date().toISOString(),
+      },
+    ]);
+    const outcome = await withIdempotency(store.client, claimInput, async () => "must not run");
+    assert.equal(outcome.status, "conflict");
+    assert.match(
+      outcome.status === "conflict" ? outcome.message : "",
+      /already used for a different request/i
+    );
+  });
+
+  it("replay of the identical request still succeeds and does not re-execute", async () => {
+    const store = receiptStore([
+      {
+        id: "r1",
+        company_id: claimInput.companyId,
+        operation_id: claimInput.operationId,
+        status: "succeeded",
+        result: { ok: true, data: { toState: "en_route" } },
+        request_fingerprint: fingerprintRequest(claimInput.requestBody),
+        created_at: new Date().toISOString(),
+      },
+    ]);
+    let ran = 0;
+    const outcome = await withIdempotency(store.client, claimInput, async () => {
+      ran += 1;
+      return "re-ran";
+    });
+    assert.equal(outcome.status, "replayed");
+    assert.equal(ran, 0, "exactly-once must hold");
+    assert.deepEqual(outcome.status === "replayed" ? outcome.result : null, {
+      ok: true,
+      data: { toState: "en_route" },
+    });
+  });
+});

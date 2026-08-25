@@ -301,6 +301,17 @@ export async function runIdempotentMutation<T>(
       { status: 409 }
     );
   }
+  /**
+   * The receipt could not be written. 503, not 409: the outbox retries 5xx and
+   * abandons OPERATION_CONFLICT, and this is a transient failure of the
+   * bookkeeping rather than a real conflict.
+   */
+  if (outcome.status === "unavailable") {
+    return NextResponse.json(
+      { ok: false, error: outcome.message, code: outcome.code },
+      { status: 503 }
+    );
+  }
 
   const replayed = outcome.status === "replayed";
   const result = (serviceResult ?? outcome.result) as RrServiceResult<T>;

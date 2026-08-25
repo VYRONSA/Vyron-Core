@@ -518,3 +518,105 @@ describe("service requirements", () => {
     assert.equal(requirement.maxDispatchRadiusKm, 40);
   });
 });
+
+describe("a driver who declined THIS job", () => {
+  /**
+   * Found in production QA: a driver who declined a job was still offered back
+   * as a fresh candidate for that same job. Wastes the one thing a control room
+   * lacks at a scene — time — and makes the board look broken.
+   *
+   * The exclusion is job-scoped by construction: it reads this job's declined
+   * assignments, never a flag on the driver.
+   */
+  const quinn = { driver: driver({ employeeId: "quinn" }), truck: truck() };
+  const riley = { driver: driver({ employeeId: "riley" }), truck: truck() };
+
+  function evaluateWithDeclines(
+    candidates: RrCandidateInput[],
+    declined: { employeeId: string; reason: string | null; declinedAt: string | null }[],
+    includeDeclined = false
+  ) {
+    return evaluateDispatchCandidates({
+      companyId: COMPANY,
+      serviceJobId: "job-1",
+      scene: SCENE,
+      requirement: requirementForService("tow_in"),
+      candidates,
+      evaluatedAt: TODAY,
+      declined,
+      includeDeclined,
+    });
+  }
+
+  it("is excluded from that job, while another driver stays eligible", () => {
+    const result = evaluateWithDeclines(
+      [quinn, riley],
+      [{ employeeId: "quinn", reason: "Vehicle too heavy for this truck.", declinedAt: TODAY }]
+    );
+    const q = result.candidates.find((c) => c.employeeId === "quinn")!;
+    const r = result.candidates.find((c) => c.employeeId === "riley")!;
+
+    assert.equal(q.eligible, false, "the decliner must not be offered this job again");
+    assert.ok(q.eligibilityFailures.some((f) => f.code === "previously_declined"));
+    assert.equal(r.eligible, true, "another driver must remain available");
+    assert.equal(result.recommended?.employeeId, "riley");
+  });
+
+  it("shows the controller WHY they declined", () => {
+    const result = evaluateWithDeclines(
+      [quinn, riley],
+      [{ employeeId: "quinn", reason: "Vehicle too heavy for this truck.", declinedAt: TODAY }]
+    );
+    const q = result.candidates.find((c) => c.employeeId === "quinn")!;
+    assert.equal(q.previouslyDeclined, true);
+    assert.equal(q.declineReason, "Vehicle too heavy for this truck.");
+    assert.match(
+      q.eligibilityFailures.find((f) => f.code === "previously_declined")!.detail,
+      /too heavy/
+    );
+  });
+
+  it("is NOT a blacklist — the same driver stays eligible for a different job", () => {
+    // No decline recorded against this job, though they declined another.
+    const result = evaluateWithDeclines([quinn, riley], []);
+    const q = result.candidates.find((c) => c.employeeId === "quinn")!;
+    assert.equal(q.eligible, true);
+    assert.equal(q.previouslyDeclined, false);
+    assert.equal(q.declineReason, null);
+  });
+
+  it("a controller can deliberately re-include them, refusal still visible", () => {
+    const result = evaluateWithDeclines(
+      [quinn, riley],
+      [{ employeeId: "quinn", reason: "Too heavy.", declinedAt: TODAY }],
+      true
+    );
+    const q = result.candidates.find((c) => c.employeeId === "quinn")!;
+    assert.equal(q.eligible, true, "the override must make them selectable again");
+    assert.equal(q.previouslyDeclined, true, "but the refusal must not be forgotten");
+    assert.equal(q.declineReason, "Too heavy.");
+  });
+
+  it("a re-included decliner never outranks a driver who did not refuse", () => {
+    const result = evaluateWithDeclines(
+      [quinn, riley],
+      [{ employeeId: "quinn", reason: "Too heavy.", declinedAt: TODAY }],
+      true
+    );
+    assert.equal(result.recommended?.employeeId, "riley");
+    const rankOf = (id: string) => result.eligible.find((c) => c.employeeId === id)!.rank;
+    assert.ok(rankOf("riley")! < rankOf("quinn")!, "the decliner must rank below");
+  });
+
+  it("when everyone declined, the board says so rather than recommending nobody silently", () => {
+    const result = evaluateWithDeclines(
+      [quinn, riley],
+      [
+        { employeeId: "quinn", reason: "Too heavy.", declinedAt: TODAY },
+        { employeeId: "riley", reason: "Off shift.", declinedAt: TODAY },
+      ]
+    );
+    assert.equal(result.recommended, null);
+    assert.ok(result.noCandidateReason, "the controller must be told why nobody is available");
+  });
+});

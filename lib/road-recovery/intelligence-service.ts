@@ -32,6 +32,109 @@ import type { RrAssignmentFact } from "@/lib/road-recovery/intelligence/dispatch
 import { isBystandWorkflow } from "@/lib/road-recovery/intelligence/bystand";
 import type { RrExceptionFact } from "@/lib/road-recovery/intelligence/exceptions";
 import { buildDomains, type RrIntelligenceFacts } from "@/lib/road-recovery/intelligence/domains";
+import { buildOperationalFindings } from "@/lib/road-recovery/intelligence/operational";
+
+/**
+ * The two operational facts the structural findings need, which the metric
+ * pipeline does not already carry.
+ *
+ * Kept to two aggregate queries rather than one per job: a control room with
+ * two hundred live jobs must not produce four hundred round trips to draw one
+ * dashboard.
+ */
+async function loadOperationalExtras(
+  supabase: SupabaseClient,
+  companyId: string
+): Promise<{
+  outstandingEvidence: { serviceJobId: string; jobRef: string | null; serviceState: string; outstandingLabels: string[] }[];
+  unverifiedArrivals: { serviceJobId: string; reason: string | null }[];
+}> {
+  const [requirementRows, linkRows, jobRows, arrivalRows] = await Promise.all([
+    supabase
+      .from("rr_evidence_requirements")
+      .select("service_job_id,requirement_code,label,mandatory")
+      .eq("company_id", companyId)
+      .eq("mandatory", true),
+    supabase
+      .from("rr_evidence_links")
+      .select("service_job_id,requirement_code")
+      .eq("company_id", companyId),
+    // job_ref lives on the field_jobs spine, not on the service job.
+    supabase
+      .from("rr_service_jobs")
+      .select("id,service_state,field_jobs(job_ref)")
+      .eq("company_id", companyId)
+      .eq("record_status", "active"),
+    supabase
+      .from("rr_service_state_events")
+      .select("service_job_id,reason,latitude,to_state")
+      .eq("company_id", companyId)
+      .in("to_state", ["on_scene", "arrived_on_scene"]),
+  ]);
+
+  const satisfied = new Map<string, Set<string>>();
+  for (const row of (linkRows.data || []) as { service_job_id: string; requirement_code: string }[]) {
+    const set = satisfied.get(String(row.service_job_id)) ?? new Set<string>();
+    set.add(String(row.requirement_code));
+    satisfied.set(String(row.service_job_id), set);
+  }
+
+  const jobMeta = new Map<string, { jobRef: string | null; serviceState: string }>();
+  for (const row of (jobRows.data || []) as {
+    id: string;
+    service_state: string;
+    field_jobs?: { job_ref?: string | null } | { job_ref?: string | null }[] | null;
+  }[]) {
+    const parent = Array.isArray(row.field_jobs) ? row.field_jobs[0] : row.field_jobs;
+    jobMeta.set(String(row.id), {
+      jobRef: parent?.job_ref ?? null,
+      serviceState: String(row.service_state),
+    });
+  }
+
+  const arrivals = (arrivalRows.data || []) as {
+    service_job_id: string;
+    reason: string | null;
+    latitude: number | null;
+  }[];
+
+  /**
+   * Only jobs somebody has actually driven to.
+   *
+   * Nagging that a job "is missing mandatory evidence" before anyone has
+   * reached the scene is noise, and noise is how an action list gets ignored.
+   * Evidence becomes outstanding once there is a scene to photograph.
+   */
+  const arrivedJobIds = new Set(arrivals.map((row) => String(row.service_job_id)));
+
+  const outstandingByJob = new Map<string, string[]>();
+  for (const row of (requirementRows.data || []) as {
+    service_job_id: string;
+    requirement_code: string;
+    label: string | null;
+  }[]) {
+    const jobId = String(row.service_job_id);
+    if (!arrivedJobIds.has(jobId)) continue;
+    if ((satisfied.get(jobId) ?? new Set()).has(String(row.requirement_code))) continue;
+    const list = outstandingByJob.get(jobId) ?? [];
+    list.push(row.label || String(row.requirement_code));
+    outstandingByJob.set(jobId, list);
+  }
+
+  const outstandingEvidence = [...outstandingByJob.entries()].map(([serviceJobId, outstandingLabels]) => ({
+    serviceJobId,
+    jobRef: jobMeta.get(serviceJobId)?.jobRef ?? null,
+    serviceState: jobMeta.get(serviceJobId)?.serviceState ?? "unknown",
+    outstandingLabels,
+  }));
+
+  // An arrival with no latitude is the stated-reason exception being used.
+  const unverifiedArrivals = arrivals
+    .filter((row) => row.latitude === null)
+    .map((row) => ({ serviceJobId: String(row.service_job_id), reason: row.reason }));
+
+  return { outstandingEvidence, unverifiedArrivals };
+}
 import { computeRoadRecoveryHealth, type RrHealthResult } from "@/lib/road-recovery/intelligence/health";
 import {
   buildRecommendations,
@@ -835,6 +938,8 @@ export async function computeRoadRecoveryIntelligence(
       loadFacts(supabase, companyId, window, filters, limit, truncations),
     ]);
 
+    const operationalExtras = await loadOperationalExtras(supabase, companyId);
+
     const built = buildDomains(facts, {
       thresholds,
       window,
@@ -843,7 +948,27 @@ export async function computeRoadRecoveryIntelligence(
     });
 
     const health = computeRoadRecoveryHealth(built.metrics);
-    const recommendations = buildRecommendations(built.findings, {
+
+    /**
+     * Structural findings, merged with the threshold-driven ones.
+     *
+     * A workspace that has not configured a single SLA still needs to be told
+     * that a job is unassigned or that evidence is blocking billing. These are
+     * counted from rows rather than compared against a target, so they appear
+     * from day one; see intelligence/operational.ts.
+     */
+    const operationalFindings = buildOperationalFindings({
+      asOfIso: window.asOfIso,
+      jobs: facts.towJobs,
+      events: facts.events,
+      assignments: facts.assignments,
+      outstandingEvidence: operationalExtras.outstandingEvidence,
+      unverifiedArrivals: operationalExtras.unverifiedArrivals,
+    });
+
+    const allFindings = [...built.findings, ...operationalFindings];
+
+    const recommendations = buildRecommendations(allFindings, {
       asOfIso: window.asOfIso,
       limit: 25,
     });
@@ -877,12 +1002,12 @@ export async function computeRoadRecoveryIntelligence(
       domain: "recommended_actions",
       label: RR_DOMAIN_LABELS.recommended_actions,
       metrics: [],
-      findings: built.findings,
+      findings: allFindings,
       detail: {
         recommendations,
-        totalFindings: built.findings.length,
-        withRootCause: built.findings.filter((finding) => finding.rootCause !== null).length,
-        withoutRootCause: built.findings.filter((finding) => finding.rootCause === null).length,
+        totalFindings: allFindings.length,
+        withRootCause: allFindings.filter((finding) => finding.rootCause !== null).length,
+        withoutRootCause: allFindings.filter((finding) => finding.rootCause === null).length,
         quantifiedImpact: recommendations.filter((entry) => entry.financialImpactKnown).length,
         pipelineNote:
           "Recommendations enter the EXISTING VYRON action pipeline: workforce_automation_actions, the existing approval queue, and the existing outcome columns. There is no separate Road & Recovery action system.",
