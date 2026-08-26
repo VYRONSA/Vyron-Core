@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    HTTPS everywhere, with ONE deliberate exception.
+    HTTPS everywhere. No exceptions.
 
-    The debug build talks to a QA server on the local network over http, because
-    pointing a test build at production would create real operational records in
-    a live tenant. That exception is pinned to the QA hosts by name below — it is
-    not a global cleartext permit, so a release build reaching any other host
-    still requires TLS and a session cookie can never travel in the clear.
+    This is the configuration a RELEASE build ships with. There is deliberately
+    no cleartext permit of any kind here: a session cookie for a live tenant must
+    never be able to travel in the clear, whatever address the app is pointed at.
+
+    The debug build overrides this file with src/debug/res/xml/, which allows
+    cleartext to the QA hosts by name so a test build can talk to a local server
+    without creating records in a real tenant. Because that permit lives only in
+    the debug source set, it cannot reach a release APK even by accident.
 -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false">
@@ -14,12 +17,4 @@
             <certificates src="system" />
         </trust-anchors>
     </base-config>
-
-    <domain-config cleartextTrafficPermitted="true">
-        <!-- The QA server on the developer's LAN. -->
-        <domain includeSubdomains="false">192.168.101.175</domain>
-        <!-- The host machine, as seen from an Android emulator. -->
-        <domain includeSubdomains="false">10.0.2.2</domain>
-        <domain includeSubdomains="false">localhost</domain>
-    </domain-config>
 </network-security-config>

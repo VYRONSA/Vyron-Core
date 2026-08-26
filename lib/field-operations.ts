@@ -607,7 +607,45 @@ export async function recordFieldJobEvent(
 }
 
 export async function captureBrowserGps(): Promise<GpsCapture> {
-  if (typeof window === "undefined" || !navigator.geolocation) {
+  if (typeof window === "undefined") {
+    return { latitude: null, longitude: null, accuracy: null };
+  }
+
+  /**
+   * Inside the packaged app, ask the device rather than the browser.
+   *
+   * navigator.geolocation is gated behind a secure context. The app's WebView is
+   * a secure origin, but a page it loads over plain http is not - and there the
+   * API is simply absent, so this returned nulls and a driver tapping "I have
+   * arrived" got no position at all. It failed quietly, which is worse than
+   * failing loudly: the arrival looked like it had merely not been pressed.
+   *
+   * The Capacitor plugin talks to Android's location service directly and has no
+   * such requirement, so on a device it is both more reliable and more accurate.
+   * The import is dynamic and returns null off-device, so browsers keep using the
+   * web API below exactly as before.
+   */
+  try {
+    const { isNativeApp, currentPosition } = await import("@/lib/mobile/bridge");
+    if (isNativeApp()) {
+      const position = await currentPosition();
+      if (position) {
+        return {
+          latitude: position.latitude,
+          longitude: position.longitude,
+          accuracy: position.accuracy,
+        };
+      }
+      // A native refusal is authoritative: the device was asked and said no.
+      // Falling through to the web API would only ask something that cannot
+      // answer, and would turn a clear "no position" into a longer wait.
+      return { latitude: null, longitude: null, accuracy: null };
+    }
+  } catch {
+    // The bridge is unavailable in this build; the web API below still applies.
+  }
+
+  if (!navigator.geolocation) {
     return { latitude: null, longitude: null, accuracy: null };
   }
 

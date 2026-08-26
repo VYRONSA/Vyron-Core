@@ -145,6 +145,31 @@ describe("outbox — state transitions", () => {
     }
   });
 
+  /**
+   * The whole journey, asserted in one place.
+   *
+   * The browser release gate observes QUEUED -> SUCCEEDED end to end, but it
+   * cannot reliably catch SENDING: the request usually completes faster than a
+   * poll interval, and asserting "SENDING was observed" would be asserting a
+   * race - which is precisely what produced the original 30/32. The leg is
+   * therefore proven here, where every step is deterministic.
+   */
+  it("walks QUEUED -> SENDING -> SUCCEEDED, keeping one operation id", () => {
+    const queued = item({ state: "QUEUED", sendingSince: null });
+    assert.equal(isDue(queued, 1_000), true, "queued work must be due");
+
+    // The outbox marks an attempt in flight and stamps when it began, which is
+    // what lets a later process tell a live attempt from an abandoned one.
+    const sending = { ...queued, state: "SENDING" as const, sendingSince: 1_000 };
+    assert.equal(isDue(sending, 1_000), false, "a live attempt must not be picked up twice");
+
+    const succeeded = applyOutcome(sending, { kind: "succeeded", replayed: false }, 1_200);
+    assert.equal(succeeded.state, "SUCCEEDED");
+    assert.equal(succeeded.sendingSince, null, "a settled item is not still in flight");
+    assert.equal(isDue(succeeded, 9_999_999), false, "settled work is never resent");
+    assert.equal(succeeded.operationId, queued.operationId, "exactly-once depends on this");
+  });
+
   it("only sends items that are due", () => {
     assert.equal(isDue(item({ state: "QUEUED" }), 1_000), true);
     assert.equal(isDue(item({ state: "RETRY", nextAttemptAt: 500 }), 1_000), true);

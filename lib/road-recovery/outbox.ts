@@ -366,6 +366,31 @@ async function requeueAfterSignIn(): Promise<void> {
   }
 }
 
+/**
+ * Remove everything this device is holding for the employee who is signing out.
+ *
+ * A yard handset moves between people, so the next employee must not inherit the
+ * previous one's drafts, photographs or queue. Deleting the database is the only
+ * way to be sure: clearing stores one by one leaves whatever a future version
+ * adds behind.
+ *
+ * The caller must have established that nothing is still waiting to send. This
+ * function cannot make that judgement - it is given a queue and told to destroy
+ * it - so the check lives with the sign-out that knows how to explain the refusal
+ * to a person. Callers that skip it destroy a driver's unsent work.
+ */
+export async function clearLocalWorkspace(): Promise<void> {
+  if (!browser()) return;
+  await new Promise<void>((resolve) => {
+    const request = indexedDB.deleteDatabase(DB_NAME);
+    request.onsuccess = () => resolve();
+    request.onerror = () => resolve();
+    // Another tab holding the database open would block this indefinitely;
+    // sign-out must not hang because of one, so it proceeds either way.
+    request.onblocked = () => resolve();
+  });
+}
+
 export function startOutbox(): void {
   if (!browser() || started) return;
   started = true;

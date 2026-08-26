@@ -356,3 +356,43 @@ describe("what Home may promise about reports on the device", () => {
     assert.match(status.detail, /not sent yet/i);
   });
 });
+
+/**
+ * What sign-out is allowed to destroy.
+ *
+ * Signing out clears the device's local stores, and those stores are where an
+ * employee's unsent reports and photographs live. The count that gates the
+ * button therefore has to include everything still owed to them - work on its
+ * way AND work that stopped with a problem - because both would be lost.
+ */
+describe("sign-out may not discard unsent work", () => {
+  const at = (state: RrIncidentDraft["state"]): RrIncidentDraft =>
+    ({ ...newDraft("c1"), state }) as RrIncidentDraft;
+
+  const gate = (drafts: RrIncidentDraft[]) => {
+    const counts = draftSendState(drafts);
+    return counts.queued + counts.needsAttention;
+  };
+
+  it("blocks while a report is still on its way", () => {
+    assert.ok(gate([at("submitting")]) > 0);
+    assert.ok(gate([at("saved_on_device")]) > 0);
+  });
+
+  it("blocks while a report needs attention, not just while it is sending", () => {
+    // A failed report is still the employee's, and clearing it would be the
+    // quietest possible way to lose a safety report.
+    assert.ok(gate([at("failed")]) > 0);
+  });
+
+  it("allows sign-out once the control room has everything", () => {
+    assert.equal(gate([at("submitted"), at("submitted")]), 0);
+    assert.equal(gate([]), 0);
+  });
+
+  it("does not count an unfinished draft as unsent work", () => {
+    // A draft was never submitted, so nothing is owed to the server. It is the
+    // employee's own scratch note, and it goes with the handover.
+    assert.equal(gate([at("draft")]), 0);
+  });
+});

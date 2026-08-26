@@ -62,21 +62,20 @@ const config: CapacitorConfig = {
     // a driver's session cookie.
     cleartext: false,
     /**
-     * The scheme the bundled files are served under, matched to the app's own.
+     * The bundled files are always served over https://localhost.
      *
-     * The offline bootstrap lives in the bundle, so it runs on
-     * <androidScheme>://localhost. When it sends the driver back into the app it
-     * performs a cross-origin navigation, and a page served over https may not
-     * navigate to http — Chromium refuses the downgrade and Android hands the
-     * URL to the system browser instead, dropping the employee out of the app
-     * and away from the work queued on their device.
+     * This is the scheme the WebView reports as its own origin, and Android only
+     * hands a page the display cutout and status-bar insets when it is laid out
+     * edge to edge under a secure origin - so lowering it to http silently makes
+     * env(safe-area-inset-top) resolve to zero and puts the app header back under
+     * the clock.
      *
-     * Production is https, so this stays "https" there and nothing changes. A
-     * cleartext host (only ever a local QA server) gets a matching http bundle
-     * origin, so the way back is a same-scheme navigation rather than a
-     * downgrade. allowMixedContent stays false either way.
+     * It does not need to match the server: the app URL is a top-level navigation
+     * the native shell performs, not a subresource, so a cleartext QA server
+     * still loads (permitted by name in the debug network config) while release
+     * builds stay HTTPS-only.
      */
-    androidScheme: new URL(appOrigin).protocol === "http:" ? "http" : "https",
+    androidScheme: "https",
     // The app is allowed to navigate to its own origin and to Supabase (auth
     // and storage). Anything else opens in the system browser instead of
     // inside a WebView that carries the session.
