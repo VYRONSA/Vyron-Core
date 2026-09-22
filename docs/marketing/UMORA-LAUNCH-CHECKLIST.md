@@ -53,12 +53,11 @@ configuration points at localhost, a private address or an obvious test endpoint
 
 ## Outstanding before launch
 
-1. **Two photographs must be purchased** — the hero and the clock-in selfie.
-   Both slots render a marked placeholder until then. Verified purchase briefs,
-   including image IDs and model-release status, are in
-   [UMORA-MEDIA-LICENSES.md](./UMORA-MEDIA-LICENSES.md).
-2. **Configure one enquiry delivery channel** and run `npm run verify:enquiry`.
-3. **Set `NEXT_PUBLIC_SITE_URL`** to the domain the site will actually serve.
+1. **Configure one enquiry delivery channel** and run `npm run verify:enquiry`.
+2. **Set `NEXT_PUBLIC_SITE_URL`** to the domain the site will actually serve.
+
+Photography is complete: every slot has an approved image, and no placeholder
+remains. See [UMORA-MEDIA-LICENSES.md](./UMORA-MEDIA-LICENSES.md).
 
 ## Deliberately unchanged
 

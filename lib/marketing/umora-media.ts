@@ -1,15 +1,22 @@
 // Every photograph on the UMORA public site is referenced from here, so the
 // imagery can be replaced without touching layout code.
 //
-// All files in /public/umora/photos/ are licensed stock photographs, and none
-// of them shows an identifiable person: free stock licences do not include
-// model releases, so that risk is avoided rather than accepted. Source,
-// photographer, licence and the verification note for each one are recorded in
+// Two kinds of image live in /public/umora/photos/:
+//
+//   * Custom-generated UMORA marketing assets (the hero and the clock-in
+//     avatar). Commissioned for UMORA, not stock, and they depict no real
+//     person, so no stock licence or model release applies to them.
+//   * Licensed stock photographs for the workforce cards and industry tiles.
+//     None of those shows an identifiable person, because free stock licences
+//     do not include model releases and that risk is avoided rather than
+//     accepted.
+//
+// Source, licence and the verification note for every asset are recorded in
 // docs/marketing/UMORA-MEDIA-LICENSES.md — update that record whenever an
 // image here changes.
 //
 // A `src` of null means REQUIRES_APPROVED_IMAGE: the slot renders a branded
-// placeholder until a licensed, model-released image is approved for it.
+// placeholder until an approved image exists for it.
 
 export type UmoraImage = {
   /** null means REQUIRES_APPROVED_IMAGE: the slot renders a branded placeholder. */
@@ -25,15 +32,13 @@ export type UmoraImage = {
 
 const photo = (name: string) => `/umora/photos/${name}.jpg`;
 
-// REQUIRES_APPROVED_IMAGE. The hero needs a person at close range, and every
-// free-licence candidate that worked compositionally had a recognisable face
-// at full resolution. See docs/marketing/UMORA-MEDIA-LICENSES.md for the brief.
+// Custom-generated UMORA marketing asset (no real person depicted).
 export const heroPerson: UmoraImage = {
-  src: null,
-  alt: "Workforce photograph pending approval",
-  final: "1200 × 1600 (portrait), dark café background",
-  brief: "Front-of-house worker at close range in a warm, dark interior. Needs a purchased model-released image.",
-  position: "35% 30%",
+  src: photo("hero-person"),
+  alt: "Café team member in an apron smiling while holding a tablet behind the counter",
+  final: "1536 × 1024, warm café interior",
+  brief: "Front-of-house worker at close range in a warm café interior, dark apron, shallow depth of field.",
+  position: "53% 22%",
 };
 
 export const workforcePortraits: (UmoraImage & { label: string })[] = [
@@ -103,15 +108,15 @@ export const industryImages: Record<string, UmoraImage> = Object.fromEntries([
   industry("field-service", "field-service", "Technician testing an electrical control panel with a multimeter", "50% 45%"),
 ]);
 
-// REQUIRES_APPROVED_IMAGE. This slot must show a recognisable face (it
-// illustrates photo-verified clocking), so it needs a purchased, model-released
-// image. See docs/marketing/UMORA-MEDIA-LICENSES.md for the purchase brief.
+// Custom-generated UMORA marketing asset (no real person depicted). Cropped to
+// the worker's head and shoulders only — the generated phone UI in the source
+// image is not used; the phone mockup on the page is the real product UI.
 export const clockInSelfie: UmoraImage = {
-  src: null,
-  alt: "Employee clock-in verification photo",
-  final: "400 × 400 (square, face centred)",
-  brief: "Head-and-shoulders, face centred, soft background. Needs a purchased model-released image.",
-  position: "50% 30%",
+  src: photo("clockin-selfie"),
+  alt: "Site worker in a hard hat smiling at the camera",
+  final: "800 × 800 (square, face centred)",
+  brief: "Head-and-shoulders, face centred, as captured at clock-in.",
+  position: "50% 45%",
 };
 
 export const ctaJourney: UmoraImage = {

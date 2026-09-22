@@ -6,18 +6,24 @@ Update this file whenever an image is added or replaced.
 
 ## Standard applied
 
-**No photograph on the public site shows an identifiable person.** Free stock
-licences do not include model releases, so rather than carry that risk, every
-image was chosen so that nobody in it can be recognised: people are seen from
-behind, cropped below the head, turned away, obscured by PPE, or far enough
-away and out of focus to be unidentifiable. Each image below records how that
-was verified.
+The site uses images of two kinds, and neither carries a publicity-rights risk.
 
-Images were also screened for readable third-party brand names and logos.
+**Custom-generated UMORA assets** (the hero and the clock-in avatar) were made
+for UMORA. They depict no real person, so there is no model release to obtain
+and nobody's likeness is used to advertise the product.
 
-## Licence basis
+**Licensed stock photographs** (workforce cards, industry tiles, the CTA band)
+show **no identifiable person**. Free stock licences do not include model
+releases, so rather than carry that risk, every one was chosen so that nobody in
+it can be recognised: people are seen from behind, cropped below the head,
+turned away, obscured by PPE, or far enough away and out of focus to be
+unidentifiable. Each records below how that was verified.
 
-All images were downloaded from Unsplash. For each one, the photo page was
+Everything was screened for readable third-party brand names and logos.
+
+## Licence basis for the stock photographs
+
+The stock photographs were downloaded from Unsplash. For each one, the photo page was
 checked on the date obtained and showed exactly: *"Free to use under the
 Unsplash License"*. No Unsplash+ (paid), Getty-supplied or "Sponsored" images
 are used.
@@ -34,10 +40,27 @@ Unsplash images cannot be compiled to replicate a similar or competing service.
 Attribution is not required; credits are kept here for our own records.
 
 Unsplash's Terms (section 5) exclude recognisable people and third-party brands
-from that licence. Because no image here contains either, the copyright licence
-above is the only permission this site relies on.
+from that licence. Because no stock image here contains either, the copyright
+licence above is the only permission those images rely on.
 
 ## Assets in the launch build
+
+## Custom-generated UMORA assets
+
+These two were generated for UMORA as marketing assets. They are not stock
+photography: no stock licence applies, and because no real person is depicted
+there is no model release to obtain and no risk of implying that anyone shown
+endorses UMORA. Supplied by the project owner (VYRONSOFT) on 23 September 2026.
+
+| Asset | Used on | Stored file | Origin | Licence basis | People |
+|---|---|---|---|---|---|
+| `hero-person` | Landing hero, left of the dashboard | `public/umora/photos/hero-person.jpg` (1536 x 1024, 198 KB) | Custom-generated UMORA marketing asset, supplied by VYRONSOFT | Owned by VYRONSOFT; no stock licence and no model release required | No real person depicted |
+| `clockin-selfie` | Clock-in phone mockup (circular avatar, ~90px) | `public/umora/photos/clockin-selfie.jpg` (800 x 800, 101 KB) | Custom-generated UMORA marketing asset, supplied by VYRONSOFT | Owned by VYRONSOFT; no stock licence and no model release required | No real person depicted |
+
+- **`hero-person`** — Café team member in an apron holding a tablet, warm café interior with shallow depth of field. Used at object-position 53% 22% so she sits clear of the glass lettering panel, with the dashboard mockup still the dominant secondary visual.
+- **`clockin-selfie`** — Site worker in a hard hat, cropped to head and shoulders. Only the photographic part of the supplied image is used — the generated phone interface in it was discarded, and the phone mockup on the page remains the real product UI.
+
+## Licensed stock photographs
 
 | Asset | Used on | Source | Photographer | Licence | Stored file | People |
 |---|---|---|---|---|---|---|
@@ -132,78 +155,7 @@ above is the only permission this site relies on.
 
 ## Assets still requiring an approved image
 
-These slots are marked `REQUIRES_APPROVED_IMAGE` in `lib/marketing/umora-media.ts`.
-They render a deliberate branded placeholder — the layout is unchanged, so
-approving an image is a one-line data change.
-
-### `hero-person`
-
-- **Where:** Landing hero, left of the dashboard (tall crop, roughly 0.53 width:height)
-- **Why it is not filled:** The hero shows a person at close range. Every free-licence candidate that worked compositionally turned out, at full resolution, to have a recognisable face (a profile, glasses and jawline in one case). Rather than carry that risk the slot is left pending.
-
-### `clockin-selfie`
-
-- **Where:** Clock-in phone mockup on the landing page (circular avatar, ~90px)
-- **Why it is not filled:** The feature being illustrated is a photo-verified clock-in, so the image must show a recognisable face. No free-licence image can satisfy that without a model release.
-
-**To fill these, buy model-released images.** Both candidates below
-were checked on iStock on **22 September 2026**, before purchase: the licence
-type, release status, dimensions and price are as the provider's own asset page
-states them. Neither has been purchased, so neither is in the build.
-
-Why iStock: it publishes release status on the public asset page, so the claim
-can be verified before paying. Adobe Stock and Shutterstock block automated
-access (HTTP 403), so their release badges could not be read the same way.
-
-### Purchase brief — `hero-person`
-
-| Field | Value |
-|---|---|
-| Intended UMORA asset | `heroPerson` — landing hero, left of the dashboard |
-| Provider | iStock (Getty Images) |
-| Image ID | **1195036504** |
-| Original URL | https://www.istockphoto.com/photo/anything-i-can-get-you-gm1195036504-340497602 |
-| Photographer | shapecharge |
-| Title | "Anything I Can Get You" |
-| Licence to buy | Royalty-free, **Standard** licence (sufficient for website use) |
-| Model-release status | **model_and_property_released**, as published on the asset page |
-| Price at verification | 3 credits (about US$36 single purchase; less on a subscription) |
-| Recommended crop | Portrait, about 0.53 width:height. Barista centre-left with headroom; the right third of the hero sits under the dashboard mockup |
-| Why this one | Café worker in apron in a real bar-back setting with warm depth behind — closest risk-free match to the approved hero |
-| Alternate | iStock **2210231583** — https://www.istockphoto.com/photo/a-colombian-woman-smiling-inside-a-bar-gm2210231583-627294018 — model_and_property_released, 1 credit, warmer and darker |
-
-### Purchase brief — `clockin-selfie`
-
-| Field | Value |
-|---|---|
-| Intended UMORA asset | `clockInSelfie` — clock-in phone mockup (circular avatar, ~90px) |
-| Provider | iStock (Getty Images) |
-| Image ID | **1795068462** |
-| Original URL | https://www.istockphoto.com/photo/cheerful-handsome-young-arab-entrepreneur-guy-posing-indoors-gm1795068462-548055464 |
-| Photographer | fizkes |
-| Title | "Cheerful handsome young Arab entrepreneur guy posing indoors" |
-| Licence to buy | Royalty-free, **Standard** licence |
-| Model-release status | **model_released**, as published on the asset page |
-| Price at verification | 1 credit (about US$12 single purchase) |
-| Recommended crop | Square, face centred, at least 400 x 400 after crop |
-| Why this one | Warm open smile facing camera, soft indoor background — reads as a genuine clock-in verification photo at avatar size |
-| Alternate | iStock **1194465580** — https://www.istockphoto.com/photo/beautiful-mature-woman-looking-happy-gm1194465580-340128488 — model_released, 3 credits, plain background |
-
-### After purchase (about five minutes)
-
-1. Download the largest size offered.
-2. Save as `public/umora/photos/hero-person.jpg` / `public/umora/photos/clockin-selfie.jpg`
-   (progressive JPEG, quality ~82, EXIF stripped; long edge 2000px for the hero,
-   800px for the selfie).
-3. In `lib/marketing/umora-media.ts` change that entry's `src: null` to
-   `src: photo("hero-person")` / `src: photo("clockin-selfie")`, set `alt` to
-   describe the photograph, and set `position` to the focus point.
-4. Move its row from this section into the assets table above, recording
-   provider, image ID, licence type, release status and date obtained.
-5. Rebuild. Nothing else changes — the layout already reserves the slot.
-
-**Do not** substitute a free-stock image with a recognisable person: that is the
-risk this phase removed.
+None. Every slot on the public site now has an approved image.
 
 
 ## Processing
@@ -216,6 +168,9 @@ Next.js `<Image>` serves responsive sizes from these files.
 
 - **Phase 16C** — first licensed set. 13 of those images showed identifiable
   people and were flagged as needing a model-release decision.
+- **Final phase** — the hero and clock-in slots were filled with custom-generated
+  UMORA marketing assets (above), removing the last two placeholders. No stock
+  photography was purchased.
 - **Phase 16D** — that risk was not accepted. Those images were replaced with
   photographs containing no identifiable people (listed above), except
   `clockin-selfie`, which needs a purchased model-released image.
