@@ -146,38 +146,65 @@ approving an image is a one-line data change.
 - **Where:** Clock-in phone mockup on the landing page (circular avatar, ~90px)
 - **Why it is not filled:** The feature being illustrated is a photo-verified clock-in, so the image must show a recognisable face. No free-licence image can satisfy that without a model release.
 
-**To fill these, buy model-released images.** Recommended purchase briefs:
+**To fill these, buy model-released images.** Both candidates below
+were checked on iStock on **22 September 2026**, before purchase: the licence
+type, release status, dimensions and price are as the provider's own asset page
+states them. Neither has been purchased, so neither is in the build.
+
+Why iStock: it publishes release status on the public asset page, so the claim
+can be verified before paying. Adobe Stock and Shutterstock block automated
+access (HTTP 403), so their release badges could not be read the same way.
 
 ### Purchase brief — `hero-person`
 
 | Field | Value |
 |---|---|
-| Intended UMORA location | Landing hero (`heroPerson` in `lib/marketing/umora-media.ts`) |
-| Subject | Front-of-house / hospitality or retail worker at close range, warm genuine smile, dark apron, dark warm interior with out-of-focus lights behind |
-| Recommended crop | Portrait, about 0.53 width:height (e.g. 1200 × 2250), subject centred with headroom; the right third is covered by the dashboard mockup |
-| Provider | Adobe Stock, Getty Images, iStock or Shutterstock (all offer model-released assets) |
-| Required licence | Standard/royalty-free web licence is sufficient |
-| Model-release status | **Must be "model released"** — this is the one image where a recognisable face is wanted |
-| Search links | Adobe Stock https://stock.adobe.com/search?k=barista+portrait+dark+cafe , Getty https://www.gettyimages.com/photos/cafe-worker-portrait |
+| Intended UMORA asset | `heroPerson` — landing hero, left of the dashboard |
+| Provider | iStock (Getty Images) |
+| Image ID | **1195036504** |
+| Original URL | https://www.istockphoto.com/photo/anything-i-can-get-you-gm1195036504-340497602 |
+| Photographer | shapecharge |
+| Title | "Anything I Can Get You" |
+| Licence to buy | Royalty-free, **Standard** licence (sufficient for website use) |
+| Model-release status | **model_and_property_released**, as published on the asset page |
+| Price at verification | 3 credits (about US$36 single purchase; less on a subscription) |
+| Recommended crop | Portrait, about 0.53 width:height. Barista centre-left with headroom; the right third of the hero sits under the dashboard mockup |
+| Why this one | Café worker in apron in a real bar-back setting with warm depth behind — closest risk-free match to the approved hero |
+| Alternate | iStock **2210231583** — https://www.istockphoto.com/photo/a-colombian-woman-smiling-inside-a-bar-gm2210231583-627294018 — model_and_property_released, 1 credit, warmer and darker |
 
 ### Purchase brief — `clockin-selfie`
 
 | Field | Value |
 |---|---|
-| Intended UMORA location | Clock-in phone mockup, landing page (`clockInSelfie` in `lib/marketing/umora-media.ts`) |
-| Subject | Head-and-shoulders of a smiling employee facing the camera, plain or softly blurred background, neutral workwear |
-| Recommended crop | Square, face centred, at least 400 × 400 after crop |
-| Provider | Adobe Stock (or Getty Images / iStock / Shutterstock — all include model releases on assets marked as released) |
-| Candidate found | Adobe Stock asset **434012352** — "Portrait of happy African American small business owner … head shot" — https://stock.adobe.com/images/portrait-of-happy-african-american-small-business-owner-posing-with-hands-folded-millennial-black-male-team-leader-smiling-looking-at-camera-employees-working-in-modern-office-behind-head-shot/434012352 |
-| Required licence | Adobe Stock **Standard** licence is sufficient for website use |
-| Model-release status | **Not verified by us.** Adobe Stock blocks automated access (HTTP 403), so the release badge could not be read. Confirm "Released" on the asset page before purchase. |
+| Intended UMORA asset | `clockInSelfie` — clock-in phone mockup (circular avatar, ~90px) |
+| Provider | iStock (Getty Images) |
+| Image ID | **1795068462** |
+| Original URL | https://www.istockphoto.com/photo/cheerful-handsome-young-arab-entrepreneur-guy-posing-indoors-gm1795068462-548055464 |
+| Photographer | fizkes |
+| Title | "Cheerful handsome young Arab entrepreneur guy posing indoors" |
+| Licence to buy | Royalty-free, **Standard** licence |
+| Model-release status | **model_released**, as published on the asset page |
+| Price at verification | 1 credit (about US$12 single purchase) |
+| Recommended crop | Square, face centred, at least 400 x 400 after crop |
+| Why this one | Warm open smile facing camera, soft indoor background — reads as a genuine clock-in verification photo at avatar size |
+| Alternate | iStock **1194465580** — https://www.istockphoto.com/photo/beautiful-mature-woman-looking-happy-gm1194465580-340128488 — model_released, 3 credits, plain background |
 
-Search links for alternatives: Adobe Stock https://stock.adobe.com/search?k=employee+headshot+smiling ,
-Getty Images https://www.gettyimages.com/photos/employee-headshot .
+### After purchase (about five minutes)
 
-After purchase: place each file at `public/umora/photos/<asset>.jpg`, set `src`
-for that entry in `lib/marketing/umora-media.ts`, and add a row above with the
-asset ID, licence type and release status.
+1. Download the largest size offered.
+2. Save as `public/umora/photos/hero-person.jpg` / `public/umora/photos/clockin-selfie.jpg`
+   (progressive JPEG, quality ~82, EXIF stripped; long edge 2000px for the hero,
+   800px for the selfie).
+3. In `lib/marketing/umora-media.ts` change that entry's `src: null` to
+   `src: photo("hero-person")` / `src: photo("clockin-selfie")`, set `alt` to
+   describe the photograph, and set `position` to the focus point.
+4. Move its row from this section into the assets table above, recording
+   provider, image ID, licence type, release status and date obtained.
+5. Rebuild. Nothing else changes — the layout already reserves the slot.
+
+**Do not** substitute a free-stock image with a recognisable person: that is the
+risk this phase removed.
+
 
 ## Processing
 
