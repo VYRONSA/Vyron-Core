@@ -1,70 +1,84 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import styles from "@/components/marketing/marketing.module.css";
-import { buildPageMetadata, coreFeatures, featureMatrix } from "@/lib/marketing/site";
+import { ArrowRight } from "lucide-react";
+import { fallbackIcon, groupIcons, platformModules } from "@/components/marketing/umora/content";
+import { PageHero, Section, SectionHead, UmoraPage, pageStyles as p } from "@/components/marketing/umora/PageKit";
+import { HeroDashboard } from "@/components/marketing/umora/visuals";
+import s from "@/components/marketing/umora/umora.module.css";
+import { buildPageMetadata, featureMatrix } from "@/lib/marketing/site";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Features | VYRON CORE",
-  description: "Explore every VYRON CORE module across workforce intelligence, HR operations, compliance, and payroll readiness.",
+  title: "Features | UMORA",
+  description:
+    "Explore every UMORA module across people, clocking, rostering, leave, HR operations, compliance, payroll readiness and workforce intelligence.",
   path: "/features",
 });
 
 export default function FeaturesPage() {
   return (
-    <main>
-        <section className={styles.section}>
-          <div className={styles.container}>
-            <span className={styles.kicker}>Features</span>
-            <h1 className={styles.h1}>Deep platform capabilities for workforce execution.</h1>
-            <p className={styles.lead}>
-              VYRON CORE combines employee management, attendance controls, HR operations, and intelligence tooling in
-              one production-ready enterprise platform.
-            </p>
-            <div className={`${styles.grid} ${styles.grid4}`} style={{ marginTop: "1.2rem" }}>
-              {coreFeatures.map((feature) => (
-                <article key={feature} className={styles.card}>
-                  <h3>{feature}</h3>
-                  <p className={styles.muted}>
-                    Built to reduce management latency, strengthen compliance confidence, and improve payroll accuracy.
-                  </p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
+    <UmoraPage>
+      <PageHero
+        eyebrow="Features"
+        title={
+          <>
+            Every part of the working day. <em>One intelligent platform.</em>
+          </>
+        }
+        lead="UMORA combines employee management, verified attendance, rostering, HR operations, compliance and payroll readiness — with the intelligence to show managers what needs attention next."
+        ctas={{ secondary: { href: "/pricing", label: "View pricing" } }}
+        aside={<HeroDashboard />}
+      />
 
-        <section className={styles.section}>
-          <div className={styles.container}>
-            <span className={styles.kicker}>Module Breakdown</span>
-            <h2 className={styles.h1} style={{ fontSize: "clamp(1.7rem, 4vw, 2.7rem)" }}>
-              Grouped by operational outcomes.
-            </h2>
-            <div className={`${styles.grid} ${styles.grid3}`} style={{ marginTop: "1.2rem" }}>
-              {featureMatrix.map((group) => (
-                <article key={group.group} className={styles.card}>
-                  <h3>{group.group}</h3>
-                  <ul className={styles.list}>
-                    {group.items.map((item) => (
-                      <li key={item}>
-                        <span className={styles.dot} />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </article>
-              ))}
-            </div>
+      <Section label="Platform modules">
+        <SectionHead
+          eyebrow="The platform"
+          title="One workforce. One intelligent platform."
+          lead="Ten connected modules share one employee record, one timeline and one set of rules."
+        />
+        <div className={p.grid5}>
+          {platformModules.map(({ icon: Icon, name, text }) => (
+            <article key={name} className={p.card}>
+              <Icon className={p.cardIcon} />
+              <h3 className={p.cardTitle}>{name}</h3>
+              <p className={p.cardText}>{text}</p>
+            </article>
+          ))}
+        </div>
+      </Section>
 
-            <div className={styles.actions}>
-              <Link href="/contact" className={`${styles.btn} ${styles.btnPrimary}`}>
-                Book a feature demo
-              </Link>
-              <Link href="/pricing" className={`${styles.btn} ${styles.btnSecondary}`}>
-                View pricing
-              </Link>
-            </div>
-          </div>
-        </section>
-      </main>
+      <Section tone="white" label="Module breakdown">
+        <SectionHead
+          eyebrow="Module breakdown"
+          title="Grouped by operational outcome."
+          lead="What each part of UMORA does in practice."
+        />
+        <div className={p.grid3}>
+          {featureMatrix.map((group) => {
+            const Icon = groupIcons[group.group] ?? fallbackIcon;
+            return (
+              <article key={group.group} className={p.card}>
+                <span className={p.cardIconBadge}>
+                  <Icon />
+                </span>
+                <h3 className={p.cardTitle}>{group.group}</h3>
+                <ul className={p.checklist}>
+                  {group.items.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </article>
+            );
+          })}
+        </div>
+        <div className={p.centerCta}>
+          <Link href="/contact" className={`${s.btn} ${s.btnGold}`}>
+            Book a feature demo <ArrowRight />
+          </Link>
+          <Link href="/solutions" className={`${s.btn} ${p.btnGhostDark}`}>
+            See solutions
+          </Link>
+        </div>
+      </Section>
+    </UmoraPage>
   );
 }

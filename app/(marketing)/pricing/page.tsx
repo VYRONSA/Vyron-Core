@@ -1,96 +1,107 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import PricingEstimator from "@/components/marketing/PricingEstimator";
-import styles from "@/components/marketing/marketing.module.css";
-import { buildPageMetadata, comparisonHeaders, comparisonRows, plans } from "@/lib/marketing/site";
+import { PageHero, Section, SectionHead, UmoraPage, pageStyles as p } from "@/components/marketing/umora/PageKit";
+import s from "@/components/marketing/umora/umora.module.css";
+import { buildPageMetadata, comparisonHeaders, comparisonRows, plans, siteName } from "@/lib/marketing/site";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Pricing | VYRON CORE",
-  description: "Transparent VYRON CORE pricing for Launch, Starter, Growth, Professional, Business, and Enterprise teams.",
+  title: "Pricing | UMORA",
+  description: "UMORA pricing for Launch, Starter, Growth, Professional, Business and Enterprise teams.",
   path: "/pricing",
 });
 
+function splitPrice(price: string) {
+  const match = price.match(/^(R[\d,]+)(\/month)?\s*(.*)$/);
+  if (!match) return { amount: price, unit: "" };
+  return { amount: match[1], unit: [match[2], match[3]].filter(Boolean).join(" ") };
+}
+
 export default function PricingPage() {
+  const oursIndex = comparisonHeaders.indexOf(siteName);
+
   return (
-    <main>
-        <section className={styles.section}>
-          <div className={styles.container}>
-            <span className={styles.kicker}>Pricing</span>
-            <h1 className={styles.h1}>Premium packages for workforce growth.</h1>
-            <p className={styles.lead}>
-              Every package includes production-ready workforce tooling, with advanced controls as you scale.
-            </p>
+    <UmoraPage>
+      <PageHero
+        eyebrow="Pricing"
+        title={
+          <>
+            Packages that grow <em>with your workforce.</em>
+          </>
+        }
+        lead="Every package includes the core UMORA workforce platform, with advanced controls as you scale. Prices are monthly and exclude VAT."
+        ctas={{ secondary: { href: "#plans", label: "Compare packages" } }}
+        compact
+      />
 
-            <div className={`${styles.grid} ${styles.grid3}`} style={{ marginTop: "1.2rem" }}>
-              {plans.map((plan) => (
-                <article
-                  key={plan.name}
-                  className={styles.card}
-                  style={
-                    plan.highlight
-                      ? {
-                          borderColor: "rgba(6,197,255,0.6)",
-                          boxShadow: "0 24px 72px rgba(6,197,255,0.2)",
-                        }
-                      : undefined
-                  }
-                >
-                  <h3>{plan.name}</h3>
-                  <p className={styles.muted}>{plan.people}</p>
-                  <p style={{ fontWeight: 800 }}>{plan.price}</p>
-                  <ul className={styles.list}>
-                    {plan.includes.map((item) => (
-                      <li key={item}>
-                        <span className={styles.dot} />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                  <div className={styles.actions}>
-                    <Link href={plan.cta.includes("Sales") ? "/contact" : "/signup"} className={`${styles.btn} ${styles.btnPrimary}`}>
-                      {plan.cta}
-                    </Link>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className={styles.section}>
-          <div className={styles.container}>
-            <PricingEstimator />
-          </div>
-        </section>
-
-        <section className={styles.section}>
-          <div className={styles.container}>
-            <span className={styles.kicker}>Comparison</span>
-            <h2 className={styles.h1} style={{ fontSize: "clamp(1.7rem, 4vw, 2.7rem)" }}>
-              Capability depth at a glance.
-            </h2>
-            <div className={styles.tableWrap} style={{ marginTop: "1rem" }}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    {comparisonHeaders.map((header) => (
-                      <th key={header}>{header}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {comparisonRows.map((row) => (
-                    <tr key={row[0]}>
-                      {row.map((col) => (
-                        <td key={col}>{col}</td>
-                      ))}
-                    </tr>
+      <Section id="plans" label="Packages">
+        <div className={p.grid3}>
+          {plans.map((plan) => {
+            const { amount, unit } = splitPrice(plan.price);
+            const toSales = plan.cta.includes("Sales") || plan.cta.includes("Demo");
+            return (
+              <article key={plan.name} className={`${p.plan} ${plan.highlight ? p.planFeatured : ""}`}>
+                {plan.highlight ? <span className={p.planBadge}>Most popular</span> : null}
+                <h2 className={p.planName}>{plan.name}</h2>
+                <p className={p.planPeople}>{plan.people}</p>
+                <p className={p.planPrice}>
+                  {amount} {unit ? <small>{unit}</small> : null}
+                </p>
+                <ul className={p.checklist}>
+                  {plan.includes.map((item) => (
+                    <li key={item}>{item}</li>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-      </main>
+                </ul>
+                <div className={p.planCta}>
+                  <Link
+                    href={toSales ? "/contact" : "/signup"}
+                    className={`${s.btn} ${plan.highlight ? s.btnGold : p.btnDark}`}
+                  >
+                    {plan.cta} <ArrowRight />
+                  </Link>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </Section>
+
+      <Section tone="white" label="Plan guide">
+        <PricingEstimator />
+      </Section>
+
+      <Section label="Comparison">
+        <SectionHead
+          eyebrow="Comparison"
+          title="Capability depth at a glance."
+          lead="How UMORA compares with traditional clocking systems and traditional HR software."
+        />
+        <div className={p.tableWrap}>
+          <table className={p.table}>
+            <thead>
+              <tr>
+                {comparisonHeaders.map((header) => (
+                  <th key={header} scope="col">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {comparisonRows.map((row) => (
+                <tr key={row[0]}>
+                  {row.map((col, i) => (
+                    <td key={`${row[0]}-${i}`} className={i === oursIndex ? p.ours : undefined}>
+                      {col}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+    </UmoraPage>
   );
 }

@@ -4,12 +4,9 @@ import type { Metadata } from "next";
 import {
   ArrowRight,
   BarChart3,
-  Briefcase,
   CalendarDays,
-  CalendarRange,
   CircleAlert,
   Clock,
-  FileText,
   Fingerprint,
   Play,
   ShieldCheck,
@@ -19,7 +16,6 @@ import {
   Users,
   Wallet,
   CalendarCheck,
-  Route,
   type LucideIcon,
 } from "lucide-react";
 import JsonLd from "@/components/marketing/JsonLd";
@@ -35,6 +31,7 @@ import {
   Swoosh,
   WorkforceMap,
 } from "@/components/marketing/umora/visuals";
+import { platformModules } from "@/components/marketing/umora/content";
 import s from "@/components/marketing/umora/umora.module.css";
 import { industries, plans, siteUrl } from "@/lib/marketing/site";
 import { brand, demoKpis, links, seo } from "@/lib/marketing/umora";
@@ -96,18 +93,6 @@ const kpiIcons: { icon: LucideIcon; tone: string }[] = [
   { icon: Clock, tone: s.kpiGold },
 ];
 
-const platform: { icon: LucideIcon; name: string; text: string }[] = [
-  { icon: Users, name: "People", text: "Employee records, roles, branches and workforce profiles." },
-  { icon: Clock, name: "Clocking", text: "GPS and photo-verified attendance." },
-  { icon: CalendarDays, name: "Rostering", text: "Plan shifts and align people with operational demand." },
-  { icon: CalendarRange, name: "Leave", text: "Digital requests, approvals and policy-aware visibility." },
-  { icon: Route, name: "Manager Actions", text: "One place to resolve workforce exceptions." },
-  { icon: Briefcase, name: "HR Operations", text: "Cases, warnings and employee workflows." },
-  { icon: FileText, name: "Documents", text: "Centralised employee and compliance documents." },
-  { icon: ShieldCheck, name: "Compliance", text: "Track policies, exceptions and historical records." },
-  { icon: Wallet, name: "Payroll Readiness", text: "Identify attendance, overtime and payroll risk before close." },
-  { icon: Sparkles, name: "Intelligence", text: "Surface workforce patterns, risks and operational insights." },
-];
 
 const clockStory: { icon: LucideIcon; name: string; text: string }[] = [
   { icon: Fingerprint, name: "Attendance", text: "Captured and verified" },
@@ -169,6 +154,7 @@ export default function LandingPage() {
               <div className={s.heroPerson}>
                 <Image
                   src={heroPerson.src}
+                  style={{ objectPosition: heroPerson.position }}
                   alt={heroPerson.alt}
                   fill
                   priority
@@ -214,7 +200,7 @@ export default function LandingPage() {
             <ul className={s.portraits}>
               {workforcePortraits.map((p) => (
                 <li key={p.label} className={s.portrait}>
-                  <Image src={p.src} alt={p.alt} fill sizes="(max-width: 640px) 40vw, 150px" />
+                  <Image src={p.src} alt={p.alt} fill sizes="(max-width: 640px) 40vw, 150px" style={{ objectPosition: p.position }} />
                   <span>{p.label}</span>
                 </li>
               ))}
@@ -273,7 +259,7 @@ export default function LandingPage() {
               </h2>
               <p className={s.subLead}>Everything you need to manage your people, time and operations — in one place.</p>
               <div className={s.features}>
-                {platform.map(({ icon: Icon, name, text }) => (
+                {platformModules.map(({ icon: Icon, name, text }) => (
                   <article key={name} className={s.feature}>
                     <Icon className={s.featureIcon} />
                     <h3>{name}</h3>
@@ -392,7 +378,7 @@ export default function LandingPage() {
                 return (
                   <li key={industry.slug}>
                     <Link href={`/industries/${industry.slug}`} className={s.industry}>
-                      {img ? <Image src={img.src} alt={img.alt} fill sizes="(max-width: 1024px) 40vw, 130px" /> : null}
+                      {img ? <Image src={img.src} alt={img.alt} fill sizes="(max-width: 1024px) 40vw, 160px" style={{ objectPosition: img.position }} /> : null}
                       <span>{label}</span>
                     </Link>
                   </li>

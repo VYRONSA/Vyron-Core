@@ -309,7 +309,7 @@ export function ClockPhone() {
           <div className={s.pcTime}>07:58</div>
           <div className={s.pcDate}>Mon, 22 Sep 2026</div>
           <div className={s.pcAvatar}>
-            <Image src={clockInSelfie.src} alt="" fill sizes="120px" />
+            <Image src={clockInSelfie.src} alt="" fill sizes="120px" style={{ objectPosition: clockInSelfie.position }} />
           </div>
           <div className={s.pcState}>Clocked In</div>
           <div className={s.pcSite}>Cape Town — Branch 04</div>

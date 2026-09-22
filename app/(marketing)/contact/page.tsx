@@ -1,49 +1,74 @@
 import type { Metadata } from "next";
+import { CalendarCheck, Mail, MapPin } from "lucide-react";
 import ContactForm from "@/components/marketing/ContactForm";
-import styles from "@/components/marketing/marketing.module.css";
+import { PageHero, Section, UmoraPage, pageStyles as p } from "@/components/marketing/umora/PageKit";
 import { buildPageMetadata } from "@/lib/marketing/site";
+import { SALES_EMAIL } from "@/lib/marketing/umora";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Contact | VYRON CORE",
-  description: "Book a VYRON CORE demo and discuss rollout plans for your workforce operation.",
+  title: "Contact | UMORA",
+  description: "Book an UMORA demo and discuss rollout plans for your workforce operation.",
   path: "/contact",
 });
 
 export default function ContactPage() {
   return (
-    <main>
-        <section className={styles.section}>
-          <div className={styles.container}>
-            <span className={styles.kicker}>Contact</span>
-            <h1 className={styles.h1}>Book a professional workforce intelligence demo.</h1>
-            <p className={styles.lead}>
-              Tell us about your operation and team size. We will align a rollout path for your business model.
-            </p>
+    <UmoraPage>
+      <PageHero
+        eyebrow="Contact"
+        title={
+          <>
+            Book an UMORA <em>workforce intelligence demo.</em>
+          </>
+        }
+        lead="Tell us about your operation and team size. We will walk you through UMORA and align a rollout path for your business."
+        ctas={false}
+        compact
+      />
 
-            <div className={`${styles.grid} ${styles.grid3}`} style={{ marginTop: "1.2rem" }}>
-              <ContactForm />
+      <Section label="Contact UMORA">
+        <div className={p.split} style={{ alignItems: "start" }}>
+          <article className={p.card}>
+            <h2 className={p.cardTitle} style={{ marginTop: 0, marginBottom: "1rem" }}>
+              Tell us about your team
+            </h2>
+            <ContactForm />
+          </article>
 
-              <article className={styles.card}>
-                <h3>Direct channels</h3>
-                <p className={styles.muted}>Sales and implementation team support for South African operations.</p>
-                <ul className={styles.list}>
-                  <li>
-                    <span className={styles.dot} />
-                    Email: info@vyronsoft.co.za
-                  </li>
-                  <li>
-                    <span className={styles.dot} />
-                    Demo bookings: Monday to Friday
-                  </li>
-                  <li>
-                    <span className={styles.dot} />
-                    Coverage: National workforce deployments
-                  </li>
-                </ul>
-              </article>
+          <article className={`${p.card} ${p.cardDark}`} style={{ background: "linear-gradient(160deg, #0c2230, #061520)" }}>
+            <h2 className={p.cardTitle} style={{ marginTop: 0, marginBottom: "1.2rem" }}>
+              Direct channels
+            </h2>
+            <div className={p.channel}>
+              <span className={p.cardIconBadge}>
+                <Mail />
+              </span>
+              <div>
+                <b>Email</b>
+                <a href={`mailto:${SALES_EMAIL}`}>{SALES_EMAIL}</a>
+              </div>
             </div>
-          </div>
-        </section>
-      </main>
+            <div className={p.channel}>
+              <span className={p.cardIconBadge}>
+                <CalendarCheck />
+              </span>
+              <div>
+                <b>Demo bookings</b>
+                <span>Monday to Friday</span>
+              </div>
+            </div>
+            <div className={p.channel}>
+              <span className={p.cardIconBadge}>
+                <MapPin />
+              </span>
+              <div>
+                <b>Coverage</b>
+                <span>Sales and implementation support for national workforce deployments in South Africa.</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </Section>
+    </UmoraPage>
   );
 }

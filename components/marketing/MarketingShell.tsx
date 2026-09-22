@@ -49,7 +49,13 @@ export default function MarketingShell({ children }: MarketingShellProps) {
       <footer className={s.shell}>
         <section className={s.cta} aria-labelledby="cta-title">
           <div className={s.ctaPhoto}>
-            <Image src={ctaJourney.src} alt={ctaJourney.alt} fill sizes="(max-width: 1024px) 100vw, 45vw" />
+            <Image
+              src={ctaJourney.src}
+              alt={ctaJourney.alt}
+              fill
+              sizes="(max-width: 1024px) 100vw, 45vw"
+              style={{ objectPosition: ctaJourney.position }}
+            />
           </div>
           <div className={`${s.container} ${s.ctaGrid}`}>
             <div className={s.ctaBrand}>

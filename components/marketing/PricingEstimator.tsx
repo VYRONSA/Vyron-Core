@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { plans } from "@/lib/marketing/site";
-import styles from "./marketing.module.css";
+import p from "./umora/pages.module.css";
 
 const planThresholds = [20, 50, 100, 250, 500];
 
@@ -16,15 +16,17 @@ export default function PricingEstimator() {
   const selectedPlan = useMemo(() => plans[pickPlanIndex(teamSize)], [teamSize]);
 
   return (
-    <section className={styles.card} aria-labelledby="pricing-estimator-heading">
-      <h3 id="pricing-estimator-heading">Interactive plan guide</h3>
-      <p className={styles.muted}>
-        Drag to estimate the right package for your workforce size. Final commercial terms can be customized
-        during a demo.
-      </p>
-
-      <div style={{ marginTop: "1rem" }}>
-        <label htmlFor="team-size" style={{ display: "block", fontWeight: 800 }}>
+    <section className={p.estimator} aria-labelledby="pricing-estimator-heading">
+      <div>
+        <p className={p.cardEyebrow}>Interactive plan guide</p>
+        <h3 id="pricing-estimator-heading" className={p.planName}>
+          Which package fits your team?
+        </h3>
+        <p className={p.cardText} style={{ marginTop: "0.5rem" }}>
+          Drag to estimate the right package for your workforce size. Final commercial terms can be tailored during a
+          demo.
+        </p>
+        <label htmlFor="team-size" className={p.estimatorLabel} style={{ marginTop: "1.2rem" }}>
           Estimated employees: {teamSize}
         </label>
         <input
@@ -34,19 +36,17 @@ export default function PricingEstimator() {
           max={800}
           value={teamSize}
           onChange={(event) => setTeamSize(Number(event.target.value))}
-          style={{ width: "100%", marginTop: "0.7rem" }}
+          className={p.range}
         />
       </div>
 
-      <div className={styles.card} style={{ marginTop: "1rem", background: "rgba(241,247,255,0.9)" }}>
-        <p style={{ margin: 0, fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "#245099" }}>
-          Recommended package
+      <div className={p.estimatorResult} aria-live="polite">
+        <p className={p.estimatorKicker}>Recommended package</p>
+        <p className={p.planName}>{selectedPlan.name}</p>
+        <p className={p.planPrice} style={{ color: "#fff", marginTop: "0.5rem" }}>
+          {selectedPlan.price}
         </p>
-        <h4 style={{ marginTop: "0.35rem", marginBottom: "0.35rem" }}>{selectedPlan.name}</h4>
-        <p style={{ margin: 0, fontWeight: 700 }}>{selectedPlan.price}</p>
-        <p className={styles.muted} style={{ marginBottom: 0 }}>
-          {selectedPlan.people}
-        </p>
+        <p style={{ marginTop: "0.3rem", color: "#cfd8de" }}>{selectedPlan.people}</p>
       </div>
     </section>
   );

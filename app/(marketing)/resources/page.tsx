@@ -1,43 +1,53 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import styles from "@/components/marketing/marketing.module.css";
+import { ArrowRight } from "lucide-react";
+import { PageHero, Section, UmoraPage, pageStyles as p } from "@/components/marketing/umora/PageKit";
 import { buildPageMetadata, resources } from "@/lib/marketing/site";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Resources | VYRON CORE",
-  description: "Guides, articles, and operational playbooks for workforce intelligence, HR governance, and payroll readiness.",
+  title: "Resources | UMORA",
+  description: "Guides and operational playbooks for workforce intelligence, HR governance and payroll readiness.",
   path: "/resources",
 });
 
 export default function ResourcesPage() {
-  return (
-    <main>
-        <section className={styles.section}>
-          <div className={styles.container}>
-            <span className={styles.kicker}>Resources</span>
-            <h1 className={styles.h1}>Guides, articles, and implementation playbooks.</h1>
-            <p className={styles.lead}>
-              This architecture is ready for content scaling, thought leadership publishing, and demand generation.
-            </p>
+  const categories = [...new Set(resources.map((r) => r.category))];
 
-            <div className={`${styles.grid} ${styles.grid3}`} style={{ marginTop: "1.2rem" }}>
-              {resources.map((resource) => (
-                <article key={resource.title} className={styles.card}>
-                  <p style={{ margin: 0, fontSize: "0.8rem", textTransform: "uppercase", color: "#3d6cb0" }}>
-                    {resource.category}
-                  </p>
-                  <h3 style={{ marginTop: "0.4rem" }}>{resource.title}</h3>
-                  <p className={styles.muted}>{resource.summary}</p>
-                  <div className={styles.actions}>
-                    <Link href="/contact" className={`${styles.btn} ${styles.btnSecondary}`}>
-                      Request resource
-                    </Link>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-      </main>
+  return (
+    <UmoraPage>
+      <PageHero
+        eyebrow="Resources"
+        title={
+          <>
+            Guides and playbooks <em>for operations leaders.</em>
+          </>
+        }
+        lead="Practical guidance for operations, HR and payroll teams on attendance integrity, manager accountability and payroll readiness. Request any guide and our team will send it to you."
+        ctas={false}
+        compact
+      />
+
+      <Section label="Resource library">
+        <ul className={p.chips} aria-label="Resource categories">
+          {categories.map((c) => (
+            <li key={c}>{c}</li>
+          ))}
+        </ul>
+        <div className={p.grid3}>
+          {resources.map((resource) => (
+            <article key={resource.title} className={p.card}>
+              <p className={p.cardEyebrow}>{resource.category}</p>
+              <h2 className={p.cardTitle}>{resource.title}</h2>
+              <p className={p.cardText}>{resource.summary}</p>
+              <div className={p.cardFoot}>
+                <Link href="/contact" className={p.link}>
+                  Request this guide <ArrowRight />
+                </Link>
+              </div>
+            </article>
+          ))}
+        </div>
+      </Section>
+    </UmoraPage>
   );
 }

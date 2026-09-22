@@ -29,6 +29,8 @@ export const links = {
   features: "/features",
 } as const;
 
+export const SALES_EMAIL = "info@vyronsoft.co.za";
+
 export const demoKpis = [
   { label: "Employees", value: "1,284", delta: "3%", dir: "up", good: true },
   { label: "Attendance", value: "94.8%", delta: "1.2%", dir: "up", good: true },
