@@ -3,11 +3,11 @@
 // sections, Montserrat display type, mint / gold accents) so every public
 // page reads as part of the same site as "/".
 
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import type { UmoraImage } from "@/lib/marketing/umora-media";
 import { links } from "@/lib/marketing/umora";
+import { Photo } from "./visuals";
 import s from "./umora.module.css";
 import p from "./pages.module.css";
 
@@ -51,14 +51,7 @@ export function PageHero({ eyebrow, title, lead, ctas = {}, image, aside, compac
         </div>
         {image ? (
           <div className={p.heroPhoto}>
-            <Image
-              src={image.src}
-              alt={image.alt}
-              fill
-              priority
-              sizes="(max-width: 1024px) 100vw, 45vw"
-              style={{ objectPosition: image.position }}
-            />
+            <Photo image={image} priority sizes="(max-width: 1024px) 100vw, 45vw" />
           </div>
         ) : null}
         {aside ? <div className={p.heroAside}>{aside}</div> : null}

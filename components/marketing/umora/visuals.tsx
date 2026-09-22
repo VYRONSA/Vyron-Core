@@ -41,7 +41,7 @@ import {
   demoSiteMix,
   demoSites,
 } from "@/lib/marketing/umora";
-import { clockInSelfie } from "@/lib/marketing/umora-media";
+import { clockInSelfie, type UmoraImage } from "@/lib/marketing/umora-media";
 import s from "./umora.module.css";
 
 /* ------------------------------------------------------------------ brand */
@@ -80,6 +80,43 @@ export function UmoraLogo({ sub = true, size = "md" }: { sub?: boolean; size?: "
       </span>
       {sub ? <span className={s.logoSub}>Human &amp; Workforce Intelligence</span> : null}
     </span>
+  );
+}
+
+/**
+ * Renders a photograph, or a deliberate branded placeholder when the asset is
+ * still marked REQUIRES_APPROVED_IMAGE in lib/marketing/umora-media.ts. The
+ * layout is identical either way, so approving an image is a data change.
+ */
+export function Photo({
+  image,
+  sizes,
+  priority,
+  compact,
+}: {
+  image: UmoraImage;
+  sizes: string;
+  priority?: boolean;
+  /** Small slots (avatars) drop the caption and show the mark only. */
+  compact?: boolean;
+}) {
+  if (!image.src) {
+    return (
+      <span className={`${s.photoPending} ${compact ? s.photoPendingSmall : ""}`} role="img" aria-label={image.alt}>
+        <UmoraMark size={compact ? 22 : 30} />
+        {compact ? null : <em>Photography pending approval</em>}
+      </span>
+    );
+  }
+  return (
+    <Image
+      src={image.src}
+      alt={image.alt}
+      fill
+      priority={priority}
+      sizes={sizes}
+      style={{ objectPosition: image.position }}
+    />
   );
 }
 
@@ -309,7 +346,7 @@ export function ClockPhone() {
           <div className={s.pcTime}>07:58</div>
           <div className={s.pcDate}>Mon, 22 Sep 2026</div>
           <div className={s.pcAvatar}>
-            <Image src={clockInSelfie.src} alt="" fill sizes="120px" style={{ objectPosition: clockInSelfie.position }} />
+            <Photo image={clockInSelfie} sizes="120px" compact />
           </div>
           <div className={s.pcState}>Clocked In</div>
           <div className={s.pcSite}>Cape Town — Branch 04</div>

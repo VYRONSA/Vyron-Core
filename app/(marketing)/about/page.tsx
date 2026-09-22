@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Compass, Target, Users } from "lucide-react";
 import { PageHero, Section, SectionHead, UmoraPage, pageStyles as p } from "@/components/marketing/umora/PageKit";
+import { Photo } from "@/components/marketing/umora/visuals";
 import s from "@/components/marketing/umora/umora.module.css";
 import { buildPageMetadata } from "@/lib/marketing/site";
 import { brand } from "@/lib/marketing/umora";
@@ -49,7 +49,7 @@ export default function AboutPage() {
           <ul className={p.portraitRow}>
             {workforcePortraits.map((portrait) => (
               <li key={portrait.label}>
-                <Image src={portrait.src} alt={portrait.alt} fill sizes="(max-width: 760px) 44vw, 12vw" style={{ objectPosition: portrait.position }} />
+                <Photo image={portrait} sizes="(max-width: 760px) 44vw, 12vw" />
               </li>
             ))}
           </ul>

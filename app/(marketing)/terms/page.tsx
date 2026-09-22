@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import { siteUrl } from "@/lib/marketing/site";
 import { PageHero, Section, UmoraPage, pageStyles as p } from "@/components/marketing/umora/PageKit";
 
 // Legal wording is reproduced exactly as approved; only the page layout uses
 // the UMORA visual system. "VYRON Software" is the company named in the policy.
-export const metadata: Metadata = { title: "Terms of Service | VYRON Software" };
+export const metadata: Metadata = {
+  title: "Terms of Service | VYRON Software",
+  alternates: { canonical: `${siteUrl}/terms` },
+};
 
 export default function TermsPage() {
   return (

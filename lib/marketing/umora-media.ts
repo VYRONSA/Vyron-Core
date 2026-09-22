@@ -1,14 +1,19 @@
 // Every photograph on the UMORA public site is referenced from here, so the
 // imagery can be replaced without touching layout code.
 //
-// All files in /public/umora/photos/ are licensed stock photographs. Source,
-// photographer, licence and the release caveats for each one are recorded in
+// All files in /public/umora/photos/ are licensed stock photographs, and none
+// of them shows an identifiable person: free stock licences do not include
+// model releases, so that risk is avoided rather than accepted. Source,
+// photographer, licence and the verification note for each one are recorded in
 // docs/marketing/UMORA-MEDIA-LICENSES.md — update that record whenever an
-// image here changes. The people shown are illustrative and are not
-// presented as customers.
+// image here changes.
+//
+// A `src` of null means REQUIRES_APPROVED_IMAGE: the slot renders a branded
+// placeholder until a licensed, model-released image is approved for it.
 
 export type UmoraImage = {
-  src: string;
+  /** null means REQUIRES_APPROVED_IMAGE: the slot renders a branded placeholder. */
+  src: string | null;
   alt: string;
   /** Minimum pixel size for the production asset. */
   final: string;
@@ -20,46 +25,49 @@ export type UmoraImage = {
 
 const photo = (name: string) => `/umora/photos/${name}.jpg`;
 
+// REQUIRES_APPROVED_IMAGE. The hero needs a person at close range, and every
+// free-licence candidate that worked compositionally had a recognisable face
+// at full resolution. See docs/marketing/UMORA-MEDIA-LICENSES.md for the brief.
 export const heroPerson: UmoraImage = {
-  src: photo("hero-person"),
-  alt: "Smiling café team member in a dark apron",
+  src: null,
+  alt: "Workforce photograph pending approval",
   final: "1200 × 1600 (portrait), dark café background",
-  brief: "Front-of-house worker, warm smile, dark apron, dark warm café interior with bokeh.",
-  position: "34% 18%",
+  brief: "Front-of-house worker at close range in a warm, dark interior. Needs a purchased model-released image.",
+  position: "35% 30%",
 };
 
 export const workforcePortraits: (UmoraImage & { label: string })[] = [
   {
     label: "Retail",
     src: photo("portrait-retail"),
-    alt: "Shop team member in a leather apron",
+    alt: "Checkout assistant weighing produce at a supermarket till",
     final: "600 × 800",
-    brief: "Retail associate in apron, store interior.",
-    position: "50% 30%",
+    brief: "Retail service moment (hands/till), store interior; no identifiable face.",
+    position: "50% 52%",
   },
   {
     label: "Hospitality",
     src: photo("portrait-hospitality"),
-    alt: "Chef in whites working the pass in a commercial kitchen",
+    alt: "Chef plating a dish in a professional kitchen",
     final: "600 × 800",
-    brief: "Chef in whites, kitchen background.",
-    position: "50% 25%",
+    brief: "Chef at work in whites; no identifiable face.",
+    position: "50% 45%",
   },
   {
     label: "Manufacturing",
     src: photo("portrait-manufacturing"),
-    alt: "Workshop technician in a hard hat and safety glasses at a grinder",
+    alt: "Factory worker in a hard hat and ear defenders on the production floor",
     final: "600 × 800",
-    brief: "Production or workshop worker in PPE.",
-    position: "50% 30%",
+    brief: "Production worker in PPE, seen from behind; no identifiable face.",
+    position: "50% 35%",
   },
   {
     label: "Logistics",
     src: photo("portrait-logistics"),
-    alt: "Warehouse worker standing among stock",
+    alt: "Depot worker in a hi-vis overall wheeling a sack truck to a loading dock",
     final: "600 × 800",
-    brief: "Warehouse worker, racking or stock background.",
-    position: "50% 35%",
+    brief: "Warehouse or depot worker, seen from behind or with face not visible.",
+    position: "60% 55%",
   },
   {
     label: "Security",
@@ -82,24 +90,27 @@ const industry = (
 ];
 
 export const industryImages: Record<string, UmoraImage> = Object.fromEntries([
-  industry("retail", "retail", "Cashier serving a customer at a produce store", "50% 55%"),
+  industry("retail", "retail", "Store worker arranging fresh produce on a display", "50% 50%"),
   industry("hospitality", "hospitality", "Hotel reception desk with a staff member", "50% 55%"),
-  industry("restaurants", "restaurants", "Chefs working a busy restaurant kitchen", "50% 50%"),
-  industry("manufacturing", "manufacturing", "Production-floor team at their stations", "62% 50%"),
+  industry("restaurants", "restaurants", "Chef finishing plated dishes along a kitchen pass", "60% 50%"),
+  industry("manufacturing", "manufacturing", "Worker feeding timber through a production line", "55% 50%"),
   industry("logistics", "logistics", "Warehouse aisle with staff in hi-vis", "50% 50%"),
   industry("security", "security", "Security officer on street patrol", "50% 45%"),
-  industry("cleaning", "cleaning", "Cleaner vacuuming a modern office", "60% 55%"),
-  industry("construction", "construction", "Construction workers in hard hats measuring a wall", "50% 40%"),
+  industry("cleaning", "cleaning", "Cleaner mopping a corridor floor beside a cleaning trolley", "50% 50%"),
+  industry("construction", "construction", "Excavator loading a dump truck on an earthworks site", "50% 55%"),
   industry("mining-contractors", "mining", "Mine worker in an underground tunnel", "50% 55%"),
-  industry("agriculture", "agriculture", "Farm workers harvesting leafy greens", "45% 60%"),
-  industry("field-service", "field-service", "Electrician servicing an outdoor meter", "45% 45%"),
+  industry("agriculture", "agriculture", "Farm workers planting seedlings in a field", "50% 62%"),
+  industry("field-service", "field-service", "Technician testing an electrical control panel with a multimeter", "50% 45%"),
 ]);
 
+// REQUIRES_APPROVED_IMAGE. This slot must show a recognisable face (it
+// illustrates photo-verified clocking), so it needs a purchased, model-released
+// image. See docs/marketing/UMORA-MEDIA-LICENSES.md for the purchase brief.
 export const clockInSelfie: UmoraImage = {
-  src: photo("clockin-selfie"),
+  src: null,
   alt: "Employee clock-in verification photo",
   final: "400 × 400 (square, face centred)",
-  brief: "Head-and-shoulders, face centred, soft background.",
+  brief: "Head-and-shoulders, face centred, soft background. Needs a purchased model-released image.",
   position: "50% 30%",
 };
 

@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import {
@@ -25,6 +24,7 @@ import {
   ClockPhone,
   HeroDashboard,
   HrFlow,
+  Photo,
   InsightCard,
   PayrollBoard,
   RosterTable,
@@ -47,11 +47,20 @@ export const metadata: Metadata = {
     type: "website",
     url: `${siteUrl}/`,
     siteName: brand.name,
+  images: [
+      {
+        url: "/umora/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "UMORA — Human & Workforce Intelligence. Your people are your business. Make them visible.",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: seo.title,
     description: seo.description,
+    images: ["/umora/og-image.jpg"],
   },
 };
 
@@ -152,14 +161,7 @@ export default function LandingPage() {
 
             <div className={s.heroStage}>
               <div className={s.heroPerson}>
-                <Image
-                  src={heroPerson.src}
-                  style={{ objectPosition: heroPerson.position }}
-                  alt={heroPerson.alt}
-                  fill
-                  priority
-                  sizes="(max-width: 1024px) 50vw, 26vw"
-                />
+                <Photo image={heroPerson} priority sizes="(max-width: 1024px) 50vw, 26vw" />
               </div>
               <div className={s.heroGlass} aria-hidden="true">
                 <p className={s.heroScript}>
@@ -200,7 +202,7 @@ export default function LandingPage() {
             <ul className={s.portraits}>
               {workforcePortraits.map((p) => (
                 <li key={p.label} className={s.portrait}>
-                  <Image src={p.src} alt={p.alt} fill sizes="(max-width: 640px) 40vw, 150px" style={{ objectPosition: p.position }} />
+                  <Photo image={p} sizes="(max-width: 640px) 40vw, 150px" />
                   <span>{p.label}</span>
                 </li>
               ))}
@@ -378,7 +380,7 @@ export default function LandingPage() {
                 return (
                   <li key={industry.slug}>
                     <Link href={`/industries/${industry.slug}`} className={s.industry}>
-                      {img ? <Image src={img.src} alt={img.alt} fill sizes="(max-width: 1024px) 40vw, 160px" style={{ objectPosition: img.position }} /> : null}
+                      {img ? <Photo image={img} sizes="(max-width: 1024px) 40vw, 160px" /> : null}
                       <span>{label}</span>
                     </Link>
                   </li>

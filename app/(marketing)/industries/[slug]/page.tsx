@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, Flag, Gauge, Layers } from "lucide-react";
 import { platformModules } from "@/components/marketing/umora/content";
 import { PageHero, Section, SectionHead, UmoraPage, pageStyles as p } from "@/components/marketing/umora/PageKit";
+import { Photo } from "@/components/marketing/umora/visuals";
 import s from "@/components/marketing/umora/umora.module.css";
 import { buildPageMetadata, industries } from "@/lib/marketing/site";
 import { industryImages } from "@/lib/marketing/umora-media";
@@ -122,7 +122,7 @@ export default async function IndustryDetailPage({ params }: IndustryPageProps) 
             return (
               <li key={other.slug}>
                 <Link href={`/industries/${other.slug}`} className={s.industry}>
-                  {img ? <Image src={img.src} alt={img.alt} fill sizes="(max-width: 760px) 50vw, 20vw" style={{ objectPosition: img.position }} /> : null}
+                  {img ? <Photo image={img} sizes="(max-width: 760px) 50vw, 20vw" /> : null}
                   <span>{other.name}</span>
                 </Link>
               </li>

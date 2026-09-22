@@ -1,9 +1,8 @@
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { umoraSans, umoraScript } from "@/components/marketing/umora/fonts";
 import MobileMenu from "@/components/marketing/umora/MobileMenu";
-import { Swoosh, UmoraLogo } from "@/components/marketing/umora/visuals";
+import { Photo, Swoosh, UmoraLogo } from "@/components/marketing/umora/visuals";
 import s from "@/components/marketing/umora/umora.module.css";
 import { footerItems, navItems } from "@/lib/marketing/site";
 import { brand, links } from "@/lib/marketing/umora";
@@ -49,13 +48,7 @@ export default function MarketingShell({ children }: MarketingShellProps) {
       <footer className={s.shell}>
         <section className={s.cta} aria-labelledby="cta-title">
           <div className={s.ctaPhoto}>
-            <Image
-              src={ctaJourney.src}
-              alt={ctaJourney.alt}
-              fill
-              sizes="(max-width: 1024px) 100vw, 45vw"
-              style={{ objectPosition: ctaJourney.position }}
-            />
+            <Photo image={ctaJourney} sizes="(max-width: 1024px) 100vw, 45vw" />
           </div>
           <div className={`${s.container} ${s.ctaGrid}`}>
             <div className={s.ctaBrand}>

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { PageHero, Section, UmoraPage, pageStyles as p } from "@/components/marketing/umora/PageKit";
+import { Photo } from "@/components/marketing/umora/visuals";
 import { buildPageMetadata, industries } from "@/lib/marketing/site";
 import { industryImages } from "@/lib/marketing/umora-media";
 
@@ -35,7 +35,7 @@ export default function IndustriesPage() {
             return (
               <Link key={industry.slug} href={`/industries/${industry.slug}`} className={p.photoCard}>
                 <div className={p.photoCardImg}>
-                  {img ? <Image src={img.src} alt={img.alt} fill sizes="(max-width: 760px) 100vw, (max-width: 1024px) 50vw, 33vw" style={{ objectPosition: img.position }} /> : null}
+                  {img ? <Photo image={img} sizes="(max-width: 760px) 100vw, (max-width: 1024px) 50vw, 33vw" /> : null}
                   <span>{industry.name}</span>
                 </div>
                 <div className={p.photoCardBody}>

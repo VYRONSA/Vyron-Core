@@ -11,6 +11,7 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
+import { siteUrl } from "@/lib/marketing/site";
 import { PageHero, Section, UmoraPage, pageStyles as p } from "@/components/marketing/umora/PageKit";
 import { UmoraMark } from "@/components/marketing/umora/visuals";
 import s from "@/components/marketing/umora/umora.module.css";
@@ -99,7 +100,10 @@ const products: Product[] = [
   },
 ];
 
-export const metadata: Metadata = { title: "Products | VYRON Software" };
+export const metadata: Metadata = {
+  title: "Products | VYRON Software",
+  alternates: { canonical: `${siteUrl}/products` },
+};
 
 export default function ProductsPage() {
   return (

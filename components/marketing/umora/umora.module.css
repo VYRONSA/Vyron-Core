@@ -283,6 +283,36 @@
   display: block;
 }
 
+.photoPending {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 1rem;
+  text-align: center;
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0 8px, transparent 8px 16px),
+    linear-gradient(160deg, #14313d, #08202b);
+}
+
+.photoPending em {
+  font-style: normal;
+  font-family: var(--f-sans);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.photoPendingSmall {
+  gap: 0;
+  padding: 0;
+}
+
 .demoTag {
   display: inline-flex;
   align-items: center;

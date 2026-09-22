@@ -510,6 +510,9 @@ export const footerItems = [
   { href: "/contact", label: "Contact" },
 ];
 
+/** Shared UMORA social sharing image (1200x630). */
+export const socialImage = "/umora/og-image.jpg";
+
 export function buildPageMetadata(input: {
   title: string;
   description: string;
@@ -526,11 +529,20 @@ export function buildPageMetadata(input: {
       type: "website",
       url: canonical,
       siteName,
+      images: [
+        {
+          url: socialImage,
+          width: 1200,
+          height: 630,
+          alt: "UMORA — Human & Workforce Intelligence. Your people are your business. Make them visible.",
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title: input.title,
       description: input.description,
+      images: [socialImage],
     },
   };
 }
