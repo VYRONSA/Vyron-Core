@@ -500,9 +500,13 @@ export const navItems = [
   { href: "/features", label: "Features" },
   { href: "/industries", label: "Industries" },
   { href: "/pricing", label: "Pricing" },
-  { href: "/solutions", label: "Solutions" },
-  { href: "/about", label: "About" },
   { href: "/resources", label: "Resources" },
+  { href: "/about", label: "About" },
+];
+
+export const footerItems = [
+  ...navItems,
+  { href: "/solutions", label: "Solutions" },
   { href: "/contact", label: "Contact" },
 ];
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { Menu, X } from "lucide-react";
-import { navItems } from "@/lib/marketing/site";
+import { footerItems } from "@/lib/marketing/site";
 import { links } from "@/lib/marketing/umora";
 import s from "./umora.module.css";
 
@@ -29,7 +29,7 @@ export default function MobileMenu() {
         <X size={20} className={s.shellMenuClose} />
       </summary>
       <nav className={s.shellMenuPanel} aria-label="Mobile">
-        {navItems.map((item) => (
+        {footerItems.map((item) => (
           <Link key={item.href} href={item.href} onClick={close}>
             {item.label}
           </Link>
@@ -37,7 +37,7 @@ export default function MobileMenu() {
         <Link href={links.demo} onClick={close} className={`${s.btn} ${s.btnGold}`}>
           Book a demo
         </Link>
-        <Link href={links.login} onClick={close} className={`${s.btn} ${s.shellLogin}`}>
+        <Link href={links.login} onClick={close} className={`${s.btn} ${s.btnLogin}`}>
           Login
         </Link>
       </nav>
