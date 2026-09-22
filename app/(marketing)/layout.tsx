@@ -8,6 +8,9 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  icons: {
+    icon: [{ url: "/umora-mark.svg", type: "image/svg+xml" }],
+  },
 };
 
 export default async function MarketingLayout({

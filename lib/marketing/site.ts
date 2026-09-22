@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
-export const siteName = "VYRON CORE";
+export const siteName = "UMORA";
 export const siteDescription =
-  "VYRON CORE is South Africa's AI Workforce Intelligence Platform for employee management, attendance, HR operations, compliance, and payroll readiness.";
+  "UMORA connects people, attendance, rostering, HR operations, payroll readiness and workforce intelligence in one intelligent platform.";
 
 const defaultSiteUrl = "https://www.vyroncore.com";
 
@@ -376,7 +376,7 @@ export const comparisonHeaders = [
   "Capability",
   "Traditional Clocking",
   "Traditional HR Software",
-  "VYRON CORE",
+  siteName,
 ];
 
 export const comparisonRows = [
@@ -396,7 +396,7 @@ export const comparisonRows = [
 export const faqs = [
   {
     q: "Can employees clock in from site?",
-    a: "Yes. VYRON CORE supports location-aware clocking for distributed workforces.",
+    a: "Yes. UMORA supports location-aware clocking for distributed workforces.",
   },
   {
     q: "Can GPS be disabled?",
@@ -416,7 +416,7 @@ export const faqs = [
   },
   {
     q: "Can multiple branches be managed?",
-    a: "Yes. VYRON CORE is designed for multi-branch and multi-site operations.",
+    a: "Yes. UMORA is designed for multi-branch and multi-site operations.",
   },
   {
     q: "How secure is employee data?",
@@ -496,7 +496,7 @@ export const resources = [
 ];
 
 export const navItems = [
-  { href: "/", label: "Home" },
+  { href: "/#platform", label: "Platform" },
   { href: "/features", label: "Features" },
   { href: "/industries", label: "Industries" },
   { href: "/pricing", label: "Pricing" },

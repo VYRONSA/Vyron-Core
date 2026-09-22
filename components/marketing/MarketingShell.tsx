@@ -1,5 +1,10 @@
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import MobileMenu from "@/components/marketing/umora/MobileMenu";
+import { UmoraMark } from "@/components/marketing/umora/visuals";
+import s from "@/components/marketing/umora/umora.module.css";
 import { navItems } from "@/lib/marketing/site";
+import { brand, links } from "@/lib/marketing/umora";
 import styles from "./marketing.module.css";
 
 type MarketingShellProps = {
@@ -9,17 +14,17 @@ type MarketingShellProps = {
 export default function MarketingShell({ children }: MarketingShellProps) {
   return (
     <div className={styles.root}>
-      <header className={styles.header}>
-        <div className={`${styles.container} ${styles.headerRow}`}>
-          <Link href="/" className={styles.brand} aria-label="VYRON CORE home">
-            <span className={styles.brandMark} aria-hidden="true" />
-            <span className={styles.brandText}>
-              <strong>VYRON CORE</strong>
-              <span>AI Workforce Intelligence</span>
+      <header className={`${s.shell} ${s.shellHeader}`}>
+        <div className={`${s.container} ${s.shellRow}`}>
+          <Link href="/" className={s.shellBrand} aria-label={`${brand.name} home`}>
+            <UmoraMark size={30} />
+            <span className={s.shellBrandText}>
+              <strong>{brand.name}</strong>
+              <span>{brand.category}</span>
             </span>
           </Link>
 
-          <nav className={styles.nav} aria-label="Primary">
+          <nav className={s.shellNav} aria-label="Primary">
             {navItems.map((item) => (
               <Link key={item.href} href={item.href}>
                 {item.label}
@@ -27,54 +32,67 @@ export default function MarketingShell({ children }: MarketingShellProps) {
             ))}
           </nav>
 
-          <div className={styles.ctaStack}>
-            <Link href="/login" className={`${styles.btn} ${styles.btnSecondary}`}>
+          <div className={s.shellCtas}>
+            <Link href={links.login} className={`${s.btn} ${s.shellLogin}`}>
               Login
             </Link>
-            <Link href="/signup" className={`${styles.btn} ${styles.btnPrimary}`}>
-              Start Free Trial
+            <Link href={links.demo} className={`${s.btn} ${s.btnGold}`}>
+              Book a demo <ArrowRight size={15} />
             </Link>
           </div>
+
+          <MobileMenu />
         </div>
       </header>
 
       {children}
 
-      <footer className={styles.footer}>
-        <div className={`${styles.container} ${styles.footerGrid}`}>
-          <div className={styles.footerCol}>
-            <h4>VYRON CORE</h4>
-            <p className={styles.small}>
-              Workforce intelligence for South African businesses that need payroll readiness, compliance,
-              and operational control.
-            </p>
-            <p className={styles.small}>Built for South African Businesses.</p>
+      <footer className={`${s.shell} ${s.shellFooter}`}>
+        <div className={s.container}>
+          <div className={s.shellFooterTop}>
+            <div className={s.shellFooterBrand}>
+              <Link href="/" className={s.shellBrand} aria-label={`${brand.name} home`}>
+                <UmoraMark size={34} />
+                <span className={s.shellBrandText}>
+                  <strong>{brand.mark}</strong>
+                  <span>{brand.category}</span>
+                </span>
+              </Link>
+              <p className={s.shellFooterTagline}>&ldquo;{brand.tagline}&rdquo;</p>
+              <p className={s.shellFooterParent}>A {brand.parent} product</p>
+            </div>
+
+            <div className={s.shellFooterCol}>
+              <h4>Platform</h4>
+              <Link href="/features">Features</Link>
+              <Link href="/solutions">Solutions</Link>
+              <Link href="/industries">Industries</Link>
+              <Link href="/pricing">Pricing</Link>
+            </div>
+
+            <div className={s.shellFooterCol}>
+              <h4>Company</h4>
+              <Link href="/about">About</Link>
+              <Link href="/resources">Resources</Link>
+              <Link href="/contact">Contact</Link>
+              <Link href="/login">Support</Link>
+            </div>
+
+            <div className={s.shellFooterCol}>
+              <h4>Legal</h4>
+              <Link href="/privacy">Privacy Policy</Link>
+              <Link href="/terms">Terms</Link>
+              <a href="https://www.linkedin.com" target="_blank" rel="noreferrer">
+                LinkedIn
+              </a>
+            </div>
           </div>
 
-          <div className={styles.footerCol}>
-            <h4>Company</h4>
-            <Link href="/about">About</Link>
-            <Link href="/contact">Contact</Link>
-            <Link href="/resources">Resources</Link>
-            <Link href="/pricing">Pricing</Link>
-          </div>
-
-          <div className={styles.footerCol}>
-            <h4>Products</h4>
-            <Link href="/features">Features</Link>
-            <Link href="/industries">Industries</Link>
-            <Link href="/solutions">Solutions</Link>
-            <Link href="/login">Support</Link>
-          </div>
-
-          <div className={styles.footerCol}>
-            <h4>Legal</h4>
-            <Link href="/privacy">Privacy Policy</Link>
-            <Link href="/terms">Terms</Link>
-            <a href="https://www.linkedin.com" target="_blank" rel="noreferrer">
-              LinkedIn
-            </a>
-            <Link href="/contact">Contact</Link>
+          <div className={s.shellFooterBottom}>
+            <span>
+              © {new Date().getFullYear()} {brand.parent}. All rights reserved.
+            </span>
+            <span className={s.shellFooterPillars}>{brand.pillars.join(" · ")}</span>
           </div>
         </div>
       </footer>
