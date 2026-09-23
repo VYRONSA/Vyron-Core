@@ -16,7 +16,7 @@ git-ignored, and only `.env.example` / `.env.production.example` are committed.
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Auth check in the marketing layout (signed-in visitors are sent to the dashboard) | Public by design. Build fails without it. |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | As above | Public by design (anon key, RLS-protected). Build fails without it. |
-| `NEXT_PUBLIC_SITE_URL` | Canonical URLs, Open Graph URLs, `sitemap.xml`, `robots.txt` | **Set this.** Without it everything falls back to `https://www.vyroncore.com`. If UMORA launches on its own domain, canonical and share URLs are wrong until this is set. |
+| `NEXT_PUBLIC_SITE_URL` | Canonical URLs, Open Graph URLs, `sitemap.xml`, `robots.txt` | `https://umora.co.za`. That is also the built-in fallback, so the site is correct even if the variable is missing; set it explicitly so preview deployments are unambiguous. |
 
 ### Required for the contact form (choose ONE channel)
 

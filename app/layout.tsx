@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://www.vyroncore.com";
+// Base for resolving relative metadata URLs (Open Graph image, canonical).
+// The public site is UMORA; internal application identifiers are unaffected.
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://umora.co.za";
 
 export const metadata: Metadata = {
   title: "VYRON CORE",

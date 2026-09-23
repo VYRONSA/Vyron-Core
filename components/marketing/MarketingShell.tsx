@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { umoraSans, umoraScript } from "@/components/marketing/umora/fonts";
 import MobileMenu from "@/components/marketing/umora/MobileMenu";
 import { Photo, Swoosh, UmoraLogo } from "@/components/marketing/umora/visuals";
 import s from "@/components/marketing/umora/umora.module.css";
@@ -15,7 +14,7 @@ type MarketingShellProps = {
 
 export default function MarketingShell({ children }: MarketingShellProps) {
   return (
-    <div className={`${styles.root} ${umoraSans.variable} ${umoraScript.variable}`}>
+    <div className={styles.root}>
       <header className={`${s.shell} ${s.shellHeader}`}>
         <div className={`${s.container} ${s.shellRow}`}>
           <Link href="/" className={s.shellBrand} aria-label={`${brand.name} home`}>

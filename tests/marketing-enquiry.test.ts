@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { SALES_EMAIL } from "@/lib/marketing/umora";
 import {
   DuplicateGuard,
   LIMITS,
@@ -137,3 +138,11 @@ describe("marketing enquiry email", () => {
 function errorsOf(result: ReturnType<typeof validateEnquiry>) {
   return !result.ok && result.code === "invalid" ? result.errors : null;
 }
+
+describe("marketing enquiry destination", () => {
+  it("always delivers to the VYRONSOFT sales inbox", () => {
+    // The public site's enquiries go here unless UMORA_ENQUIRY_TO overrides it.
+    // Pinned so a rebrand can never silently redirect customer enquiries.
+    assert.equal(SALES_EMAIL, "info@vyronsoft.co.za");
+  });
+});

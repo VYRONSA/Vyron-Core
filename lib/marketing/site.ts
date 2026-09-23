@@ -4,7 +4,8 @@ export const siteName = "UMORA";
 export const siteDescription =
   "UMORA connects people, attendance, rostering, HR operations, payroll readiness and workforce intelligence in one intelligent platform.";
 
-const defaultSiteUrl = "https://www.vyroncore.com";
+/** Public UMORA domain. Overridden by NEXT_PUBLIC_SITE_URL per deployment. */
+const defaultSiteUrl = "https://umora.co.za";
 
 export const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || defaultSiteUrl;

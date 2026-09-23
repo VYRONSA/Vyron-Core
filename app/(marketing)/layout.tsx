@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import MarketingShell from "@/components/marketing/MarketingShell";
+import { umoraSans, umoraScript } from "@/components/marketing/umora/fonts";
 import { brand, seo } from "@/lib/marketing/umora";
 import { getServerUser } from "@/lib/supabase-server";
 
@@ -53,5 +54,12 @@ export default async function MarketingLayout({
     redirect("/dashboard");
   }
 
-  return <MarketingShell>{children}</MarketingShell>;
+  // The font variables are applied here, in the segment layout, so Next emits
+  // <link rel="preload"> for them. Applied deeper they load after first paint
+  // and the swap re-wraps headings.
+  return (
+    <div className={`${umoraSans.variable} ${umoraScript.variable}`}>
+      <MarketingShell>{children}</MarketingShell>
+    </div>
+  );
 }
