@@ -39,13 +39,62 @@ when it was not.
 and its tooling. `PLATFORM_BOOTSTRAP_*` and `RR_QA_*` are development/provisioning
 only and must not be set in production.
 
+## Configuring enquiry delivery (Resend → info@vyronsoft.co.za)
+
+The destination is already `info@vyronsoft.co.za`: it is the default in
+`lib/marketing/umora.ts` (`SALES_EMAIL`), so `UMORA_ENQUIRY_TO` only needs
+setting if the destination ever changes. Nothing in the form or the endpoint
+needs editing.
+
+**1. Verify the sending domain in Resend.** Resend will only send from a domain
+you control. Add `vyronsoft.co.za` under Resend → Domains and publish the DNS
+records it gives you (DKIM, plus SPF/DMARC as prompted). Until the domain shows
+as *Verified*, sending from `@vyronsoft.co.za` is rejected.
+
+*If you want to test before DNS propagates:* Resend's shared sender
+`onboarding@resend.dev` works without domain verification, but it can only
+deliver to the email address that owns the Resend account — not to
+`info@vyronsoft.co.za`. Use it as a smoke test only.
+
+**2. Create an API key** in Resend with *Sending access* only. Copy it once.
+
+**3. Set the variables in Vercel** (Project → Settings → Environment
+Variables), scoped to Production, marked as secret, never committed:
+
+| Variable | Value |
+|---|---|
+| `RESEND_API_KEY` | the key from step 2 |
+| `UMORA_ENQUIRY_FROM` | `UMORA Website <website@vyronsoft.co.za>` (any address at the verified domain) |
+| `UMORA_ENQUIRY_TO` | *optional* — omit to use `info@vyronsoft.co.za` |
+
+Or from a terminal, with the Vercel CLI signed in:
+
+```bash
+vercel env add RESEND_API_KEY production      # paste the key when prompted
+vercel env add UMORA_ENQUIRY_FROM production  # UMORA Website <website@vyronsoft.co.za>
+```
+
+`vercel env add` prompts for the value and stores it encrypted; the secret never
+appears in a command line, a file or this repository.
+
+**4. Confirm delivery** using the commands below. The check must print
+`PASS`, and an email must actually arrive at `info@vyronsoft.co.za`.
+
 ## Verifying enquiry delivery
 
 ```bash
 npm run verify:enquiry                       # audit configuration only
 npm run verify:enquiry -- --staging --send   # deliver one test enquiry to a staging receiver
 npm run verify:enquiry -- --send             # production check: delivers one real test enquiry
+
+# Reading the key from a local .env.local instead of the shell environment
+# (.env.local is gitignored; the script never prints secret values):
+npm run verify:enquiry:local -- --send
 ```
+
+Run these where the machine can reach `api.resend.com`. The script reads the
+same variables the deployed site uses, so a `PASS` here means the deployed
+endpoint will deliver too, provided the same values are set in Vercel.
 
 The script fails closed, never prints a secret, and refuses to send if the
 configuration points at localhost, a private address or an obvious test endpoint

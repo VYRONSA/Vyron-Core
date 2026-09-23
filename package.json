@@ -14,7 +14,8 @@
     "platform:supervisor-secret": "node scripts/generate-supervisor-secret.mjs",
     "verify:deployment": "node scripts/verify-deployment.mjs",
     "verify:env": "node scripts/rr-test-env.mjs verify",
-    "verify:enquiry": "node scripts/verify-enquiry-delivery.mjs"
+    "verify:enquiry": "node scripts/verify-enquiry-delivery.mjs",
+    "verify:enquiry:local": "node --env-file=.env.local scripts/verify-enquiry-delivery.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^7.1.2",
