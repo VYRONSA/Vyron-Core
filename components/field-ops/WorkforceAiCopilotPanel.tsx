@@ -259,7 +259,7 @@ export default function WorkforceAiCopilotPanel({
               <div className="text-xs font-black uppercase tracking-[0.35em] text-cyan-300">
                 Command input
               </div>
-              <div className="text-lg font-black">Ask VYRON CORE</div>
+              <div className="text-lg font-black">Ask UMORA</div>
             </div>
           </div>
 

@@ -117,7 +117,7 @@ export const RR_TRIGGER_CATALOGUE: readonly RrTriggerDefinition[] = [
       "Finished jobs cannot be handed to VYRON FINANCE because evidence, a rate or an authorisation is missing.",
     severity: "high",
     recommendationPath:
-      "Work the open billing exceptions per job: capture the missing evidence, resolve the rate conflict, or obtain the authorisation. VYRON CORE prepares the information; VYRON FINANCE issues the invoice.",
+      "Work the open billing exceptions per job: capture the missing evidence, resolve the rate conflict, or obtain the authorisation. UMORA prepares the information; VYRON FINANCE issues the invoice.",
     ownerRole: "Billing Administrator",
     actionType: "Request Billing Information",
   },

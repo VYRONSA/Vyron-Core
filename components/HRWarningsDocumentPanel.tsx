@@ -179,7 +179,7 @@ function downloadBlob(blob: Blob, filename: string) {
 
 function warningDocumentLines(warning: HrWarningRow, employees: EmployeeRow[]) {
   return [
-    "VYRON CORE",
+    "UMORA",
     "FORMAL EMPLOYEE WARNING",
     "",
     `Warning Type: ${formatText(warning.warning_type).toUpperCase()}`,
@@ -614,7 +614,7 @@ export default function HRWarningsDocumentPanel({
                 ref={printRef}
                 className="doc mt-6 rounded-[26px] border border-slate-200 bg-white p-8"
               >
-                <div className="muted text-xs font-black uppercase tracking-[0.35em] text-blue-600">VYRON CORE</div>
+                <div className="muted text-xs font-black uppercase tracking-[0.35em] text-blue-600">UMORA</div>
                 <h1 className="mt-2 text-3xl font-black text-slate-950">FORMAL EMPLOYEE WARNING</h1>
 
                 <div className="grid mt-6 gap-3 md:grid-cols-2">

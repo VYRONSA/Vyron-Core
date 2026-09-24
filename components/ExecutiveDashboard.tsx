@@ -35,7 +35,7 @@ export default function ExecutiveDashboard() {
           <div>
             <div className="flex items-center gap-3 text-xs font-black uppercase tracking-[0.45em] text-cyan-300">
               <BarChart3 className="h-5 w-5" />
-              VYRON CORE REPORTS
+              UMORA REPORTS
             </div>
             <h1 className="mt-4 max-w-5xl text-5xl font-black tracking-tight md:text-6xl">
               Executive Reports Dashboard
@@ -100,7 +100,7 @@ export default function ExecutiveDashboard() {
           <Building2 className="h-8 w-8 text-cyan-300" />
           <h2 className="mt-5 text-3xl font-black">Executive summary</h2>
           <p className="mt-4 text-sm leading-7 text-slate-300">
-            VYRON CORE reports should tell one clear story: where payroll is at risk, which managers must act, and which stores are creating operational pressure.
+            UMORA reports should tell one clear story: where payroll is at risk, which managers must act, and which stores are creating operational pressure.
           </p>
 
           <div className="mt-8 space-y-3">

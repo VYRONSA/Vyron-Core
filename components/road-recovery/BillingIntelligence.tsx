@@ -118,7 +118,7 @@ export default function BillingIntelligence({ companyId }: { companyId: string }
       <section className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4">
         <h2 className="text-lg font-black text-slate-900">Billing Intelligence</h2>
         <p className="mt-1 text-sm font-semibold text-slate-700">
-          VYRON CORE determines what is billable, how much, and why — and stops there.
+          UMORA determines what is billable, how much, and why — and stops there.
           It does not create invoices, record payments or keep accounts.
           <span className="font-black"> Invoicing belongs to VYRON FINANCE.</span>
         </p>

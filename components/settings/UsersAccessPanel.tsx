@@ -1236,7 +1236,7 @@ export default function UsersAccessPanel({
               them.
             </li>
             <li>
-              Their sign-in account is disabled only if this is the last VYRON CORE workspace they
+              Their sign-in account is disabled only if this is the last UMORA workspace they
               belong to.
             </li>
             <li>A removed user can be restored from &quot;Show removed users&quot;.</li>

@@ -3,6 +3,8 @@
 import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, X } from "lucide-react";
+import { UmoraMark } from "@/components/brand/UmoraBrand";
+import { productBrand } from "@/lib/brand";
 
 export type MobileShellAction = {
   key: string;
@@ -86,7 +88,7 @@ function Sheet({
             <div className="mx-auto h-1.5 w-14 rounded-full bg-slate-300" />
             <div className="mt-5 flex items-start justify-between gap-4">
               <div>
-                <div className="text-xs font-black uppercase tracking-[0.28em] text-slate-400">VYRON</div>
+                <div className="umora-sans text-xs font-bold uppercase tracking-[0.28em] text-emerald-700">{productBrand.mark}</div>
                 <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">{title}</h2>
                 <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">{subtitle}</p>
               </div>
@@ -157,8 +159,8 @@ export function MobileHomeLauncher({
 }) {
   return (
     <section className="space-y-5">
-      <div className="rounded-[30px] bg-[#0b1320] px-5 py-6 text-white shadow-[0_24px_70px_rgba(2,6,23,0.22)] sm:px-6">
-        <div className="text-xs font-black uppercase tracking-[0.36em] text-[#cdb06c]">Launcher</div>
+      <div className="umora-hero rounded-[22px] px-5 py-6 text-white shadow-[0_24px_60px_rgba(4,32,27,0.25)] sm:px-6">
+        <div className="umora-sans text-xs font-bold uppercase tracking-[0.36em] text-[#fad66a]">Welcome to {productBrand.mark}</div>
         <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-[2.4rem]">{title}</h2>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">{subtitle}</p>
       </div>
@@ -176,7 +178,7 @@ export function MobileHomeLauncher({
             className="rounded-[28px] border border-slate-200/80 bg-white p-4 text-left shadow-[0_18px_45px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 sm:p-5"
           >
             <div className="flex items-start justify-between gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0b1320] text-white shadow-[0_14px_30px_rgba(15,23,42,0.2)] sm:h-14 sm:w-14">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#04201b] text-white shadow-[0_14px_30px_rgba(15,23,42,0.2)] sm:h-14 sm:w-14">
                 {tile.icon}
               </div>
               {tile.badge != null ? (
@@ -230,15 +232,17 @@ export default function MobileAppShell({
   const hasNotifications = notificationCount > 0;
 
   return (
-    <div className="min-h-screen bg-[#eef2f7] text-slate-950">
-      <div className="sticky top-0 z-30 border-b border-white/80 bg-[#eef2f7]/95 px-4 pb-5 pt-4 backdrop-blur-xl sm:px-6">
+    <div className="min-h-screen bg-[#f2f5f6] text-slate-950">
+      <div className="sticky top-0 z-30 border-b border-white/80 bg-[#f2f5f6]/95 px-4 pb-5 pt-4 backdrop-blur-xl sm:px-6">
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={onOpenWorkspace}
             className="flex min-w-0 items-center gap-3 rounded-full border border-slate-200/80 bg-white px-3 py-2 shadow-sm"
           >
-            <div className="h-10 w-10 rounded-2xl bg-[#0b1320]" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#04201b]">
+              <UmoraMark size={24} />
+            </div>
             <div className="min-w-0 text-left">
               <div className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Workspace</div>
               <div className="truncate text-sm font-black text-slate-950">{workspaceName}</div>
@@ -260,7 +264,7 @@ export default function MobileAppShell({
             <button
               type="button"
               onClick={onOpenProfile}
-              className="flex h-11 min-w-11 items-center justify-center rounded-full bg-[#0b1320] px-3 text-sm font-black uppercase tracking-[0.16em] text-white shadow-[0_14px_34px_rgba(15,23,42,0.18)]"
+              className="flex h-11 min-w-11 items-center justify-center rounded-full bg-[#04201b] px-3 text-sm font-black uppercase tracking-[0.16em] text-white shadow-[0_14px_34px_rgba(15,23,42,0.18)]"
             >
               {profileLabel}
             </button>
@@ -268,9 +272,15 @@ export default function MobileAppShell({
         </div>
 
         <div className="mt-5">
-          {/* This shell belongs to VYRON CORE. The eyebrow previously named the sibling
-              product in lib/vyron-dev-platform.ts, on every mobile screen. */}
-          <div className="text-xs font-black uppercase tracking-[0.34em] text-slate-400">VYRON CORE</div>
+          {/* Customer-facing product name (UMORA). The eyebrow previously named the
+              sibling product in lib/vyron-dev-platform.ts, on every mobile screen. */}
+          <div className="umora-sans text-xs font-bold uppercase tracking-[0.34em] text-emerald-700">
+            {productBrand.mark}
+            <span className="hidden sm:inline">
+              {" "}
+              <span className="text-slate-300">|</span> {productBrand.category}
+            </span>
+          </div>
           <h1 className="mt-3 text-[2rem] font-black tracking-tight text-slate-950 sm:text-[2.4rem]">{title}</h1>
         </div>
       </div>
@@ -283,10 +293,10 @@ export default function MobileAppShell({
             const isProminent = Boolean(item.prominent);
             const activeClasses = item.active
               ? isProminent
-                ? "bg-[#c7a55a] text-[#101724] shadow-[0_18px_45px_rgba(199,165,90,0.34)]"
+                ? "umora-gold"
                 : "text-slate-950"
               : isProminent
-                ? "bg-[#b99648] text-[#101724] shadow-[0_18px_45px_rgba(185,150,72,0.28)]"
+                ? "umora-gold opacity-90"
                 : "text-slate-400";
 
             return (
@@ -338,7 +348,7 @@ export default function MobileAppShell({
         open={moreOpen}
         onClose={() => onMoreOpenChange(false)}
         title="More"
-        subtitle="Browse the live VYRON workspace using the same modules and permissions already available in the desktop application."
+        subtitle={`Browse the live ${productBrand.name} workspace using the same modules and permissions already available in the desktop application.`}
       >
         <ActionGrid sections={moreSections} />
       </Sheet>

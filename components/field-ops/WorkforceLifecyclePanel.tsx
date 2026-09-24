@@ -80,7 +80,7 @@ export default function WorkforceLifecyclePanel({ companyId }: Props) {
               Need Staff → Exit
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-              End-to-end people funnel mapped to VYRON CORE — rosters, employees, HR, risk, and
+              End-to-end people funnel mapped to UMORA — rosters, employees, HR, risk, and
               payroll readiness. Each stage links to existing modules; no CORE redesign.
             </p>
           </div>

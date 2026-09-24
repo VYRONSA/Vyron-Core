@@ -1010,7 +1010,7 @@ export async function computeRoadRecoveryIntelligence(
         withoutRootCause: allFindings.filter((finding) => finding.rootCause === null).length,
         quantifiedImpact: recommendations.filter((entry) => entry.financialImpactKnown).length,
         pipelineNote:
-          "Recommendations enter the EXISTING VYRON action pipeline: workforce_automation_actions, the existing approval queue, and the existing outcome columns. There is no separate Road & Recovery action system.",
+          "Recommendations enter the EXISTING UMORA action pipeline: workforce_automation_actions, the existing approval queue, and the existing outcome columns. There is no separate Road & Recovery action system.",
       },
       empty: recommendations.length === 0,
       truncated: null,

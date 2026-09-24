@@ -1056,7 +1056,7 @@ export function buildDomains(
         missingFactCount: billing.missingFactCount,
         topBlockers: billing.topBlockers.slice(0, context.detailLimit),
         boundaryNote:
-          "VYRON CORE prepares billing INFORMATION. It creates no invoice, payment or accounting document — VYRON FINANCE issues the invoice.",
+          "UMORA prepares billing INFORMATION. It creates no invoice, payment or accounting document — VYRON FINANCE issues the invoice.",
       },
       billing.finishedJobs === 0
     )

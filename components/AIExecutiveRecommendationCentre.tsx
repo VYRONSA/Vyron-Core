@@ -3,7 +3,7 @@ export default function AIExecutiveRecommendationCentre(){
     <div className="rounded-[32px] bg-white p-8 shadow-xl">
       <h1 className="text-4xl font-black">AIExecutiveRecommendationCentre</h1>
       <p className="mt-4 text-sm font-bold text-slate-500">
-        VYRON CORE Final Activation Batch 230
+        UMORA Final Activation Batch 230
       </p>
     </div>
   );

@@ -6,6 +6,8 @@ import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { validateClientLoginPassword } from "@/lib/create-client-login-user";
+import { UmoraMark } from "@/components/brand/UmoraBrand";
+import { productBrand } from "@/lib/brand";
 
 type LinkState = "checking" | "invalid" | "ready";
 
@@ -137,7 +139,10 @@ export default function ResetPasswordPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f6f8fb] p-6 text-slate-950">
       <div className="w-full max-w-xl rounded-[28px] bg-white p-8 shadow-[0_20px_60px_rgba(15,23,42,0.12)]">
-        <div className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-700">VYRON CORE</div>
+        <div className="flex items-center gap-2.5">
+          <UmoraMark size={28} />
+          <span className="umora-sans text-xs font-bold uppercase tracking-[0.3em] text-emerald-700">{productBrand.mark}</span>
+        </div>
         <h1 className="mt-3 text-3xl font-black tracking-tight">Set a new password</h1>
 
         {linkState === "checking" && (
@@ -163,7 +168,7 @@ export default function ResetPasswordPage() {
         {linkState === "ready" && !success && (
           <>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              Choose a new password for your VYRON CORE account.
+              Choose a new password for your UMORA account.
             </p>
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">

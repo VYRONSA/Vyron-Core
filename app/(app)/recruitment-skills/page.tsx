@@ -36,7 +36,7 @@ export default function RecruitmentSkillsPage() {
       <section className="mx-auto max-w-6xl space-y-6">
         <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-violet-800 hover:text-violet-950">
           <ArrowLeft className="h-4 w-4" />
-          Back to VYRON CORE
+          Back to UMORA
         </Link>
         {loading ? (
           <p className="text-sm font-semibold text-slate-500">Loading Skills Intelligence…</p>

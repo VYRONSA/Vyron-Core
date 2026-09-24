@@ -142,14 +142,14 @@ export default function PayrollExportEngineFinal() {
           <Rocket className="h-8 w-8 text-cyan-300" />
           <h2 className="mt-5 text-3xl font-black">Why this matters</h2>
           <p className="mt-4 text-sm leading-7 text-slate-300">
-            Payroll export is one of the clearest commercial reasons for a client to pay for VYRON CORE every month.
+            Payroll export is one of the clearest commercial reasons for a client to pay for UMORA every month.
           </p>
 
           <div className="mt-8 space-y-3">
             {[
               "Protects payroll and HR trust.",
               "Improves client confidence.",
-              "Makes VYRON CORE easier to sell.",
+              "Makes UMORA easier to sell.",
               "Moves the platform closer to enterprise readiness.",
             ].map((item) => (
               <div key={item} className="flex items-center gap-3 rounded-2xl bg-white/10 p-4 text-sm font-black">

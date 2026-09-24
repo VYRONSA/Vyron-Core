@@ -21,7 +21,7 @@ export default function ProductionDeploymentCentre() {
         <div className="text-xs font-black uppercase tracking-[0.4em] text-cyan-300">DEPLOYMENT</div>
         <h1 className="mt-3 text-4xl font-black">Production Deployment Centre</h1>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
-          Final enterprise rollout preparation for VYRON CORE.
+          Final enterprise rollout preparation for UMORA.
         </p>
       </div>
 

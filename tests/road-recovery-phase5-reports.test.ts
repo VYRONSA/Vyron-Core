@@ -310,7 +310,7 @@ describeIf("Phase 5 — readiness reports", () => {
     for (const row of result.data.rows) {
       assert.equal(row.readiness, "READY");
     }
-    assert.match(String(result.data.summary.note), /No invoice exists in VYRON CORE/);
+    assert.match(String(result.data.summary.note), /No invoice exists in UMORA/);
 
     const tables = owner.sql(
       `SELECT count(*)::int AS n FROM information_schema.tables
@@ -470,7 +470,7 @@ describeIf("Phase 5 — commercial and exception reports", () => {
         ((withCeiling.expectedAmount as number) - (withCeiling.authorisedAmount as number)) * 100
       ) / 100
     );
-    assert.match(String(result.data.summary.note), /not a limit VYRON CORE enforces/i);
+    assert.match(String(result.data.summary.note), /not a limit UMORA enforces/i);
   });
 
   it("COUNTERPARTY SUMMARY reconciles ready plus blocked against total jobs", async () => {
@@ -542,7 +542,7 @@ describeIf("Phase 5 — report export", () => {
     assert.ok(result.ok, result.ok ? "" : result.message);
 
     const csv = billingReportToCsv(result.data);
-    assert.match(csv, /VYRON CORE — Billing Readiness/);
+    assert.match(csv, /UMORA — Billing Readiness/);
     assert.match(csv, /Not an invoice/i);
     assert.ok(csv.split("\n").length > 5, "the CSV has no rows");
     // Every column header is present.

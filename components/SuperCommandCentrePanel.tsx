@@ -61,7 +61,7 @@ export default function SuperCommandCentrePanel({
         <div className="absolute bottom-[-140px] right-[-120px] h-80 w-80 rounded-full bg-blue-700/30 blur-3xl" />
         <div className="relative z-10 grid gap-8 xl:grid-cols-[1.25fr_0.75fr]">
           <div>
-            <div className="text-xs font-black uppercase tracking-[0.45em] text-cyan-300">VYRON CORE SUPER COMMAND CENTRE</div>
+            <div className="text-xs font-black uppercase tracking-[0.45em] text-cyan-300">UMORA SUPER COMMAND CENTRE</div>
             <h1 className="mt-4 max-w-4xl text-5xl font-black leading-tight md:text-6xl">Workforce, HR, clocking and payroll intelligence in one live cockpit.</h1>
             <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-300">Live operational pressure, payroll blockers, HR compliance, missing documents and branch activity before they become expensive problems.</p>
             <div className="mt-7 grid gap-3 md:grid-cols-4">

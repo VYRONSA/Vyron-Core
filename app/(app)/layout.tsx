@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/supabase-server";
 import ImpersonationBanner from "@/components/platform/ImpersonationBanner";
+import { umoraSans, umoraScript } from "@/components/marketing/umora/fonts";
+import "../umora-app.css";
 
 export const metadata: Metadata = {
   robots: {
@@ -23,7 +25,7 @@ export default async function ProtectedAppLayout({
   }
 
   return (
-    <div className="vyron-shell min-h-screen bg-[#07101f] text-slate-950">
+    <div className={`vyron-shell umora-app ${umoraSans.variable} ${umoraScript.variable} min-h-screen text-slate-950`}>
       <ImpersonationBanner />
       {children}
     </div>

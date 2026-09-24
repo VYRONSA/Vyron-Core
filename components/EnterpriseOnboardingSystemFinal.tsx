@@ -149,7 +149,7 @@ export default function EnterpriseOnboardingSystemFinal() {
             {[
               "Protects payroll and HR trust.",
               "Improves client confidence.",
-              "Makes VYRON CORE easier to sell.",
+              "Makes UMORA easier to sell.",
               "Moves the platform closer to enterprise readiness.",
             ].map((item) => (
               <div key={item} className="flex items-center gap-3 rounded-2xl bg-white/10 p-4 text-sm font-black">

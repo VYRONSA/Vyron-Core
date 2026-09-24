@@ -64,7 +64,7 @@ export default function PricingPackagingConsole() {
   return (
     <section className="rounded-[34px] border border-white/80 bg-white/95 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.13)] backdrop-blur-xl">
       <div className="text-xs font-black uppercase tracking-[0.35em] text-cyan-700">
-        VYRON CORE V2
+        UMORA V2
       </div>
       <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
         Pricing &amp; packages

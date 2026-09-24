@@ -19,7 +19,7 @@ export const TRAINING_SECTIONS: TrainingSection[] = [
     articles: [
       {
         id: "welcome",
-        title: "Welcome to VYRON CORE",
+        title: "Welcome to UMORA",
         body: "Sign in with your company invite, select your workspace, and open the Command Centre for today's priorities.",
       },
       {

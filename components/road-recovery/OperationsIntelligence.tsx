@@ -285,7 +285,7 @@ export default function OperationsIntelligence({ companyId }: { companyId: strin
             <h1 className="text-lg font-black text-slate-900">Road &amp; Recovery Intelligence</h1>
             <p className="mt-1 max-w-2xl text-xs font-semibold text-slate-600">
               What happened, why it happened, what it is costing, what should happen next and who owns it.
-              Road &amp; Recovery is a vertical of VYRON CORE Executive Intelligence — recommendations enter
+              Road &amp; Recovery is a vertical of UMORA Executive Intelligence — recommendations enter
               the same Action Intelligence pipeline as every other workflow.
             </p>
           </div>
@@ -641,7 +641,7 @@ export default function OperationsIntelligence({ companyId }: { companyId: strin
       </section>
 
       <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-[11px] font-semibold text-slate-600">
-        VYRON CORE prepares operational intelligence and billing information. It issues no invoice, records no
+        UMORA prepares operational intelligence and billing information. It issues no invoice, records no
         payment and posts to no ledger — VYRON FINANCE owns those. Measured{" "}
         {showDate(data.window.fromIso)} to {showDate(data.window.toIso)}, as of{" "}
         {new Date(data.window.asOfIso).toLocaleString("en-ZA")}.

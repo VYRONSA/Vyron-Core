@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { umoraSans, umoraScript } from "@/components/marketing/umora/fonts";
+import "../umora-app.css";
 
 export const metadata: Metadata = {
   robots: {
@@ -21,7 +23,7 @@ export default function AuthLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="min-h-screen bg-[#f6f8fb] text-slate-950">
+    <div className={`umora-app ${umoraSans.variable} ${umoraScript.variable} min-h-screen text-slate-950`}>
       {children}
     </div>
   );

@@ -66,8 +66,8 @@ function LogoMark() {
       </div>
 
       <div>
-        <div className="text-2xl font-black tracking-[0.34em] text-white">VYRON</div>
-        <div className="mt-[-2px] text-xs font-bold tracking-[0.55em] text-cyan-300">CORE</div>
+        <div className="text-2xl font-black tracking-[0.34em] text-white">UMORA</div>
+        <div className="mt-[-2px] text-xs font-bold tracking-[0.2em] text-cyan-300">WORKFORCE</div>
       </div>
     </div>
   );
@@ -228,7 +228,7 @@ export default function VyronCoreDesignPreviewPage() {
 
             <header className="rounded-[2.2rem] border border-white/70 bg-white/92 p-7 shadow-[0_22px_70px_rgba(15,23,42,0.16)] backdrop-blur-xl">
               <div className="inline-flex rounded-full bg-cyan-100 px-4 py-2 text-xs font-black uppercase tracking-[0.35em] text-cyan-700">
-                VYRON CORE COMMAND CENTRE
+                UMORA COMMAND CENTRE
               </div>
 
               <h1 className="mt-5 text-5xl font-black tracking-tight text-[#06101f]">
@@ -252,7 +252,7 @@ export default function VyronCoreDesignPreviewPage() {
                   </h2>
 
                   <p className="mt-5 max-w-3xl text-base leading-8 text-slate-300">
-                    Same VYRON COST layout DNA, rebuilt for CORE with blue/cyan accents and workforce intelligence.
+                    The same command-centre layout, rebuilt for UMORA with workforce intelligence.
                   </p>
 
                   <div className="mt-6 flex flex-wrap gap-3">

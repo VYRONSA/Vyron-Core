@@ -31,7 +31,7 @@ export default function LabourLeakageEngine() {
       <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <div className="text-xs font-black uppercase tracking-[0.35em] text-cyan-700">
-            VYRON CORE
+            UMORA
           </div>
           <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
             Labour Leakage Engine

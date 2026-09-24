@@ -1,4 +1,5 @@
-import Image from "next/image";
+import { UmoraLogo } from "@/components/brand/UmoraBrand";
+import { productBrand } from "@/lib/brand";
 
 export default function MaintenanceScreen({
   message,
@@ -12,22 +13,25 @@ export default function MaintenanceScreen({
   nextPath: string;
 }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#07101f] px-6 text-center text-white">
-      <Image src="/vyron-logo.svg" alt="VYRON CORE" width={160} height={40} className="h-10 w-auto" priority />
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[linear-gradient(135deg,#03161a_0%,#04201b_55%,#073a30_100%)] px-6 text-center text-white">
+      <UmoraLogo size="md" />
 
       <h1 className="mt-8 text-3xl font-black tracking-tight">We&apos;ll be right back</h1>
       <p className="mt-4 max-w-md text-sm text-white/70">
-        {message || "VYRON CORE is undergoing scheduled maintenance. Thank you for your patience."}
+        {message || `${productBrand.name} is undergoing scheduled maintenance. Thank you for your patience.`}
       </p>
 
       {expectedReturnAt ? (
-        <p className="mt-4 text-xs font-bold uppercase tracking-wide text-cyan-400">
+        <p className="mt-4 text-xs font-bold uppercase tracking-wide text-[#4fe3a1]">
           Expected back: {new Date(expectedReturnAt).toLocaleString()}
         </p>
       ) : null}
 
       <p className="mt-8 text-xs text-white/50">
-        Need urgent help? Contact <a href="mailto:support@vyron.app" className="underline">support@vyron.app</a>
+        Need urgent help? Contact{" "}
+        <a href={`mailto:${productBrand.supportEmail}`} className="underline">
+          {productBrand.supportEmail}
+        </a>
       </p>
 
       <form method="POST" action="/api/platform/maintenance-override" className="mt-10 flex items-center gap-2">

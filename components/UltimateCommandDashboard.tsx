@@ -15,7 +15,7 @@ export default function UltimateCommandDashboard({
   return (
     <section className="space-y-6">
       <div className="rounded-[40px] bg-gradient-to-r from-[#050b18] via-[#09152b] to-[#0d2242] p-8 text-white shadow-2xl">
-        <div className="text-xs font-black uppercase tracking-[0.45em] text-cyan-300">VYRON COMMAND</div>
+        <div className="text-xs font-black uppercase tracking-[0.45em] text-cyan-300">UMORA COMMAND</div>
         <h1 className="mt-4 text-5xl font-black">Ultimate Workforce Dashboard</h1>
         <p className="mt-4 max-w-4xl text-sm leading-7 text-slate-300">
           Real-time workforce intelligence, payroll protection and HR visibility.

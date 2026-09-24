@@ -77,7 +77,7 @@ export default function ProfitabilityIntelligencePage() {
           className="inline-flex items-center gap-2 text-sm font-bold text-rose-800 hover:text-rose-950"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to VYRON CORE
+          Back to UMORA
         </Link>
 
         {loading ? (

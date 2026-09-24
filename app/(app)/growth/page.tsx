@@ -19,13 +19,13 @@ export default function GrowthPage() {
       <div className="relative z-10 mx-auto max-w-[1800px] space-y-8">
         <section className="rounded-[38px] border border-cyan-300/15 bg-gradient-to-br from-[#020617] via-[#07101f] to-[#0b1f3a] p-8 text-white shadow-[0_34px_100px_rgba(2,6,23,0.36),0_0_52px_rgba(34,211,238,0.14)]">
           <div className="text-xs font-black uppercase tracking-[0.45em] text-cyan-300">
-            VYRON CORE GROWTH
+            UMORA GROWTH
           </div>
           <h1 className="mt-4 max-w-5xl text-5xl font-black tracking-tight md:text-6xl">
             Revenue, Sales, Pricing & Expansion Command Centre
           </h1>
           <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-300">
-            The commercial layer that helps sell, price, expand and retain VYRON CORE as a premium SaaS platform.
+            The commercial layer that helps sell, price, expand and retain UMORA as a premium SaaS platform.
           </p>
         </section>
 

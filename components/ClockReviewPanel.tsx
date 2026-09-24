@@ -292,7 +292,7 @@ export default function ClockReviewPanel({ companyId: companyIdProp }: { company
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">
-              VYRON VERIFY
+              UMORA VERIFY
             </div>
             <h2 className="mt-3 text-4xl font-bold">Clocking Proof Review</h2>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300">

@@ -3,7 +3,7 @@ export default function LabourLawIntelligenceLayer(){
     <div className="rounded-[32px] bg-white p-8 shadow-xl">
       <h1 className="text-3xl font-black">LabourLawIntelligenceLayer</h1>
       <p className="mt-4 font-bold text-slate-500">
-        VYRON CORE enterprise AI module batch 179.
+        UMORA enterprise AI module batch 179.
       </p>
     </div>
   );

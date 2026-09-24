@@ -220,7 +220,7 @@ export type BillingPack = {
 };
 
 const DISCLAIMER =
-  "This is Road & Recovery billing INFORMATION produced by VYRON CORE. It is not a tax invoice and creates no accounting entry. Expected charges and VAT-relevant amounts are calculated for operational review; the definitive tax treatment, the invoice itself, debtors and payments belong to VYRON FINANCE.";
+  "This is Road & Recovery billing INFORMATION produced by UMORA. It is not a tax invoice and creates no accounting entry. Expected charges and VAT-relevant amounts are calculated for operational review; the definitive tax treatment, the invoice itself, debtors and payments belong to VYRON FINANCE.";
 
 // ---------------------------------------------------------------------------
 // Assembly
@@ -539,7 +539,7 @@ function csvCell(value: unknown): string {
  */
 export function billingPackToCsv(pack: BillingPack): string {
   const rows: string[][] = [
-    ["VYRON CORE — Road & Recovery Invoice Information Pack"],
+    ["UMORA — Road & Recovery Invoice Information Pack"],
     ["NOT A TAX INVOICE", pack.disclaimer],
     ["Contract version", pack.contractVersion],
     ["Generated at", pack.generatedAt],

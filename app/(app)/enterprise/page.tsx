@@ -16,13 +16,13 @@ export default function EnterprisePage() {
       <div className="relative z-10 mx-auto max-w-[1800px] space-y-8">
         <section className="rounded-[38px] border border-cyan-300/15 bg-gradient-to-br from-[#020617] via-[#07101f] to-[#0b1f3a] p-8 text-white shadow-[0_34px_100px_rgba(2,6,23,0.36),0_0_52px_rgba(34,211,238,0.14)]">
           <div className="text-xs font-black uppercase tracking-[0.45em] text-cyan-300">
-            VYRON CORE ENTERPRISE
+            UMORA ENTERPRISE
           </div>
           <h1 className="mt-4 max-w-5xl text-5xl font-black tracking-tight md:text-6xl">
             Enterprise Trust, Security & Client Rollout Centre
           </h1>
           <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-300">
-            Client onboarding, permissions, audit trails and enterprise controls that make VYRON CORE safe for larger companies.
+            Client onboarding, permissions, audit trails and enterprise controls that make UMORA safe for larger companies.
           </p>
         </section>
 

@@ -447,7 +447,7 @@ export default function EmployeeDocumentVaultPanel() {
               <div class="page">
                 ${baseBody}
                 ${signatureFooter}
-                <div class="footer">VYRON CORE · HR Document Vault</div>
+                <div class="footer">UMORA · HR Document Vault</div>
               </div>
               <div class="page last">
                 <h1>Final Signature & Audit Page</h1>
@@ -459,7 +459,7 @@ export default function EmployeeDocumentVaultPanel() {
                   <tr><td class="label">HR manager signer</td><td>${escapeHtml(managerSignature?.signer_name || "Not signed")}</td></tr>
                 </table>
                 ${signatureFooter}
-                <div class="footer">Downloaded from VYRON CORE HR Document Vault</div>
+                <div class="footer">Downloaded from UMORA HR Document Vault</div>
               </div>
             </div>
           </body>

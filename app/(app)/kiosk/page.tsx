@@ -9,7 +9,7 @@ export default function EmployeeKioskHomePage() {
     <main className="min-h-screen bg-[#07101f] px-4 py-5 text-white md:px-8">
       <div className="mx-auto max-w-5xl">
         <section className="rounded-[34px] border border-white/10 bg-white/[0.045] p-6 shadow-2xl shadow-black/20">
-          <div className="text-xs font-black uppercase tracking-[0.35em] text-cyan-300">VYRON CORE</div>
+          <div className="text-xs font-black uppercase tracking-[0.35em] text-cyan-300">UMORA</div>
           <h1 className="mt-3 text-5xl font-black tracking-tight">Employee Kiosk</h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300">
             Employee-only screen. No manager tools appear here.

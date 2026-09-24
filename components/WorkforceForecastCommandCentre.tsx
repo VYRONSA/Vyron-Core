@@ -41,7 +41,7 @@ export default function WorkforceForecastCommandCentre() {
 
         <p className="mt-4 max-w-4xl text-sm leading-7 text-slate-300">
           Current labour forecasts suggest that Somerset Mall and Waterstone will require additional roster coverage over weekends.
-          VYRON CORE recommends proactive roster balancing to reduce overtime exposure and payroll pressure before payroll close.
+          UMORA recommends proactive roster balancing to reduce overtime exposure and payroll pressure before payroll close.
         </p>
       </div>
     </section>

@@ -6,6 +6,39 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import NextImage from "next/image";
+import {
+  ArrowRight as LuArrowRight,
+  ChevronRight as LuChevronRight,
+  Eye as LuEye,
+  EyeOff as LuEyeOff,
+  LogOut as LuLogOut,
+  Settings as LuSettings,
+} from "lucide-react";
+import { UmoraByline, UmoraLogo, UmoraMark, UmoraSignature } from "@/components/brand/UmoraBrand";
+import { UmoraPageHeader, UmoraSidebarLines, UmoraTopBar, type UmoraSearchTarget } from "@/components/umora/UmoraChrome";
+import {
+  UMORA_OTHER_COLOR,
+  UMORA_SITE_COLORS,
+  UmoraActionRow,
+  UmoraActivityList,
+  UmoraCard,
+  UmoraCardLink,
+  UmoraDashboardHero,
+  UmoraDonut,
+  UmoraKpiCard,
+  UmoraQuickAction,
+  UmoraReadinessRing,
+  UmoraStatRow,
+  UmoraTrendChart,
+  umoraRelativeTime,
+  type UmoraActivity,
+  type UmoraCheck,
+  type UmoraSlice,
+  type UmoraTrendDay,
+} from "@/components/umora/UmoraDashboard";
+import { productBrand } from "@/lib/brand";
+import { ctaJourney } from "@/lib/marketing/umora-media";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { isPlatformOperatorSessionUser } from "@/lib/server/platform-operator";
 import {
@@ -1501,18 +1534,7 @@ function downloadTextFile(filename: string, content: string, mimeType = "text/pl
 
 
 function LogoMark() {
-  return (
-    <div className="flex items-center gap-4">
-      <div className="relative h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-400 shadow-lg shadow-blue-500/30">
-        <div className="absolute left-[13px] top-[10px] h-8 w-3 rotate-[-28deg] rounded-sm bg-white" />
-        <div className="absolute right-[13px] top-[10px] h-8 w-3 rotate-[28deg] rounded-sm bg-slate-950/80" />
-      </div>
-      <div>
-        <div className="text-2xl font-black tracking-[0.34em] text-white">VYRON</div>
-        <div className="mt-[-2px] text-xs font-semibold tracking-[0.55em] text-cyan-300">CORE</div>
-      </div>
-    </div>
-  );
+  return <UmoraLogo size="md" />;
 }
 
 function VyronWorkspaceSkeleton() {
@@ -1698,7 +1720,7 @@ function ModalHeader({ title, subtitle, onClose }: { title: string; subtitle: st
   return (
     <div className="flex items-start justify-between gap-4">
       <div>
-        <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-700">VYRON CORE</div>
+        <div className="umora-sans text-xs font-bold uppercase tracking-[0.35em] text-cyan-700">{productBrand.mark}</div>
         <h2 className="mt-2 text-3xl font-bold text-slate-950">{title}</h2>
         <p className="mt-2 text-sm text-slate-500">{subtitle}</p>
       </div>
@@ -1969,6 +1991,8 @@ function Sidebar({
   tenantWorkspacePlan,
   platformOperator = false,
   roadRecoveryEnabled = false,
+  workspaceName,
+  onLogout,
 }: {
   active: string;
   setActive: (value: string) => void;
@@ -1980,6 +2004,9 @@ function Sidebar({
   userEmail?: string | null;
   platformOperator?: boolean;
   roadRecoveryEnabled?: boolean;
+  /** Shown in the workspace card at the foot of the sidebar. */
+  workspaceName?: string;
+  onLogout?: () => void | Promise<void>;
   hasCompanyAccess?: boolean;
   coreSupportMode?: boolean;
   tenantWorkspacePlan?: {
@@ -2009,20 +2036,10 @@ function Sidebar({
   }
 
   return (
-    <aside className="flex h-full min-h-0 flex-col overflow-hidden bg-[#050b16] text-white shadow-[22px_0_80px_rgba(15,23,42,0.35)]">
-      <div className="shrink-0 border-b border-white/10 bg-white/[0.025] px-5 py-6">
-        <div className="flex items-center gap-3">
-          <div className="relative h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-400 shadow-lg shadow-blue-500/30">
-            <div className="absolute left-[13px] top-[10px] h-8 w-3 rotate-[-28deg] rounded-sm bg-white" />
-            <div className="absolute right-[13px] top-[10px] h-8 w-3 rotate-[28deg] rounded-sm bg-slate-950/80" />
-          </div>
-          <div>
-            <div className="text-2xl font-black tracking-[0.32em]">VYRON</div>
-            <div className="mt-[-2px] text-xs font-bold tracking-[0.55em] text-cyan-300">
-              CORE
-            </div>
-          </div>
-        </div>
+    <aside className="umora-sidebar relative flex h-full min-h-0 flex-col overflow-hidden text-white">
+      <UmoraSidebarLines />
+      <div className="shrink-0 px-5 pb-6 pt-7">
+        <UmoraLogo size="md" />
       </div>
 
       {tenantWorkspacePlan && (
@@ -2080,33 +2097,40 @@ function Sidebar({
       {/* min-h-0 is load-bearing: a flex child will not shrink below its content size
           without it, so overflow-y-auto alone would never scroll and the tail of the
           navigation would be clipped. */}
-      <nav className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-5">
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-2" aria-label="Main navigation">
         {visibleNavGroups.map((group) => {
           const isOpen = openGroup === group.label;
           const groupAlertCount = getGroupBadgeCount(group.items);
+          const containsActive = group.items.some((item) => resolveNavigationTarget(item) === active);
 
           return (
-            <div key={group.label} className="rounded-[24px] border border-white/10 bg-white/[0.045] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+            <div key={group.label}>
               <button
                 type="button"
                 onClick={() => setOpenGroup(isOpen ? "" : group.label)}
-                className={`flex w-full items-center justify-between rounded-2xl px-4 py-4 text-left text-xs font-black uppercase tracking-[0.24em] transition ${
-                  isOpen ? "text-cyan-300" : "text-slate-400 hover:text-white"
+                aria-expanded={isOpen}
+                className={`vyron-focus-ring flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left text-[0.95rem] font-medium transition ${
+                  containsActive && !isOpen
+                    ? "vyron-nav-item-active text-white"
+                    : isOpen
+                      ? "bg-white/[0.06] text-white"
+                      : "text-white/80 hover:bg-white/[0.05] hover:text-white"
                 }`}
               >
-                <span>{group.label}</span>
-                <span className="flex items-center gap-2">
-                  {groupAlertCount > 0 && (
-                    <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-rose-500 px-2.5 py-1 text-[11px] font-black leading-none text-white shadow-lg shadow-rose-500/30">
-                      {groupAlertCount > 99 ? "99+" : groupAlertCount}
-                    </span>
-                  )}
-                  <span className="text-base">{isOpen ? "-" : "+"}</span>
+                <span className={containsActive ? "text-[#7eeec0]" : "text-white/75"}>
+                  <SidebarGroupIcon label={group.label} />
                 </span>
+                <span className="min-w-0 flex-1 truncate">{sidebarGroupDisplayLabel(group.label)}</span>
+                {groupAlertCount > 0 && (
+                  <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-rose-500 px-2 py-0.5 text-[11px] font-bold leading-none text-white shadow-lg shadow-rose-500/30">
+                    {groupAlertCount > 99 ? "99+" : groupAlertCount}
+                  </span>
+                )}
+                <LuChevronRight className={`h-4 w-4 shrink-0 text-white/55 transition-transform ${isOpen ? "rotate-90" : ""}`} />
               </button>
 
               {isOpen && (
-                <div className="space-y-1 px-2 pb-3">
+                <div className="mb-2 ml-6 mt-1 space-y-0.5 border-l border-white/10 pl-3">
                   {group.items.map((item) => {
                     const resolved = resolveNavigationTarget(item);
                     const isActive = active === resolved;
@@ -2117,13 +2141,14 @@ function Sidebar({
                         key={item}
                         type="button"
                         onClick={() => openItem(item)}
-                        className={`vyron-nav-item vyron-focus-ring flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold ${
+                        aria-current={isActive ? "page" : undefined}
+                        className={`vyron-nav-item vyron-focus-ring flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium ${
                           isActive
                             ? "vyron-nav-item-active text-white"
-                            : "text-slate-300 hover:bg-white/10 hover:text-white hover:shadow-[0_0_26px_rgba(34,211,238,0.12)]"
+                            : "text-white/70 hover:bg-white/[0.06] hover:text-white"
                         }`}
                       >
-                        <span className={isActive ? "text-white" : "text-slate-400"}>
+                        <span className={`[&_svg]:h-4 [&_svg]:w-4 ${isActive ? "text-[#7eeec0]" : "text-white/55"}`}>
                           <NavIcon item={resolved} />
                         </span>
 
@@ -2131,7 +2156,7 @@ function Sidebar({
 
                         {itemBadgeCount > 0 && (
                           <span
-                            className={`ml-auto inline-flex min-w-6 items-center justify-center rounded-full px-2.5 py-1 text-[11px] font-black leading-none shadow-lg ${
+                            className={`ml-auto inline-flex min-w-6 items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-bold leading-none shadow-lg ${
                               isActive
                                 ? "bg-white text-rose-600 shadow-white/20"
                                 : "bg-rose-500 text-white shadow-rose-500/30"
@@ -2149,8 +2174,59 @@ function Sidebar({
           );
         })}
       </nav>
+
+      {(workspaceName || onLogout) && (
+        <div className="shrink-0 space-y-3 border-t border-white/10 px-4 pb-5 pt-4">
+          {workspaceName && (
+            <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-white/[0.05] px-4 py-3.5">
+              <Building2 className="h-6 w-6 shrink-0 text-white/85" />
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-white">{workspaceName}</div>
+                <div className="umora-sans mt-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-white/55">
+                  {productBrand.workspaceFallback}
+                </div>
+              </div>
+            </div>
+          )}
+          {onLogout && (
+            <button
+              type="button"
+              onClick={() => void onLogout()}
+              className="vyron-focus-ring flex w-full items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white transition hover:border-red-300/50 hover:bg-red-500/15"
+            >
+              <LuLogOut className="h-5 w-5" />
+              Logout / Exit Workspace
+            </button>
+          )}
+          <UmoraByline className="pt-1 text-center text-white/45" />
+        </div>
+      )}
     </aside>
   );
+}
+
+/** Sidebar group labels are role-filtered data; only their presentation changes here. */
+function sidebarGroupDisplayLabel(label: string) {
+  return label === label.toUpperCase()
+    ? label.toLowerCase().replace(/(^|[\s/&])([a-z])/g, (_m, sep: string, ch: string) => `${sep}${ch.toUpperCase()}`)
+    : label;
+}
+
+function SidebarGroupIcon({ label }: { label: string }) {
+  const cls = "h-5 w-5";
+  const key = label.toLowerCase();
+  if (key.includes("command")) return <LayoutDashboard className={cls} />;
+  if (key.includes("workforce operations")) return <Users className={cls} />;
+  if (key.includes("field")) return <Truck className={cls} />;
+  if (key.includes("workforce intelligence")) return <Brain className={cls} />;
+  if (key.includes("payroll")) return <WalletCards className={cls} />;
+  if (key.includes("settings") || key.includes("admin")) return <LuSettings className={cls} />;
+  if (key.includes("platform")) return <Server className={cls} />;
+  if (key.includes("dev")) return <Rocket className={cls} />;
+  if (key.includes("growth") || key.includes("lead")) return <TrendingUp className={cls} />;
+  if (key.includes("customer") || key.includes("voice")) return <MessageSquare className={cls} />;
+  if (key.includes("workspace") || key.includes("company")) return <Building2 className={cls} />;
+  return <LayoutDashboard className={cls} />;
 }
 
 function MasterOperatorAccessBadge({ variant = "dark" }: { variant?: "dark" | "light" }) {
@@ -2173,57 +2249,30 @@ function Header({
   loading,
   error,
   showMasterAccessBadge = false,
-  onLogout,
 }: {
   active: string;
   loading: boolean;
   error: string | null;
   showMasterAccessBadge?: boolean;
-  onLogout: () => void | Promise<void>;
+  /** Logout now lives in the UMORA top bar and sidebar; kept optional for existing callers. */
+  onLogout?: () => void | Promise<void>;
 }) {
   return (
-    <header className="rounded-[34px] bg-gradient-to-r from-[#07101f] to-[#0b1a33] p-6 text-white shadow-2xl shadow-slate-300 md:p-7">
-      <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">VYRON CORE</div>
-          </div>
-
-          <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.28em] text-slate-400">
-            Operations <span className="text-slate-500">/</span>{" "}
-            <span className="text-cyan-200/90">{active}</span>
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-3 md:gap-4">
-            <h1 className="text-3xl font-bold tracking-tight md:text-5xl">{active}</h1>
-            {showMasterAccessBadge && <MasterOperatorAccessBadge variant="dark" />}
-          </div>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-            Workforce control, clocking, HR risk, roster movement and payroll readiness in one controlled system.
-          </p>
-
-          <div className="mt-4 text-xs font-semibold">
-            {loading && (
-              <span className="vyron-status-loading vyron-status-live text-cyan-300">
-                Syncing live workspace data…
-              </span>
-            )}
-            {!loading && !error && (
-              <span className="vyron-status-live text-emerald-300">Live Supabase connection active</span>
-            )}
-            {error && <span className="text-rose-300">Supabase issue: {error}</span>}
-          </div>
-        </div>
-
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
-          <button type="button" onClick={() => void onLogout()} className={`w-fit ${VYRON_PREMIUM_LOGOUT_BUTTON_CLASS}`}>
-            Logout
-          </button>
-        </div>
-      </div>
-    </header>
+    <UmoraPageHeader
+      title={active}
+      badge={showMasterAccessBadge ? <MasterOperatorAccessBadge variant="dark" /> : null}
+      status={
+        <>
+          {loading && (
+            <span className="vyron-status-loading vyron-status-live text-[#8af0c4]">Syncing live workspace data…</span>
+          )}
+          {!loading && !error && <span className="vyron-status-live text-emerald-300">Live workspace data connected</span>}
+          {error && <span className="text-rose-300">Data connection issue: {error}</span>}
+        </>
+      }
+    />
   );
 }
-
 
 function serializeAuthErrorForUi(err: unknown): string {
   const lines: string[] = [];
@@ -2299,6 +2348,7 @@ function LoginScreen({
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   // VYRON CORE is invitation-only: there is no public self-registration path here.
   // Accounts are created server-side only, by a Company Owner (invite a system user) or
@@ -2340,81 +2390,181 @@ function LoginScreen({
     }
   }
 
+  // Visual master: the approved UMORA login reference. Authentication behaviour is
+  // unchanged — handleAuth() and onSignOutClearSession() are the same calls as before.
+  const loginFeatures = [
+    { icon: <Users className="h-5 w-5" />, text: "Role-based access for Admin, Manager and Staff users." },
+    { icon: <ShieldCheck className="h-5 w-5" />, text: "Your company data is secure and protected." },
+    { icon: <BarChart3 className="h-5 w-5" />, text: "Workforce, HR and payroll insights in one intelligent platform." },
+  ];
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f6f8fb] p-4 text-slate-950">
-      <div className="w-full max-w-5xl overflow-hidden rounded-[34px] bg-white shadow-[0_30px_90px_rgba(15,23,42,0.18)]">
-        <div className="grid lg:grid-cols-[0.9fr_1.1fr]">
-          <section className="bg-gradient-to-br from-[#050d1a] to-[#071a33] p-8 text-white md:p-10">
-            <LogoMark />
-            <div className="mt-16 text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Secure Access</div>
-            <h1 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">Sign in to VYRON CORE</h1>
-            <p className="mt-5 max-w-md text-sm leading-7 text-slate-300">
-              Workforce control, clocking, HR risk, roster movement and payroll readiness in one controlled system.
-            </p>
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#edf3f1] px-4 py-8 text-slate-950 sm:px-6 lg:py-12">
+      <div className="pointer-events-none absolute -left-40 top-24 h-[28rem] w-[28rem] rounded-full bg-[#dcebe6]/80" aria-hidden="true" />
+      <div className="pointer-events-none absolute -bottom-48 -right-40 h-[32rem] w-[32rem] rounded-full bg-[#e2eeea]" aria-hidden="true" />
 
-            <div className="mt-10 grid gap-3 text-sm text-slate-300">
-              <div className="rounded-2xl bg-white/10 p-4">Role-based access for Admin, Manager and Staff users.</div>
-              <div className="rounded-2xl bg-white/10 p-4">Company users are matched by logged-in email address.</div>
-              <div className="rounded-2xl bg-white/10 p-4">Payroll and HR actions stay protected behind login.</div>
-            </div>
-          </section>
+      <div className="relative w-full max-w-[1180px] overflow-hidden rounded-[26px] bg-white shadow-[0_40px_100px_rgba(4,32,27,0.16)] lg:grid lg:grid-cols-[1fr_1.08fr]">
+        <section className="relative isolate overflow-hidden bg-[#04201b] px-7 py-9 text-white sm:px-12 sm:py-12">
+          {ctaJourney.src && (
+            <NextImage
+              src={ctaJourney.src}
+              alt=""
+              fill
+              priority
+              sizes="(max-width: 1024px) 100vw, 580px"
+              className="-z-20 object-cover"
+              style={{ objectPosition: "74% 40%" }}
+            />
+          )}
+          <div className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(3,22,26,0.9)_0%,rgba(4,32,27,0.45)_34%,rgba(4,32,27,0.3)_56%,rgba(3,22,26,0.92)_100%)]" aria-hidden="true" />
+          <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(3,22,26,0.7)_0%,rgba(3,22,26,0.15)_62%,rgba(3,22,26,0)_100%)]" aria-hidden="true" />
 
-          <section className="p-8 md:p-10">
-            <div className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-700">VYRON CORE</div>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight">Login</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              Use the email that was added under Settings / Roles → Company Users.
-            </p>
+          <LogoMark />
 
-            <div className="mt-6">
-              <button
-                type="button"
-                onClick={() => void onSignOutClearSession()}
-                className={`${VYRON_PREMIUM_LOGOUT_BUTTON_CLASS}`}
+          <div className="umora-sans mt-12 text-xs font-bold uppercase tracking-[0.3em] text-[#4fe3a1] sm:mt-16">Secure access</div>
+          <h1 className="umora-sans mt-3 text-[2.6rem] font-extrabold leading-[1.02] tracking-tight sm:text-[3.3rem]">
+            Sign in to
+            <span className="block text-[#4fe3a1]">
+              {productBrand.name}
+              <sup className="ml-1 align-super text-[0.35em] font-bold">™</sup>
+            </span>
+          </h1>
+          <p className="mt-4 max-w-sm text-base leading-7 text-white/90">
+            Your people, your data, your business. All in one intelligent platform.
+          </p>
+
+          <ul className="mt-8 max-w-md space-y-3">
+            {loginFeatures.map((feature) => (
+              <li
+                key={feature.text}
+                className="flex items-center gap-4 rounded-2xl border border-white/10 bg-[#0b1d1c]/70 px-4 py-3.5 text-sm leading-6 text-white/90 backdrop-blur"
               >
-                Sign out & clear session
-              </button>
-              <p className="mt-2 text-xs leading-5 text-slate-500">
-                Removes Supabase credentials and session-only browser data here if login feels stuck after a stale session.
-              </p>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-white/85">
+                  {feature.icon}
+                </span>
+                {feature.text}
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-10 flex items-end justify-between gap-6">
+            <UmoraSignature className="text-[1.8rem] sm:text-[2rem]" />
+            <div className="umora-sans text-right text-[0.62rem] font-semibold uppercase leading-6 tracking-[0.32em] text-white/80">
+              {productBrand.pillars.slice(0, 2).join(" | ")} |
+              <br />
+              {productBrand.pillars.slice(2).join(" | ")}
+            </div>
+          </div>
+        </section>
+
+        <section className="flex flex-col justify-center px-7 py-10 sm:px-14 sm:py-14">
+          <div className="umora-sans text-xs font-bold uppercase tracking-[0.28em] text-emerald-700">
+            Welcome to {productBrand.mark}
+          </div>
+          <h2 className="umora-sans mt-3 text-4xl font-extrabold tracking-tight text-[#0f1d33]">Login</h2>
+          <p className="mt-3 text-[0.95rem] leading-6 text-slate-500">Use the email address linked to your company account.</p>
+
+          <form
+            className="mt-8 space-y-5"
+            noValidate
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleAuth();
+            }}
+          >
+            <div>
+              <label htmlFor="umora-login-email" className="block text-sm font-bold text-[#0f1d33]">
+                Email address
+              </label>
+              <div className="relative mt-2">
+                <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
+                <input
+                  id="umora-login-email"
+                  type="email"
+                  autoComplete="username"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="you@company.co.za"
+                  className="h-14 w-full rounded-xl border border-slate-300 bg-white pl-12 pr-4 text-[0.95rem] text-slate-900 placeholder:text-slate-400"
+                />
+              </div>
             </div>
 
-            <div className="mt-8 space-y-4">
-              <FormInput label="Email address" value={email} onChange={setEmail} placeholder="admin@company.co.za" type="email" autoComplete="username" />
-              <FormInput label="Password" value={password} onChange={setPassword} placeholder="Password" type="password" autoComplete="current-password" />
+            <div>
+              <label htmlFor="umora-login-password" className="block text-sm font-bold text-[#0f1d33]">
+                Password
+              </label>
+              <div className="relative mt-2">
+                <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
+                <input
+                  id="umora-login-password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Enter your password"
+                  className="h-14 w-full rounded-xl border border-slate-300 bg-white pl-12 pr-14 text-[0.95rem] text-slate-900 placeholder:text-slate-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                >
+                  {showPassword ? <LuEyeOff className="h-5 w-5" /> : <LuEye className="h-5 w-5" />}
+                </button>
+              </div>
             </div>
 
             {error && (
-              <div className="mt-5 rounded-2xl border-2 border-rose-600 bg-rose-50 p-4 text-sm font-semibold text-rose-800 whitespace-pre-wrap break-words">
+              <div role="alert" className="whitespace-pre-wrap break-words rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm font-semibold text-rose-800">
                 {error}
               </div>
             )}
-            {message && <div className="mt-5 rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">{message}</div>}
+            {message && <div className="rounded-xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">{message}</div>}
 
             <button
-              onClick={handleAuth}
+              type="submit"
               disabled={loading}
-              className="mt-6 w-full rounded-2xl bg-[#06101f] px-5 py-4 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15 disabled:opacity-60"
+              className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0b6b4c] to-[#1fb28a] text-base font-bold text-white shadow-[0_14px_30px_rgba(20,138,87,0.3)] transition hover:brightness-105 disabled:opacity-60"
             >
-              {loading ? "Please wait..." : "Login"}
+              {loading ? "Please wait..." : (
+                <>
+                  Login
+                  <LuArrowRight className="h-5 w-5" />
+                </>
+              )}
             </button>
+          </form>
 
-            <a
-              href="/forgot-password"
-              className="mt-4 block w-full rounded-2xl bg-slate-100 px-5 py-4 text-center text-sm font-bold text-slate-700"
-            >
-              Forgot password?
+          <a
+            href="/forgot-password"
+            className="mt-4 block rounded-xl bg-slate-100 py-3.5 text-center text-sm font-bold text-emerald-800 transition hover:bg-slate-200/70"
+          >
+            Forgot password?
+          </a>
+
+          <p className="mt-8 border-t border-slate-200 pt-6 text-center text-sm text-slate-500">
+            Access is by invitation. Need access? Contact{" "}
+            <a href={`mailto:${productBrand.supportEmail}`} className="font-bold text-emerald-700 underline">
+              {productBrand.supportEmail}
             </a>
+          </p>
+          <p className="mt-3 text-center text-xs text-slate-400">
+            Sign-in stuck after an old session?{" "}
+            <button
+              type="button"
+              onClick={() => void onSignOutClearSession()}
+              title="Removes saved sign-in credentials and session-only browser data on this device."
+              className="font-semibold text-slate-500 underline transition hover:text-slate-800"
+            >
+              Sign out &amp; clear session
+            </button>
+          </p>
 
-            <p className="mt-4 text-center text-xs leading-5 text-slate-500">
-              VYRON CORE is invitation-only. Need access? Contact{" "}
-              <a href="mailto:info@vyronsoft.co.za" className="font-bold text-cyan-800 underline">
-                info@vyronsoft.co.za
-              </a>
-              .
-            </p>
-          </section>
-        </div>
+          <UmoraByline className="mt-8 text-center text-slate-400" />
+        </section>
       </div>
     </main>
   );
@@ -3393,10 +3543,10 @@ async function sendLeaveDecisionWhatsApp({
 
   const message =
     decision === "approved"
-      ? `Hi ${employeeName}, your leave request for ${dateRange} has been approved.${feedback ? ` Manager feedback: ${feedback}` : ""} Regards, VYRON CORE.`
+      ? `Hi ${employeeName}, your leave request for ${dateRange} has been approved.${feedback ? ` Manager feedback: ${feedback}` : ""} Regards, ${productBrand.messageSignoff}.`
       : decision === "declined"
-      ? `Hi ${employeeName}, your leave request for ${dateRange} has not been approved.${feedback ? ` Reason: ${feedback}` : " Please contact your manager for feedback."} Regards, VYRON CORE.`
-      : `Hi ${employeeName}, your leave request for ${dateRange} has been amended.${feedback ? ` Manager feedback: ${feedback}` : " Please contact your manager for the updated details."} Regards, VYRON CORE.`;
+      ? `Hi ${employeeName}, your leave request for ${dateRange} has not been approved.${feedback ? ` Reason: ${feedback}` : " Please contact your manager for feedback."} Regards, ${productBrand.messageSignoff}.`
+      : `Hi ${employeeName}, your leave request for ${dateRange} has been amended.${feedback ? ` Manager feedback: ${feedback}` : " Please contact your manager for the updated details."} Regards, ${productBrand.messageSignoff}.`;
 
   const response = await authFetch("/api/whatsapp/send", {
     method: "POST",
@@ -3626,10 +3776,10 @@ function LeaveApprovalsScreen({
     if (phone) {
       const message =
         status === "approved"
-          ? `Hi ${employeeName}, your leave request for ${dateRange} has been approved.${feedback.trim() ? ` Manager feedback: ${feedback.trim()}` : ""} Regards, VYRON CORE.`
+          ? `Hi ${employeeName}, your leave request for ${dateRange} has been approved.${feedback.trim() ? ` Manager feedback: ${feedback.trim()}` : ""} Regards, ${productBrand.messageSignoff}.`
           : status === "declined"
-          ? `Hi ${employeeName}, your leave request for ${dateRange} has not been approved.${feedback.trim() ? ` Reason: ${feedback.trim()}` : " Please contact your manager for feedback."} Regards, VYRON CORE.`
-          : `Hi ${employeeName}, your leave request for ${dateRange} has been amended.${feedback.trim() ? ` Manager feedback: ${feedback.trim()}` : ""} Regards, VYRON CORE.`;
+          ? `Hi ${employeeName}, your leave request for ${dateRange} has not been approved.${feedback.trim() ? ` Reason: ${feedback.trim()}` : " Please contact your manager for feedback."} Regards, ${productBrand.messageSignoff}.`
+          : `Hi ${employeeName}, your leave request for ${dateRange} has been amended.${feedback.trim() ? ` Manager feedback: ${feedback.trim()}` : ""} Regards, ${productBrand.messageSignoff}.`;
 
       const whatsAppResult = await sendVyronWhatsAppMessage({
         to: phone,
@@ -4391,7 +4541,7 @@ function EmployeesScreen({
         <StatCard title="HR records" value={String(hrCases.length)} subtitle="Linked to disciplinary workflow" icon={<ShieldCheck className="h-6 w-6" />} />
       </div>
 
-      <div className="mt-8 grid gap-8 xl:grid-cols-[1fr_0.7fr]">
+      <div className="mt-8 grid grid-cols-1 gap-8 xl:grid-cols-[1fr_0.7fr]">
         <Panel>
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
@@ -4434,7 +4584,11 @@ function EmployeesScreen({
             placeholder="Search by code, name, job, store, phone or email..."
           />
 
-          <div className="mt-5 overflow-hidden rounded-[26px] border border-slate-200">
+          <p className="mt-5 text-xs font-semibold text-slate-400 sm:hidden">Swipe the list sideways to see every column.</p>
+          <div className="mt-2 overflow-x-auto overscroll-x-contain rounded-[26px] border border-slate-200 sm:mt-5">
+            {/* Five fixed columns need ~720px on a phone; there the list scrolls inside its own frame
+                instead of widening the page. */}
+            <div className="min-w-[720px] md:min-w-0">
             <div className="grid grid-cols-[1.2fr_1fr_1fr_90px_140px] bg-slate-950 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white">
               <div>Employee</div>
               <div>Store</div>
@@ -4514,6 +4668,7 @@ function EmployeesScreen({
                   );
                 })
               )}
+            </div>
             </div>
           </div>
         </Panel>
@@ -5753,7 +5908,7 @@ function ExecutiveReportsScreen({
           <div className="mt-6 rounded-2xl bg-white/80 shadow-sm backdrop-blur-xl p-5">
             <div className="text-sm font-black text-slate-950">Demo talking point</div>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              VYRON CORE does not just record clocking. It turns clocking into payroll control, exception workflow, HR protection and management visibility.
+              UMORA does not just record clocking. It turns clocking into payroll control, exception workflow, HR protection and management visibility.
             </p>
           </div>
         </Panel>
@@ -6006,7 +6161,7 @@ function V1ControlScreen({
 
   function downloadReadinessReport() {
     const lines = [
-      "VYRON CORE V1 READINESS REPORT",
+      "UMORA V1 READINESS REPORT",
       `Generated: ${new Date().toLocaleString("en-ZA")}`,
       `Company ID: ${companyId}`,
       "",
@@ -6090,7 +6245,7 @@ function V1ControlScreen({
 
   async function copyDemoSummary() {
     const summary = [
-      `VYRON CORE demo status: ${readiness}% ready`,
+      `UMORA demo status: ${readiness}% ready`,
       `${employees.length} employees, ${stores.length} stores, ${rosterShifts.length} roster shifts`,
       `${clockEvents.length} clock events captured`,
       `${openExceptions.length} open exceptions, ${openHrCases.length} open HR cases`,
@@ -6302,7 +6457,7 @@ function ClientOnboardingScreen({
 
   function downloadOnboardingPlan() {
     const lines = [
-      "VYRON CORE CLIENT ONBOARDING PLAN",
+      "UMORA CLIENT ONBOARDING PLAN",
       `Generated: ${new Date().toLocaleString("en-ZA")}`,
       `Company ID: ${companyId}`,
       "",
@@ -6549,7 +6704,7 @@ function DemoExpiredScreen({ onLogout }: { onLogout: () => void | Promise<void> 
         <div className="mt-6 text-xs font-black uppercase tracking-[0.35em] text-amber-300">Demo period ended</div>
         <h1 className="mt-4 text-3xl font-black tracking-tight">Your 30-day unlimited demo has expired</h1>
         <p className="mt-5 text-sm leading-7 text-slate-300">
-          Thank you for exploring VYRON CORE. Your workspace had full access to all modules during the demo window.
+          Thank you for exploring UMORA. Your workspace had full access to all modules during the demo window.
           To continue with uninterrupted workforce control, billing, and HR operations, please contact our team at{" "}
           <a href="mailto:info@vyronsoft.co.za" className="font-black text-cyan-300 underline">
             info@vyronsoft.co.za
@@ -7801,7 +7956,7 @@ function SendFeedbackPanel({
     setMessage("");
     setModule("");
     setRating("");
-    setSuccess("Thank you — your feedback was submitted. The VYRON product team will review it.");
+    setSuccess("Thank you — your feedback was submitted. The UMORA product team will review it.");
   }
 
   return (
@@ -7809,7 +7964,7 @@ function SendFeedbackPanel({
       <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-700">Voice of Customer</div>
       <h2 className="mt-2 text-2xl font-bold tracking-tight">Send Feedback</h2>
       <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-500">
-        Share product feedback, feature requests, or module ratings with the VYRON team. Submissions appear in the master
+        Share product feedback, feature requests, or module ratings with the UMORA team. Submissions appear in the master
         Client Recommendations view on this browser. For production, use a shared database so operators see feedback
         from all devices.
       </p>
@@ -8430,7 +8585,7 @@ function FinalV1ControlScreen({
 
   function downloadClientDemoPack() {
     const lines = [
-      "VYRON CORE CLIENT DEMO PACK",
+      "UMORA CLIENT DEMO PACK",
       `Generated: ${new Date().toLocaleString("en-ZA")}`,
       `Company ID: ${companyId}`,
       "",
@@ -8455,7 +8610,7 @@ function FinalV1ControlScreen({
       "7. Show Final V1 Control.",
       "",
       "POSITIONING",
-      "VYRON CORE is a workforce command centre that turns clocking data into payroll control, exception workflow and HR protection.",
+      "UMORA is a workforce command centre that turns clocking data into payroll control, exception workflow and HR protection.",
     ];
 
     downloadTextFile(`vyron-core-demo-pack-${todayIsoDate()}.txt`, lines.join("\n"));
@@ -8848,7 +9003,7 @@ function RolesScreen({
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-2xl font-bold tracking-tight">User Roles & Permissions</h2>
-              <p className="mt-2 text-sm text-slate-500">Control who can access VYRON CORE and prepare the app for proper multi-user login permissions.</p>
+              <p className="mt-2 text-sm text-slate-500">Control who can access UMORA and prepare the app for proper multi-user login permissions.</p>
             </div>
 
             <button onClick={() => setAddRoleOpen(true)} className="flex w-fit items-center gap-2 rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/15">
@@ -9165,7 +9320,7 @@ function StaffClockingScreen({
       <div className="relative z-10 space-y-6">
         <header className="rounded-[2.2rem] border border-white/70 bg-white/95 p-7 shadow-[0_22px_70px_rgba(15,23,42,0.16)] backdrop-blur-xl">
           <div className="inline-flex rounded-full bg-cyan-100 px-4 py-2 text-xs font-black uppercase tracking-[0.35em] text-cyan-700">
-            VYRON CORE CLOCKING
+            UMORA CLOCKING
           </div>
           <h1 className="mt-5 text-5xl font-black tracking-tight text-[#06101f]">Staff Clocking</h1>
           <p className="mt-4 max-w-4xl text-base leading-8 text-slate-600">
@@ -9744,6 +9899,20 @@ function MasterExecutiveCommandCentre({
   );
 }
 
+function umoraLocalDayKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * UMORA Command Centre — the tenant dashboard, laid out to the approved UMORA
+ * software reference (hero, quick actions, KPI row, attendance trend, site mix,
+ * workforce snapshot, manager actions, payroll readiness, latest activity).
+ *
+ * Every figure is derived from the active company's live rows passed in by the
+ * shell (already scoped to that company when loaded). No figure is estimated or
+ * illustrative, so there are no period-over-period deltas: the workspace does not
+ * hold a prior-period baseline to compare against.
+ */
 function VyronCoreCostStyleCommandCentre({
   stores,
   employees,
@@ -9751,8 +9920,9 @@ function VyronCoreCostStyleCommandCentre({
   hrCases,
   hrWarnings,
   leaveRequests,
+  clockEvents = [],
   onRefresh,
-  onLogout,
+  onAddEmployee,
   setActive,
   showCompanySetup = false,
   restrictExecutiveLeakage = false,
@@ -9763,14 +9933,23 @@ function VyronCoreCostStyleCommandCentre({
   hrCases: HrCaseRow[];
   hrWarnings: HrWarningRow[];
   leaveRequests: LeaveRequestRow[];
+  clockEvents?: ClockEventRow[];
   onRefresh: () => void;
-  onLogout: () => void | Promise<void>;
+  /**
+   * Opens the existing Add Employee workflow (AddEmployeeModal). Supplied only when
+   * the signed-in role may open the Employees screen, where the same form lives;
+   * otherwise the card falls back to navigating there, which renderSection() gates.
+   */
+  onAddEmployee?: () => void;
+  /** Logout now lives in the UMORA top bar and sidebar; kept optional for existing callers. */
+  onLogout?: () => void | Promise<void>;
   companyId: string;
   setActive: (value: string) => void;
   showCompanySetup?: boolean;
   restrictExecutiveLeakage?: boolean;
 }) {
-  const activeEmployees = employees.filter((employee) => employee.active !== false).length;
+  const activeEmployeeRows = employees.filter((employee) => employee.active !== false);
+  const activeEmployees = activeEmployeeRows.length;
   const openExceptions = exceptions.filter(exceptionIsOpen).length;
   const openHrCases = hrCases.filter(hrCaseIsOpen).length;
   const openWarnings = hrWarnings.filter((item) => (item.status || "active") !== "expired" && (item.status || "active") !== "closed").length;
@@ -9778,388 +9957,317 @@ function VyronCoreCostStyleCommandCentre({
   const payrollReadiness = openExceptions === 0 && openHrCases === 0 ? "Ready" : "Blocked";
   const isEmptyWorkspace = activeEmployees === 0 && stores.length === 0;
 
+  // ---- attendance: distinct employees with a clock-in, per local day, last 7 days
+  const today = new Date();
+  const todayKey = umoraLocalDayKey(today);
+  const clockInsByDay = new Map<string, Set<string>>();
+  for (const event of clockEvents) {
+    if (event.event_type !== "clock_in") continue;
+    const at = new Date(event.event_time);
+    if (Number.isNaN(at.getTime())) continue;
+    const key = umoraLocalDayKey(at);
+    const set = clockInsByDay.get(key) ?? new Set<string>();
+    set.add(event.employee_id);
+    clockInsByDay.set(key, set);
+  }
+  const trendDays: UmoraTrendDay[] = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - (6 - index));
+    const key = umoraLocalDayKey(date);
+    const value = clockInsByDay.get(key)?.size ?? 0;
+    return {
+      key,
+      label: date.toLocaleDateString("en-ZA", { weekday: "short" }),
+      value,
+      detail: `${value} employee${value === 1 ? "" : "s"} clocked in`,
+    };
+  });
+  const clockedInToday = clockInsByDay.get(todayKey)?.size ?? 0;
+
+  const onLeaveToday = leaveRequests.filter(
+    (item) =>
+      item.status === "approved" &&
+      (item.start_date || "").slice(0, 10) <= todayKey &&
+      (item.end_date || "").slice(0, 10) >= todayKey
+  ).length;
+
+  // ---- employees by site (active employees by default store)
+  const storeNames = new Map(stores.map((store) => [store.id, store.name]));
+  const siteCounts = new Map<string, number>();
+  let unassigned = 0;
+  for (const employee of activeEmployeeRows) {
+    const name = employee.default_store_id ? storeNames.get(employee.default_store_id) : undefined;
+    if (!name) {
+      unassigned += 1;
+      continue;
+    }
+    siteCounts.set(name, (siteCounts.get(name) ?? 0) + 1);
+  }
+  const rankedSites = [...siteCounts.entries()].sort((a, b) => b[1] - a[1]);
+  const namedSites = rankedSites.slice(0, UMORA_SITE_COLORS.length);
+  const foldedCount = rankedSites.slice(UMORA_SITE_COLORS.length).reduce((sum, [, count]) => sum + count, 0) + unassigned;
+  const siteSlices: UmoraSlice[] = [
+    ...namedSites.map(([name, value], index) => ({ name, value, color: UMORA_SITE_COLORS[index] })),
+    ...(foldedCount > 0
+      ? [{ name: rankedSites.length > namedSites.length ? "Other / unassigned" : "Unassigned", value: foldedCount, color: UMORA_OTHER_COLOR }]
+      : []),
+  ];
+
+  // ---- payroll readiness checklist (headline status keeps the existing rule)
+  const payrollChecks: UmoraCheck[] = [
+    { label: "Employee records loaded", done: activeEmployees > 0 },
+    { label: "Clocking data captured", done: clockEvents.length > 0 },
+    { label: "Leave requests processed", done: pendingLeave === 0 },
+    { label: "Exceptions reviewed", done: openExceptions === 0 },
+    { label: "HR cases resolved", done: openHrCases === 0 },
+  ];
+  const payrollPercent = Math.round((payrollChecks.filter((check) => check.done).length / payrollChecks.length) * 100);
+  const blockers = openExceptions + openHrCases;
+
+  // ---- latest activity (clock events + leave requests, newest first)
+  const shortName = (employeeId: string | null | undefined) => {
+    const employee = employeeId ? employees.find((row) => row.id === employeeId) : undefined;
+    if (!employee) return "An employee";
+    const first = (employee.first_name || "").trim();
+    return `${first ? `${first.charAt(0)}. ` : ""}${(employee.last_name || "").trim()}`.trim() || "An employee";
+  };
+  const nowMs = today.getTime();
+  const activity: UmoraActivity[] = [
+    ...clockEvents.slice(0, 8).map((event) => {
+      const site = event.store_id ? storeNames.get(event.store_id) : undefined;
+      const verb = event.event_type === "clock_in" ? "clocked in" : event.event_type === "clock_out" ? "clocked out" : "recorded a clock event";
+      return {
+        id: `clock-${event.id}`,
+        at: event.event_time,
+        tone: (event.event_type === "clock_in" ? "green" : "blue") as UmoraActivity["tone"],
+        icon: <Clock3 className="h-3.5 w-3.5" />,
+        text: `${shortName(event.employee_id)} ${verb}${site ? ` at ${site}` : ""}`,
+      };
+    }),
+    ...[...leaveRequests]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 5)
+      .map((request) => ({
+        id: `leave-${request.id}`,
+        at: request.created_at,
+        tone: "amber" as UmoraActivity["tone"],
+        icon: <CalendarDays className="h-3.5 w-3.5" />,
+        text: `Leave request from ${request.employee_name || shortName(request.employee_id)}${
+          request.status && request.status !== "pending" ? ` (${request.status})` : ""
+        }`,
+      })),
+  ]
+    .filter((item) => item.at && Number.isFinite(new Date(item.at).getTime()))
+    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+    .slice(0, 5)
+    .map(({ at, ...item }) => ({ ...item, when: umoraRelativeTime(at, nowMs) }));
+
   return (
-    <section className="relative -m-6 overflow-hidden rounded-none bg-[#04100d] p-6 text-[#06101f] md:-m-8 md:p-8">
-      <div className="pointer-events-none absolute inset-0 z-0">
-        <div className="absolute left-[-180px] top-[-220px] h-[620px] w-[620px] rounded-full bg-cyan-400/18 blur-[140px]" />
-        <div className="absolute right-[-180px] top-[120px] h-[760px] w-[760px] rounded-full bg-cyan-500/20 blur-[160px]" />
-        <div className="absolute bottom-[-260px] left-[36%] h-[680px] w-[680px] rounded-full bg-sky-300/18 blur-[170px]" />
-        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(8,47,73,0.98)_0%,rgba(14,116,144,0.9)_31%,rgba(238,246,255,0.94)_31%,rgba(238,246,255,0.94)_100%)]" />
+    <div className="space-y-6">
+      <UmoraDashboardHero
+        onRefresh={onRefresh}
+        footnote={
+          restrictExecutiveLeakage
+            ? "Operational counts only — no estimated leakage figures."
+            : "Live figures for the active company only."
+        }
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2 min-[85rem]:grid-cols-4">
+        <UmoraQuickAction
+          icon={<UserPlus className="h-6 w-6" />}
+          title="Add Employee"
+          subtitle="Create a new employee record"
+          tone="green"
+          onClick={onAddEmployee ?? (() => setActive("Employees"))}
+        />
+        <UmoraQuickAction
+          icon={<CalendarDays className="h-6 w-6" />}
+          title="Manage Rosters"
+          subtitle="Plan and update shifts"
+          tone="blue"
+          onClick={() => setActive(resolveNavigationTarget("Rosters"))}
+        />
+        <UmoraQuickAction
+          icon={<Clock3 className="h-6 w-6" />}
+          title="View Time & Attendance"
+          subtitle="Track clock-ins and activity"
+          tone="amber"
+          onClick={() => setActive("Clocking")}
+        />
+        <UmoraQuickAction
+          icon={<FileText className="h-6 w-6" />}
+          title="Run Reports"
+          subtitle="Get workforce insights"
+          tone="purple"
+          onClick={() => setActive(resolveNavigationTarget("Reports"))}
+        />
       </div>
 
-      <div className="relative z-10 space-y-6">
-        <header className="rounded-[2.2rem] border border-white/70 bg-white/95 p-7 shadow-[0_22px_70px_rgba(15,23,42,0.16)] backdrop-blur-xl">
-          <div className="inline-flex rounded-full bg-cyan-100 px-4 py-2 text-xs font-black uppercase tracking-[0.35em] text-cyan-700">
-            VYRON CORE COMMAND CENTRE
-          </div>
+      <div className="grid gap-4 sm:grid-cols-2 min-[85rem]:grid-cols-4">
+        <UmoraKpiCard
+          icon={<Users className="h-7 w-7" />}
+          tone="green"
+          value={activeEmployees.toLocaleString()}
+          label="Employees"
+          caption={`Active across ${stores.length} site${stores.length === 1 ? "" : "s"}`}
+          onClick={() => setActive("Employees")}
+        />
+        <UmoraKpiCard
+          icon={<Clock3 className="h-7 w-7" />}
+          tone="blue"
+          value={activeEmployees > 0 ? `${Math.round((clockedInToday / activeEmployees) * 100)}%` : "—"}
+          label="Clocked In Today"
+          caption={`${clockedInToday} of ${activeEmployees} active employees`}
+          onClick={() => setActive("Clocking")}
+        />
+        <UmoraKpiCard
+          icon={<AlertTriangle className="h-7 w-7" />}
+          tone="red"
+          value={openExceptions}
+          label="Open Exceptions"
+          caption={openExceptions === 0 ? "All clear" : "Needs review"}
+          captionTone={openExceptions === 0 ? "good" : "warn"}
+          onClick={() => setActive("Exceptions")}
+        />
+        <UmoraKpiCard
+          icon={<WalletCards className="h-7 w-7" />}
+          tone="amber"
+          value={payrollReadiness}
+          label="Payroll Readiness"
+          caption={blockers === 0 ? "No payroll blockers open" : `${blockers} blocker${blockers === 1 ? "" : "s"} open`}
+          captionTone={blockers === 0 ? "good" : "warn"}
+          onClick={() => setActive("Payroll Prep")}
+        />
+      </div>
 
-          <div className="mt-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-            <div>
-              <h1 className="text-5xl font-black tracking-tight text-[#06101f]">
-                Workforce Command Centre
-              </h1>
-              <p className="mt-4 max-w-5xl text-base leading-8 text-slate-600">
-                Enterprise workforce control, clocking, HR risk, roster movement and payroll readiness in one connected system.
-              </p>
+      <div className="grid gap-4 xl:grid-cols-2 min-[85rem]:grid-cols-3">
+        <UmoraCard
+          title="Attendance Trend"
+          action={<span className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600">Last 7 days</span>}
+        >
+          <p className="mb-3 text-xs text-slate-500">Employees who clocked in each day</p>
+          <UmoraTrendChart days={trendDays} emptyText="No clock-ins recorded in the last 7 days." />
+        </UmoraCard>
+
+        <UmoraCard title="Employees by Site" action={<UmoraCardLink label="View sites" onClick={() => setActive("Stores")} />}>
+          {activeEmployees > 0 ? (
+            <UmoraDonut slices={siteSlices} total={activeEmployees} centerLabel="Employees" />
+          ) : (
+            <div className="flex h-40 items-center justify-center text-center text-sm text-slate-400">
+              Add employees to see how your workforce is spread across sites.
             </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={onRefresh}
-                className="w-fit rounded-full bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300 shadow-lg shadow-cyan-950/20 transition hover:-translate-y-0.5 hover:bg-[#0b1a33]"
-              >
-                Refresh Live Data
-              </button>
-              <button type="button" onClick={() => void onLogout()} className={`w-fit ${VYRON_PREMIUM_LOGOUT_BUTTON_CLASS}`}>
-                Logout
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <section className="rounded-[2.2rem] bg-[#06101f] p-7 text-white shadow-[0_22px_70px_rgba(6,16,31,0.35)]">
-          <div className="grid gap-7 xl:grid-cols-[1.25fr_0.75fr]">
-            <div>
-              <div className="inline-flex rounded-full bg-cyan-400/15 px-4 py-2 text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
-                LIVE OPERATIONS CONTROL
-              </div>
-
-              <h2 className="mt-5 max-w-4xl text-4xl font-black tracking-tight md:text-5xl">
-                See payroll blockers before they cost money.
-              </h2>
-
-              <p className="mt-5 max-w-3xl text-base leading-8 text-slate-300">
-                Monitor workforce activity, exceptions, HR risks and payroll readiness from one premium VYRON control room.
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-3">
-                <button type="button" onClick={() => setActive("Exceptions")} className="rounded-full bg-cyan-400 px-5 py-3 text-sm font-black text-[#06101f] transition hover:-translate-y-0.5">
-                  {openExceptions} Exceptions
-                </button>
-                <button type="button" onClick={() => setActive("HR Cases")} className="rounded-full border border-cyan-400/30 px-5 py-3 text-sm font-black text-cyan-300 transition hover:-translate-y-0.5">
-                  {openHrCases} HR Cases
-                </button>
-                <button type="button" onClick={() => setActive("Payroll Prep")} className="rounded-full border border-cyan-400/30 px-5 py-3 text-sm font-black text-cyan-300 transition hover:-translate-y-0.5">
-                  Payroll {payrollReadiness}
-                </button>
-              </div>
-            </div>
-
-            {restrictExecutiveLeakage ? (
-              <RestrictedExecutiveMetricCard
-                title="Operational Summary"
-                subtitle="Live counts from your company workspace — no estimated leakage figures."
-              />
-            ) : (
-              <div className="rounded-[2rem] border border-cyan-400/15 bg-white/5 p-6">
-                <div className="text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
-                  LIVE WORKSPACE COUNTS
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-4 text-sm font-bold text-slate-200">
-                  <div>Pending leave: <span className="text-cyan-300">{pendingLeave}</span></div>
-                  <div>Open warnings: <span className="text-cyan-300">{openWarnings}</span></div>
-                  <div>Open cases: <span className="text-cyan-300">{openHrCases}</span></div>
-                  <div>Open exceptions: <span className="text-cyan-300">{openExceptions}</span></div>
-                </div>
-                <div className="mt-3 text-sm leading-7 text-slate-300">
-                  Counts are loaded from Supabase for the active company only.
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {isEmptyWorkspace && (
-          <section className="rounded-[2rem] border border-cyan-200 bg-cyan-50 p-6 text-[#06101f]">
-            <div className="text-xs font-black uppercase tracking-[0.25em] text-cyan-700">Getting started</div>
-            <h3 className="mt-3 text-2xl font-black">No workforce data yet</h3>
-            <p className="mt-2 text-sm leading-7 text-slate-600">
-              Add stores and employees to begin clocking, leave and payroll workflows. All metrics will stay at zero until real records exist.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button type="button" onClick={() => setActive("Stores")} className="rounded-2xl bg-[#06101f] px-5 py-3 text-sm font-black text-cyan-300">
-                Add stores
-              </button>
-              <button type="button" onClick={() => setActive("Employees")} className="rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-black text-white">
-                Add employees
-              </button>
-            </div>
-          </section>
-        )}
-
-        <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <button type="button" onClick={() => setActive("Employees")} className="rounded-[2rem] border border-white/80 bg-white/95 p-6 text-left shadow-[0_18px_55px_rgba(15,23,42,0.14)] backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-[0_28px_75px_rgba(37,99,235,0.18)]">
-            <div className="w-fit rounded-2xl bg-cyan-50 p-3 text-cyan-700">
-              <Users className="h-6 w-6" />
-            </div>
-            <div className="mt-6 text-sm font-bold text-slate-500">Active Employees</div>
-            <div className="mt-2 text-4xl font-black text-[#06101f]">{activeEmployees}</div>
-            <div className="mt-2 text-sm font-black text-cyan-700">Live workforce</div>
-          </button>
-
-          <button type="button" onClick={() => setActive("Stores")} className="rounded-[2rem] border border-white/80 bg-white/95 p-6 text-left shadow-[0_18px_55px_rgba(15,23,42,0.14)] backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-[0_28px_75px_rgba(37,99,235,0.18)]">
-            <div className="w-fit rounded-2xl bg-cyan-50 p-3 text-cyan-700">
-              <Store className="h-6 w-6" />
-            </div>
-            <div className="mt-6 text-sm font-bold text-slate-500">Stores</div>
-            <div className="mt-2 text-4xl font-black text-[#06101f]">{stores.length}</div>
-            <div className="mt-2 text-sm font-black text-cyan-700">Controlled locations</div>
-          </button>
-
-          <button type="button" onClick={() => setActive("Exceptions")} className="rounded-[2rem] border border-white/80 bg-white/95 p-6 text-left shadow-[0_18px_55px_rgba(15,23,42,0.14)] backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-[0_28px_75px_rgba(245,158,11,0.18)]">
-            <div className="w-fit rounded-2xl bg-amber-50 p-3 text-amber-700">
-              <AlertTriangle className="h-6 w-6" />
-            </div>
-            <div className="mt-6 text-sm font-bold text-slate-500">Open Exceptions</div>
-            <div className="mt-2 text-4xl font-black text-[#06101f]">{openExceptions}</div>
-            <div className="mt-2 text-sm font-black text-amber-700">{openExceptions === 0 ? "Clean" : "Needs review"}</div>
-          </button>
-
-          <button type="button" onClick={() => setActive("Payroll Prep")} className="rounded-[2rem] bg-[#06101f] p-6 text-left text-white shadow-[0_18px_55px_rgba(15,23,42,0.16)] transition hover:-translate-y-1 hover:shadow-[0_28px_75px_rgba(34,211,238,0.22)]">
-            <div className="w-fit rounded-2xl bg-cyan-400/15 p-3 text-cyan-300">
-              <WalletCards className="h-6 w-6" />
-            </div>
-            <div className="mt-6 text-sm font-bold text-slate-300">Payroll Readiness</div>
-            <div className="mt-2 text-4xl font-black">{payrollReadiness}</div>
-            <div className="mt-2 text-sm font-black text-cyan-300">Command status</div>
-          </button>
-
-          <button type="button" onClick={() => setActive("Leave Approvals")} className="rounded-[2rem] border border-white/80 bg-white/95 p-6 text-left shadow-[0_18px_55px_rgba(15,23,42,0.14)] backdrop-blur-xl transition hover:-translate-y-1">
-            <div className="w-fit rounded-2xl bg-violet-50 p-3 text-violet-700">
-              <CalendarDays className="h-6 w-6" />
-            </div>
-            <div className="mt-6 text-sm font-bold text-slate-500">Pending Leave</div>
-            <div className="mt-2 text-4xl font-black text-[#06101f]">{pendingLeave}</div>
-            <div className="mt-2 text-sm font-black text-violet-700">Needs approval</div>
-          </button>
-
-          <button type="button" onClick={() => setActive("HR Warnings")} className="rounded-[2rem] border border-white/80 bg-white/95 p-6 text-left shadow-[0_18px_55px_rgba(15,23,42,0.14)] backdrop-blur-xl transition hover:-translate-y-1">
-            <div className="w-fit rounded-2xl bg-rose-50 p-3 text-rose-700">
-              <Gavel className="h-6 w-6" />
-            </div>
-            <div className="mt-6 text-sm font-bold text-slate-500">HR Warnings</div>
-            <div className="mt-2 text-4xl font-black text-[#06101f]">{openWarnings}</div>
-            <div className="mt-2 text-sm font-black text-rose-700">Active warnings</div>
-          </button>
-
-          <button type="button" onClick={() => setActive("HR Cases")} className="rounded-[2rem] border border-white/80 bg-white/95 p-6 text-left shadow-[0_18px_55px_rgba(15,23,42,0.14)] backdrop-blur-xl transition hover:-translate-y-1">
-            <div className="w-fit rounded-2xl bg-indigo-50 p-3 text-indigo-700">
-              <ShieldCheck className="h-6 w-6" />
-            </div>
-            <div className="mt-6 text-sm font-bold text-slate-500">HR Cases</div>
-            <div className="mt-2 text-4xl font-black text-[#06101f]">{openHrCases}</div>
-            <div className="mt-2 text-sm font-black text-indigo-700">Open cases</div>
-          </button>
-
-          {showCompanySetup && (
-            <button
-              type="button"
-              onClick={() => setActive("Company Setup")}
-              className="rounded-[2rem] border border-cyan-200 bg-cyan-50/90 p-6 text-left shadow-[0_18px_55px_rgba(15,23,42,0.14)] backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-[0_28px_75px_rgba(37,99,235,0.18)] md:col-span-2 xl:col-span-4"
-            >
-              <div className="w-fit rounded-2xl bg-white p-3 text-cyan-700">
-                <Building2 className="h-6 w-6" />
-              </div>
-              <div className="mt-6 text-sm font-bold text-slate-500">Company Setup</div>
-              <div className="mt-2 text-2xl font-black text-[#06101f]">Configure legal entity &amp; tax profile</div>
-              <div className="mt-2 text-sm font-black text-cyan-700">Open workspace configuration</div>
-            </button>
           )}
-        </section>
+        </UmoraCard>
+
+        <UmoraCard
+          title="Workforce Snapshot"
+          className="xl:col-span-2 min-[85rem]:col-span-1"
+          action={<span className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600">Today</span>}
+        >
+          <UmoraStatRow icon={<UserPlus className="h-3.5 w-3.5" />} tone="green" label="Employees clocked in" value={clockedInToday} onClick={() => setActive("Clocking")} />
+          <UmoraStatRow icon={<CalendarRange className="h-3.5 w-3.5" />} tone="blue" label="On leave today" value={onLeaveToday} onClick={() => setActive(resolveNavigationTarget("Leave"))} />
+          <UmoraStatRow icon={<CalendarDays className="h-3.5 w-3.5" />} tone="amber" label="Leave awaiting approval" value={pendingLeave} onClick={() => setActive("Leave Approvals")} />
+          <UmoraStatRow icon={<AlertTriangle className="h-3.5 w-3.5" />} tone="red" label="Open exceptions" value={openExceptions} onClick={() => setActive("Exceptions")} />
+          <UmoraStatRow icon={<ShieldCheck className="h-3.5 w-3.5" />} tone="purple" label="Open HR cases" value={openHrCases} onClick={() => setActive("HR Cases")} />
+        </UmoraCard>
       </div>
-    </section>
+
+      <div className="grid gap-4 xl:grid-cols-2 min-[85rem]:grid-cols-3">
+        <UmoraCard
+          title="Manager Actions"
+          action={<UmoraCardLink label="View All" onClick={() => setActive(resolveNavigationTarget("Tasks"))} />}
+        >
+          <UmoraActionRow icon={<AlertTriangle className="h-3.5 w-3.5" />} tone="red" count={openExceptions} label="exceptions to review" onReview={() => setActive("Exceptions")} />
+          <UmoraActionRow icon={<CalendarDays className="h-3.5 w-3.5" />} tone="amber" count={pendingLeave} label="leave requests" onReview={() => setActive("Leave Approvals")} />
+          <UmoraActionRow icon={<ShieldCheck className="h-3.5 w-3.5" />} tone="blue" count={openHrCases} label="open HR cases" onReview={() => setActive("HR Cases")} />
+          <UmoraActionRow icon={<Gavel className="h-3.5 w-3.5" />} tone="purple" count={openWarnings} label="active HR warnings" onReview={() => setActive("HR Warnings")} />
+        </UmoraCard>
+
+        <UmoraCard title="Payroll Readiness" action={<UmoraCardLink label="View Details" onClick={() => setActive("Payroll Prep")} />}>
+          <UmoraReadinessRing
+            percent={payrollPercent}
+            status={payrollReadiness === "Ready" ? "Payroll Ready" : "Payroll Blocked"}
+            caption="Based on live time, leave and HR data"
+            checks={payrollChecks}
+          />
+        </UmoraCard>
+
+        <UmoraCard
+          title="Latest Activity"
+          className="xl:col-span-2 min-[85rem]:col-span-1"
+          action={<UmoraCardLink label="View All" onClick={() => setActive("Clocking")} />}
+        >
+          <UmoraActivityList items={activity} emptyText="Clock-ins and leave requests will appear here as they happen." />
+        </UmoraCard>
+      </div>
+
+      {isEmptyWorkspace && (
+        <section className="rounded-[20px] border border-emerald-200 bg-emerald-50/70 p-6 text-[#0f1d33]">
+          <div className="umora-sans text-xs font-bold uppercase tracking-[0.25em] text-emerald-700">Getting started</div>
+          <h3 className="mt-3 text-2xl font-bold">No workforce data yet</h3>
+          <p className="mt-2 text-sm leading-7 text-slate-600">
+            Add stores and employees to begin clocking, leave and payroll workflows. All metrics will stay at zero until real records exist.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button type="button" onClick={() => setActive("Stores")} className="rounded-xl bg-[#04201b] px-5 py-3 text-sm font-bold text-[#7eeec0]">
+              Add stores
+            </button>
+            <button type="button" onClick={() => setActive("Employees")} className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white">
+              Add employees
+            </button>
+          </div>
+        </section>
+      )}
+
+      {showCompanySetup && (
+        <button
+          type="button"
+          onClick={() => setActive("Company Setup")}
+          className="flex w-full items-center gap-4 rounded-[20px] border border-emerald-200 bg-white p-5 text-left shadow-[0_1px_2px_rgba(16,42,76,0.04),0_10px_28px_rgba(16,42,76,0.06)] transition hover:-translate-y-0.5"
+        >
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+            <Building2 className="h-6 w-6" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-slate-500">Company Setup</span>
+            <span className="umora-sans block text-lg font-bold text-[#0f1d33]">Configure legal entity &amp; tax profile</span>
+          </span>
+          <LuArrowRight className="h-5 w-5 shrink-0 text-emerald-700" />
+        </button>
+      )}
+    </div>
   );
 }
 
 
 
 function VyronCoreVisualSystem() {
+  // Mounted only on the full-screen session states (checking session, account
+  // suspended, demo expired). Paints them in the UMORA palette; the class names
+  // it targets are the shell's own.
   return (
     <style>{`
-      :root {
-        --vyron-core-bg: #020617;
-        --vyron-core-ink: #06101f;
-        --vyron-core-panel: rgba(255,255,255,0.92);
-        --vyron-core-line: rgba(148,163,184,0.28);
-        --vyron-core-cyan: #22d3ee;
-        --vyron-core-blue: #2563eb;
-      }
-
       html,
       body {
         min-height: 100%;
+        background: #f2f5f6 !important;
+      }
+
+      main[class*="bg-[#07101f]"] {
         background:
-          radial-gradient(circle at 14% 8%, rgba(34,211,238,0.34), transparent 24%),
-          radial-gradient(circle at 78% 0%, rgba(37,99,235,0.28), transparent 30%),
-          radial-gradient(circle at 66% 58%, rgba(34,211,238,0.12), transparent 34%),
-          linear-gradient(135deg, #020617 0%, #07101f 29%, #eaf4ff 29%, #f8fbff 100%) !important;
+          radial-gradient(circle at 12% 0%, rgba(79,227,161,0.16), transparent 36%),
+          linear-gradient(135deg, #03161a 0%, #04201b 55%, #073a30 100%) !important;
       }
 
-      body {
-        color: var(--vyron-core-ink) !important;
+      main [class*="bg-[#0b1a33]"] {
+        background: rgba(255,255,255,0.06) !important;
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
       }
 
-      main {
-        position: relative !important;
-        overflow-x: hidden !important;
-        background:
-          radial-gradient(circle at 22% 10%, rgba(34,211,238,0.26), transparent 25%),
-          radial-gradient(circle at 88% 8%, rgba(37,99,235,0.22), transparent 32%),
-          linear-gradient(135deg, #020617 0%, #07101f 30%, #eaf4ff 30%, #f8fbff 100%) !important;
-      }
-
-      main::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        z-index: 0;
-        pointer-events: none;
-        background:
-          radial-gradient(circle at 44% 24%, rgba(34,211,238,0.18), transparent 28%),
-          radial-gradient(circle at 68% 42%, rgba(37,99,235,0.14), transparent 34%),
-          radial-gradient(circle at 88% 84%, rgba(14,165,233,0.16), transparent 32%);
-        filter: blur(1px);
-      }
-
-      main > * {
-        position: relative;
-        z-index: 1;
-      }
-
-      aside {
-        background:
-          radial-gradient(circle at 16% 4%, rgba(34,211,238,0.28), transparent 24%),
-          radial-gradient(circle at 92% 50%, rgba(37,99,235,0.22), transparent 40%),
-          linear-gradient(180deg, #020617 0%, #07101f 42%, #030712 100%) !important;
-        border-right: 1px solid rgba(125,211,252,0.18) !important;
-        box-shadow: 28px 0 90px rgba(2,6,23,0.46), inset -1px 0 0 rgba(255,255,255,0.06) !important;
-      }
-
-      aside > div:first-child {
-        background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(34,211,238,0.04)) !important;
-        border-bottom: 1px solid rgba(125,211,252,0.20) !important;
-      }
-
-      aside nav > div {
-        background: linear-gradient(145deg, rgba(255,255,255,0.072), rgba(255,255,255,0.028)) !important;
-        border: 1px solid rgba(148,163,184,0.18) !important;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 18px 42px rgba(2,6,23,0.22) !important;
-      }
-
-      aside button:hover {
-        transform: translateX(4px) !important;
-        box-shadow: 0 0 30px rgba(34,211,238,0.16) !important;
-      }
-
-      header {
-        position: relative !important;
-        overflow: hidden !important;
-        border: 1px solid rgba(125,211,252,0.18) !important;
-        background:
-          radial-gradient(circle at 18% 10%, rgba(34,211,238,0.18), transparent 28%),
-          radial-gradient(circle at 88% 18%, rgba(37,99,235,0.18), transparent 34%),
-          linear-gradient(135deg, #020617 0%, #07101f 54%, #0b1f3a 100%) !important;
-        box-shadow: 0 34px 100px rgba(2,6,23,0.28), 0 0 52px rgba(34,211,238,0.14) !important;
-      }
-
-      header::after {
-        content: "";
-        position: absolute;
-        right: -90px;
-        top: -130px;
-        width: 340px;
-        height: 340px;
-        border-radius: 999px;
-        background: rgba(34,211,238,0.20);
-        filter: blur(70px);
-        pointer-events: none;
-      }
-
-      header h1 {
-        text-shadow: 0 0 32px rgba(34,211,238,0.22), 0 18px 52px rgba(0,0,0,0.22) !important;
-      }
-
-      section,
-      [class*="rounded-"][class*="bg-white"],
-      [class*="rounded-"][class*="border"],
-      [class*="shadow-"][class*="bg-white"] {
-        backdrop-filter: blur(22px) !important;
-        -webkit-backdrop-filter: blur(22px) !important;
-      }
-
-      section[class*="bg-white"],
-      div[class*="bg-white"][class*="rounded"],
-      article[class*="bg-white"],
-      [class*="bg-white/95"],
-      [class*="bg-white/90"] {
-        background:
-          linear-gradient(145deg, rgba(255,255,255,0.98), rgba(240,249,255,0.90)) !important;
-        border: 1px solid rgba(255,255,255,0.78) !important;
-        box-shadow: 0 24px 72px rgba(15,23,42,0.13), 0 0 34px rgba(34,211,238,0.08) !important;
-      }
-
-      [class*="bg-[#06101f]"],
-      [class*="bg-[#07101f]"],
-      [class*="from-[#07101f]"],
-      [class*="to-[#0b1a33]"] {
-        background:
-          radial-gradient(circle at 18% 8%, rgba(34,211,238,0.17), transparent 26%),
-          linear-gradient(135deg, #020617 0%, #07101f 58%, #0b1f3a 100%) !important;
-        border-color: rgba(125,211,252,0.18) !important;
-        box-shadow: 0 24px 72px rgba(2,6,23,0.30), 0 0 36px rgba(34,211,238,0.13) !important;
-      }
-
-      button,
-      a {
-        transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background-color 180ms ease, filter 180ms ease !important;
-      }
-
-      button:hover,
-      a:hover {
-        transform: translateY(-1px) !important;
-        filter: saturate(1.08) !important;
-      }
-
-      button[class*="bg-[#06101f]"],
-      button[class*="from-blue"],
-      button[class*="bg-blue"],
-      a[class*="bg-[#06101f]"],
-      a[class*="from-blue"],
-      a[class*="bg-blue"] {
-        box-shadow: 0 16px 42px rgba(37,99,235,0.28), 0 0 36px rgba(34,211,238,0.26) !important;
-      }
-
-      input,
-      select,
-      textarea {
-        background: rgba(255,255,255,0.92) !important;
-        border: 1px solid rgba(148,163,184,0.34) !important;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.80), 0 10px 26px rgba(15,23,42,0.06) !important;
-      }
-
-      input:focus,
-      select:focus,
-      textarea:focus {
-        border-color: rgba(34,211,238,0.82) !important;
-        box-shadow: 0 0 0 4px rgba(34,211,238,0.16), 0 14px 36px rgba(15,23,42,0.08) !important;
-      }
-
-      table {
-        border-collapse: separate !important;
-        border-spacing: 0 10px !important;
-      }
-
-      tbody tr,
-      [class*="space-y"] > div[class*="border"] {
-        transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease !important;
-      }
-
-      tbody tr:hover,
-      [class*="space-y"] > div[class*="border"]:hover {
-        transform: translateY(-1px) !important;
-        border-color: rgba(34,211,238,0.36) !important;
-        box-shadow: 0 18px 44px rgba(15,23,42,0.12), 0 0 34px rgba(34,211,238,0.11) !important;
+      main a[class*="text-cyan-300"] {
+        color: #7eeec0 !important;
       }
     `}</style>
   );
@@ -10173,7 +10281,7 @@ function AutomationCentreScreen() {
         <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Automation Centre</div>
         <h2 className="mt-3 text-3xl font-black tracking-tight">AI policy, exception and payroll automation</h2>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
-          Client-facing automation for manager guidance, exception triage, payroll forecasting and future VYRON CORE co-pilot workflows.
+          Client-facing automation for manager guidance, exception triage, payroll forecasting and future UMORA co-pilot workflows.
         </p>
       </Panel>
 
@@ -10476,7 +10584,7 @@ function CompanySetupScreen({
 
       <Panel>
         <h2 className="text-2xl font-bold tracking-tight text-slate-950">Company profile</h2>
-        <p className="mt-2 text-sm text-slate-500">These fields define how the company appears in VYRON CORE.</p>
+        <p className="mt-2 text-sm text-slate-500">These fields define how the company appears in UMORA.</p>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <FormInput label="Company Name" value={companyName} onChange={setCompanyName} placeholder="Acme Retail Group (Pty) Ltd" />
@@ -11610,7 +11718,7 @@ function HrDocumentsManagementPanel({
       <Panel dark>
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">VYRON CORE</div>
+            <div className="umora-sans text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">{productBrand.mark}</div>
             <h2 className="mt-3 text-3xl font-black tracking-tight">HR Documents</h2>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
               View uploaded HR documents, warnings, forms, signed records and employee document evidence in one management view.
@@ -11783,7 +11891,7 @@ function PilotDemoReadinessScreen() {
         <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">Pilot Demo Readiness</div>
         <h2 className="mt-3 text-3xl font-black tracking-tight">Client demo preparation</h2>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
-          Prepare demo data, demo scripts and the strongest client-facing story for VYRON CORE.
+          Prepare demo data, demo scripts and the strongest client-facing story for UMORA.
         </p>
       </Panel>
       <PilotDemoReadinessCentre />
@@ -11972,7 +12080,7 @@ function ConnectedDashboardScreen({
     <div className="min-h-screen bg-[#07101f] p-4 text-white md:p-8">
       <div className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <div className="text-xs font-black uppercase tracking-[0.45em] text-cyan-300">VYRON CORE</div>
+          <div className="umora-sans text-xs font-black uppercase tracking-[0.45em] text-cyan-300">{productBrand.mark}</div>
           <h1 className="mt-3 text-4xl font-black tracking-tight md:text-6xl">Dashboard</h1>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300">
             Every card opens a real workflow. This dashboard is the live control centre for staff, clocking, HR, leave and payroll.
@@ -13647,7 +13755,7 @@ function EmployeeHrFileDrilldownCentre({
 
         <Panel>
           <h2 className="text-2xl font-black text-slate-950">Smart recommendations</h2>
-          <p className="mt-2 text-sm text-slate-500">VYRON flags what the manager should review next.</p>
+          <p className="mt-2 text-sm text-slate-500">UMORA flags what the manager should review next.</p>
 
           <div className="mt-6 grid gap-3">
             {openHrCases.length > 0 && (
@@ -15601,27 +15709,27 @@ function WhatsAppActionCentreLive({
 
   function setTemplate(type: "warning" | "leave_approved" | "leave_declined" | "hr_notice" | "payroll" | "clocking") {
     if (type === "warning") {
-      setMessage(`Hi ${employeeName}, this is an official HR notice from VYRON CORE. Please contact your manager regarding an HR matter that requires your attention.`);
+      setMessage(`Hi ${employeeName}, this is an official HR notice from ${productBrand.messageSignoff}. Please contact your manager regarding an HR matter that requires your attention.`);
     }
 
     if (type === "leave_approved") {
-      setMessage(`Hi ${employeeName}, your leave request has been approved. Please check with your manager if you need any further details. Regards, VYRON CORE.`);
+      setMessage(`Hi ${employeeName}, your leave request has been approved. Please check with your manager if you need any further details. Regards, ${productBrand.messageSignoff}.`);
     }
 
     if (type === "leave_declined") {
-      setMessage(`Hi ${employeeName}, your leave request has not been approved at this stage. Please contact your manager for feedback. Regards, VYRON CORE.`);
+      setMessage(`Hi ${employeeName}, your leave request has not been approved at this stage. Please contact your manager for feedback. Regards, ${productBrand.messageSignoff}.`);
     }
 
     if (type === "hr_notice") {
-      setMessage(`Hi ${employeeName}, please note that there is an HR update linked to your employee file. Your manager will provide further details. Regards, VYRON CORE.`);
+      setMessage(`Hi ${employeeName}, please note that there is an HR update linked to your employee file. Your manager will provide further details. Regards, ${productBrand.messageSignoff}.`);
     }
 
     if (type === "payroll") {
-      setMessage(`Hi ${employeeName}, there is a payroll or clocking matter that needs attention before payroll can be finalised. Please contact your manager. Regards, VYRON CORE.`);
+      setMessage(`Hi ${employeeName}, there is a payroll or clocking matter that needs attention before payroll can be finalised. Please contact your manager. Regards, ${productBrand.messageSignoff}.`);
     }
 
     if (type === "clocking") {
-      setMessage(`Hi ${employeeName}, VYRON CORE shows a clocking matter that needs attention. Please check your clock-in/clock-out with your manager.`);
+      setMessage(`Hi ${employeeName}, ${productBrand.messageSignoff} shows a clocking matter that needs attention. Please check your clock-in/clock-out with your manager.`);
     }
   }
 
@@ -17174,6 +17282,21 @@ export default function Page() {
     alertCounts["WhatsApp Action Centre"] ||
     0;
 
+  // Top-bar search offers exactly the screens the sidebar already offers this
+  // user — same RBAC-filtered groups — so it cannot surface anything new.
+  const desktopSearchTargets: UmoraSearchTarget[] = buildSidebarNavGroups(
+    layoutUserRole,
+    normalizedAuthEmail,
+    hasTenantCompanyAccess,
+    isVyronCoreSupportView
+  ).flatMap((group) =>
+    group.items.map((item) => ({
+      label: displayNavigationLabel(item),
+      target: resolveNavigationTarget(item),
+      group: sidebarGroupDisplayLabel(group.label),
+    }))
+  );
+
   const mobileHomeTiles: MobileLauncherTile[] = [
     {
       key: "employees",
@@ -17641,7 +17764,7 @@ export default function Page() {
           setError(`Company access issue: ${resolvedAccessError}`);
         } else if (!resolvedAccessError) {
           setError(
-            `No active VYRON CORE company access found for ${cleanEmail}. Ask the system owner to add this user under Company Users.`
+            `No active UMORA company access found for ${cleanEmail}. Ask the system owner to add this user under Company Users.`
           );
         }
         setCurrentCompanyId("");
@@ -17750,7 +17873,7 @@ export default function Page() {
       }
 
       if (!supportCoreSession && resolvedAccess?.subscription_locked) {
-        setError("This company subscription is not active. Please contact VYRON billing to unlock access.");
+        setError("This company subscription is not active. Please contact VYRONSOFT billing to unlock access.");
         setCurrentCompanyId(resolvedAccess.company_id);
         syncLayoutRole(resolvedAccess.user_role);
         setCurrentCompanyName(resolvedAccess.company_name || "Subscription inactive");
@@ -18102,6 +18225,14 @@ export default function Page() {
       ) : (
         <VyronCoreCostStyleCommandCentre
           stores={stores}
+          clockEvents={clockEvents}
+          onAddEmployee={
+            isMasterOperatorSession ||
+            !hasTenantCompanyAccess ||
+            isTenantNavRouteAllowed("Employees", tenantPermissionLayer)
+              ? () => setAddEmployeeOpen(true)
+              : undefined
+          }
           employees={employees}
           exceptions={exceptions}
           hrCases={hrCases}
@@ -18612,9 +18743,10 @@ export default function Page() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f6f8fb] p-6 text-slate-950">
       <VyronCoreVisualSystem />
-        <div className="rounded-[28px] bg-white p-8 text-center shadow-[0_20px_60px_rgba(15,23,42,0.12)]">
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-700">VYRON CORE</div>
-          <div className="mt-3 text-2xl font-bold">Checking secure session...</div>
+        <div className="flex flex-col items-center rounded-[22px] border border-slate-200/70 bg-white px-10 py-9 text-center shadow-[0_20px_60px_rgba(16,42,76,0.1)]">
+          <UmoraMark size={44} />
+          <div className="umora-sans mt-4 text-xs font-bold uppercase tracking-[0.3em] text-emerald-700">{productBrand.mark}</div>
+          <div className="umora-sans mt-2 text-xl font-bold text-[#0f1d33]">Checking secure session…</div>
         </div>
       </main>
     );
@@ -18648,7 +18780,7 @@ export default function Page() {
 
   
 return (
-    <main className="min-h-screen bg-[#07101f] text-slate-950">
+    <main className="min-h-screen bg-[#f2f5f6] text-slate-950">
       <SessionTimeoutWarning
         warning={sessionTimeoutWarning}
         onStayLoggedIn={staySignedInFromTimeout}
@@ -18694,7 +18826,7 @@ return (
       <div className="lg:hidden">
         <MobileAppShell
           title={displayMobileSectionTitle(active)}
-          workspaceName={currentCompanyName || "VYRON Workspace"}
+          workspaceName={currentCompanyName || productBrand.workspaceFallback}
           profileLabel={initialsFromIdentity(authUserEmail || normalizedAuthEmail)}
           notificationCount={mobileNotificationCount}
           onOpenWorkspace={() => {
@@ -18744,13 +18876,13 @@ return (
         </MobileAppShell>
       </div>
 
-      <div className="hidden min-h-screen lg:grid lg:grid-cols-[300px_1fr]">
+      <div className="hidden min-h-screen lg:grid lg:grid-cols-[288px_1fr]">
         {/* Sticky, viewport-height sidebar column. Without an explicit height here the
             aside's h-full resolves against an auto-height grid row, the nav's
             overflow-y-auto never engages, and anything below the fold — Road & Recovery
             included — is clipped instead of scrolled. */}
         <div className="hidden lg:sticky lg:top-0 lg:block lg:h-screen">
-          <Sidebar active={active} setActive={setActive} alertCounts={alertCounts} openGroup={activeSidebarGroup} setOpenGroup={setActiveSidebarGroup} userRole={layoutUserRole} userEmail={normalizedAuthEmail} hasCompanyAccess={hasTenantCompanyAccess} coreSupportMode={isVyronCoreSupportView} tenantWorkspacePlan={tenantWorkspaceSidebarPlan} platformOperator={platformOperatorSession} roadRecoveryEnabled={roadRecoveryEnabled} />
+          <Sidebar active={active} setActive={setActive} alertCounts={alertCounts} openGroup={activeSidebarGroup} setOpenGroup={setActiveSidebarGroup} userRole={layoutUserRole} userEmail={normalizedAuthEmail} hasCompanyAccess={hasTenantCompanyAccess} coreSupportMode={isVyronCoreSupportView} tenantWorkspacePlan={tenantWorkspaceSidebarPlan} platformOperator={platformOperatorSession} roadRecoveryEnabled={roadRecoveryEnabled} workspaceName={currentCompanyName || productBrand.workspaceFallback} onLogout={handleLogout} />
         </div>
 
         {/*
@@ -18772,9 +18904,22 @@ return (
         */}
         <section
           className={`min-w-0 ${
-            active === "Command Centre" ? "bg-[#07101f] p-6 md:p-8" : "bg-[#f6f8fb] p-4 md:p-8"
+            active === "Command Centre" ? "bg-[#f2f5f6] p-6 md:p-8" : "bg-[#f2f5f6] p-4 md:p-8"
           }`}
         >
+          <UmoraTopBar
+            canGoBack={historyStack.length > 0}
+            onBack={goBack}
+            searchTargets={desktopSearchTargets}
+            onNavigate={setActive}
+            workspaceName={currentCompanyName || productBrand.workspaceFallback}
+            workspaceCaption={`${productBrand.name} workspace`}
+            notificationCount={mobileNotificationCount}
+            onOpenNotifications={() => setActive("Notifications")}
+            onOpenCommandCentre={() => setActive("Command Centre")}
+            onLogout={handleLogout}
+          />
+
           {active !== "Command Centre" && (
             <Header
               active={active}
@@ -18785,14 +18930,7 @@ return (
             />
           )}
           
-          {historyStack.length > 0 && active !== "Command Centre" && (
-            <div className="mb-4">
-              <button
-                onClick={goBack}
-                className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50"
-              >Back</button>
-            </div>
-          )}
+          {/* Back now lives in the UMORA top bar above, wired to the same goBack(). */}
 
           {isMasterOperatorSession && vyronDevSupportSession && (
             <VyronDevSupportSessionBanner

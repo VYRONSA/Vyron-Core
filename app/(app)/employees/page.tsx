@@ -743,7 +743,7 @@ export default function EmployeesPage() {
         <header className="rounded-[34px] bg-gradient-to-r from-[#07101f] to-[#0b1a33] p-6 text-white shadow-2xl shadow-slate-300 md:p-7">
           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
             <div>
-              <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">VYRON CORE</div>
+              <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">UMORA</div>
               <h1 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">Employee Management</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
                 Production workflows for lifecycle, profile updates, search, import/export and document control.

@@ -112,7 +112,7 @@ export function formatSupabaseAuthErrorMessage(raw: string): string {
     if (typeof console !== "undefined") {
       console.error(SUPABASE_UNREACHABLE_DIAGNOSTIC, { cause: msg });
     }
-    return "Can't reach VYRON CORE. Check your connection and try again. Anything you have already recorded stays saved on this device.";
+    return "Can't reach UMORA. Check your connection and try again. Anything you have already recorded stays saved on this device.";
   }
   return msg;
 }

@@ -30,7 +30,7 @@ export async function resolveKioskCompanyId(
 export function formatClientSafeError(message: string | null | undefined): string {
   if (!message) return "Something went wrong. Please try again.";
   if (shouldSuppressWorkspaceLoadMessage(message)) {
-    return "This workspace is still being set up. Please try again shortly or contact VYRON support.";
+    return "This workspace is still being set up. Please try again shortly or contact VYRONSOFT support.";
   }
   const lower = message.toLowerCase();
   if (lower.includes("jwt") || lower.includes("session")) {

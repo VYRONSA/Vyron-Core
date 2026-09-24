@@ -32,7 +32,7 @@ export default function PilotDemoReadinessCentre() {
             Pilot Demo Readiness Centre
           </h2>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-500">
-            The demo pack that makes VYRON CORE understandable to clients within the first 10 minutes.
+            The demo pack that makes UMORA understandable to clients within the first 10 minutes.
           </p>
         </div>
 

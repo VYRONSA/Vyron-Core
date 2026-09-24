@@ -418,7 +418,7 @@ export default function LeaveApprovalsPanel({
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="text-xs font-bold uppercase tracking-[0.35em] text-blue-600">
-              VYRON CORE
+              UMORA
             </div>
             <h2 className="mt-2 text-3xl font-bold text-slate-950">
               Leave Requests

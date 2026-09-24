@@ -43,6 +43,6 @@ export function clearVyronSessionLocalStorage(): readonly string[] {
   return VYRON_LOGOUT_SESSION_STORAGE_KEYS;
 }
 
-/** High-contrast dashboard logout (charcoal pill, red hover — matches rounded VYRON shell). */
+/** UMORA "Logout / Exit Workspace" control: white outline pill, red hover. Identifier kept for existing imports. */
 export const VYRON_PREMIUM_LOGOUT_BUTTON_CLASS =
-  "rounded-full bg-[#292524] px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-black/20 transition hover:-translate-y-0.5 hover:bg-red-600 hover:shadow-lg hover:shadow-red-950/35 active:translate-y-0 active:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300";
+  "inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:border-red-200 hover:bg-red-50 hover:text-red-700 active:translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500";

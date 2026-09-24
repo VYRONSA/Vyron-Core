@@ -399,7 +399,7 @@ export default function SignContractPage({
       setSigningStep("Saving to HR document vault...");
       await safeCreateHrDocument(employee, documentRecord, signaturePath);
 
-      setMessage("Contract signed successfully. The signed copy has returned to VYRON CORE.");
+      setMessage("Contract signed successfully. The signed copy has returned to UMORA.");
       await loadSigningData();
     } catch (signError: any) {
       setError(signError?.message || "Signing failed.");
@@ -425,7 +425,7 @@ export default function SignContractPage({
       <section className="mx-auto max-w-5xl">
         <header className="rounded-[34px] bg-gradient-to-r from-[#07101f] to-[#0b1a33] p-6 text-white shadow-2xl shadow-slate-300 md:p-7">
           <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">
-            VYRON CORE
+            UMORA™
           </div>
           <h1 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">
             Secure Contract Signing

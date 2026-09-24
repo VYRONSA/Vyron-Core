@@ -3,10 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { UmoraMark } from "@/components/brand/UmoraBrand";
+import { productBrand } from "@/lib/brand";
 
 /** Generic copy regardless of outcome — never reveals whether an email is registered. */
 const GENERIC_SENT_MESSAGE =
-  "If that email is registered with VYRON CORE, a password reset link is on its way. Check your inbox (and spam folder) — the link expires after a short time.";
+  "If that email is registered with UMORA, a password reset link is on its way. Check your inbox (and spam folder) — the link expires after a short time.";
 
 function isRateLimitMessage(message: string): boolean {
   const m = message.toLowerCase();
@@ -59,7 +61,10 @@ export default function ForgotPasswordPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f6f8fb] p-6 text-slate-950">
       <div className="w-full max-w-xl rounded-[28px] bg-white p-8 shadow-[0_20px_60px_rgba(15,23,42,0.12)]">
-        <div className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-700">VYRON CORE</div>
+        <div className="flex items-center gap-2.5">
+          <UmoraMark size={28} />
+          <span className="umora-sans text-xs font-bold uppercase tracking-[0.3em] text-emerald-700">{productBrand.mark}</span>
+        </div>
         <h1 className="mt-3 text-3xl font-black tracking-tight">Reset your password</h1>
 
         {sent ? (
@@ -74,7 +79,7 @@ export default function ForgotPasswordPage() {
         ) : (
           <>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              Enter the email address on your VYRON CORE account. We&apos;ll send a secure link to reset your
+              Enter the email address on your UMORA account. We&apos;ll send a secure link to reset your
               password.
             </p>
 

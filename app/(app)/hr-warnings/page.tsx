@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getCompanyAccess } from '@/lib/company-access';
 import { buildHrWarningInsert } from '@/lib/hr-warning-schema';
 import { supabase } from '@/lib/supabase';
+import { UmoraLogo } from '@/components/brand/UmoraBrand';
 
 type WarningType = 'verbal' | 'written' | 'final_written';
 type IncidentType =
@@ -255,8 +256,8 @@ function buildPrintHtml(warning: HrWarning) {
 </head>
 <body>
   <div class="header">
-    <div class="brand">VYRON</div>
-    <div class="tag">CORE · HR WARNING NOTICE</div>
+    <div class="brand">UMORA</div>
+    <div class="tag">HR WARNING NOTICE</div>
   </div>
 
   <h1>${displayWarningType(warning.warning_type)}</h1>
@@ -439,7 +440,7 @@ export default function HrWarningsPage() {
 
   function openWhatsAppDraft(warning: HrWarning) {
     const message = [
-      `VYRON CORE HR WARNING`,
+      `UMORA HR WARNING`,
       ``,
       `Employee: ${warning.employee_name}`,
       `Employee Code: ${warning.employee_id}`,
@@ -579,19 +580,11 @@ export default function HrWarningsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#080f1d] text-white">
+    <main className="min-h-screen bg-[#04201b] text-white">
       <div className="flex min-h-screen">
-        <aside className="hidden w-[260px] shrink-0 border-r border-white/10 bg-[#07111f] px-5 py-6 lg:block">
-          <div className="mb-10 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-400 font-black shadow-lg shadow-cyan-950/30">
-              V
-            </div>
-            <div>
-              <p className="text-lg font-black tracking-[0.18em]">VYRON</p>
-              <p className="text-[10px] font-bold tracking-[0.36em] text-cyan-300">
-                CORE
-              </p>
-            </div>
+        <aside className="hidden w-[260px] shrink-0 border-r border-white/10 bg-[#031a17] px-5 py-6 lg:block">
+          <div className="mb-10">
+            <UmoraLogo size="sm" />
           </div>
 
           <p className="mb-3 text-[10px] font-black uppercase tracking-[0.28em] text-slate-500">

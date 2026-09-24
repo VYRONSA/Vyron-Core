@@ -99,7 +99,7 @@ export type BillingReport = {
 };
 
 const DISCLAIMER =
-  "Operational billing information from VYRON CORE. Not an invoice, statement or accounting record — invoicing, VAT, debtors and payments belong to VYRON FINANCE.";
+  "Operational billing information from UMORA. Not an invoice, statement or accounting record — invoicing, VAT, debtors and payments belong to VYRON FINANCE.";
 
 // ---------------------------------------------------------------------------
 // Shared loading
@@ -432,7 +432,7 @@ export async function awaitingFinanceReport(
           Math.round(
             rows.reduce((total, row) => total + ((row.expectedTotal as number | null) ?? 0), 0) * 100
           ) / 100,
-        note: "Ready for VYRON FINANCE to invoice. No invoice exists in VYRON CORE.",
+        note: "Ready for VYRON FINANCE to invoice. No invoice exists in UMORA.",
       },
       at
     ),
@@ -1042,7 +1042,7 @@ export async function authorisationVsActualReport(
         jobs: rows.length,
         over: over.length,
         totalOverBy: Math.round(over.reduce((t, r) => t + (r.variance ?? 0), 0) * 100) / 100,
-        note: "The authorised amount is a ceiling to compare against, not a limit VYRON CORE enforces.",
+        note: "The authorised amount is a ceiling to compare against, not a limit UMORA enforces.",
       },
       at
     ),
@@ -1426,7 +1426,7 @@ function csvCell(value: unknown): string {
 /** A report as CSV, opening cleanly in Excel. */
 export function billingReportToCsv(reportData: BillingReport): string {
   const lines: string[] = [
-    csvCell(`VYRON CORE — ${reportData.label}`),
+    csvCell(`UMORA — ${reportData.label}`),
     csvCell(reportData.disclaimer),
     csvCell(`Generated ${reportData.generatedAt}`),
     "",

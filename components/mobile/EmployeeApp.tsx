@@ -56,6 +56,7 @@ import {
 } from "@/lib/road-recovery/outbox";
 import { drainEvidence } from "@/lib/road-recovery/evidence-queue";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { productBrand } from "@/lib/brand";
 import { isNativeApp, onConnectivityChange, onDeepLink, onPushOpened } from "@/lib/mobile/bridge";
 
 type Tab = "home" | "work" | "incidents" | "inbox" | "more";
@@ -308,7 +309,7 @@ export default function EmployeeApp() {
       {/* Connection state lives in the chrome, so it is answerable at any moment. */}
       <header className="sticky top-0 z-20 flex items-center justify-between gap-3 bg-[#07101f] px-4 pb-3 pt-[calc(env(safe-area-inset-top,0px)_+_0.75rem)] text-white">
         <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300">VYRON CORE</p>
+          <p className="umora-sans text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">{productBrand.mark}</p>
           <p className="truncate text-sm font-black">{TABS.find((t) => t.id === tab)?.label}</p>
         </div>
         <span
@@ -413,7 +414,7 @@ export default function EmployeeApp() {
 function Splash({ message, tone = "info" }: { message: string; tone?: "info" | "error" }) {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-[#07101f] px-8 text-center">
-      <p className="text-[11px] font-black uppercase tracking-[0.3em] text-cyan-300">VYRON CORE</p>
+      <p className="umora-sans text-[11px] font-bold uppercase tracking-[0.3em] text-cyan-300">{productBrand.mark}</p>
       <p className={`text-sm font-bold ${tone === "error" ? "text-rose-300" : "text-slate-300"}`}>{message}</p>
     </div>
   );
@@ -773,7 +774,7 @@ function MoreTab({ queued }: { queued: number }) {
       )}
       <SignOutRow queued={queued} />
       <p className="px-2 pt-2 text-[11px] font-bold text-slate-400">
-        {isNativeApp() ? "VYRON CORE app" : "VYRON CORE (browser)"}
+        {isNativeApp() ? `${productBrand.name} app` : `${productBrand.name} (browser)`}
       </p>
     </div>
   );

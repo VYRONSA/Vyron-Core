@@ -680,7 +680,7 @@ export async function updateCompanyUser(
         );
         if (otherTenants > 0) {
           throw new UserManagementError(
-            "This account is also used in another VYRON CORE workspace, so its email address cannot be changed from here. Contact VYRON support.",
+            "This account is also used in another UMORA workspace, so its email address cannot be changed from here. Contact VYRONSOFT support.",
             409
           );
         }
@@ -895,7 +895,7 @@ export async function resetCompanyUserPassword(
     );
     if (otherTenants > 0) {
       throw new UserManagementError(
-        "This account is also used in another VYRON CORE workspace, so its password cannot be reset from here. Contact VYRON support.",
+        "This account is also used in another UMORA workspace, so its password cannot be reset from here. Contact VYRONSOFT support.",
         409
       );
     }

@@ -1,17 +1,41 @@
 import type { MetadataRoute } from "next";
+import { productBrand } from "@/lib/brand";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "VYRON CORE",
-    short_name: "CORE",
-    description:
-      "AI-powered workforce management, HR, clocking, rostering, payroll readiness and workforce intelligence platform.",
+    name: productBrand.appTitle,
+    short_name: productBrand.name,
+    description: productBrand.appDescription,
     start_url: "/",
     scope: "/",
     display: "standalone",
-    background_color: "#020617",
-    theme_color: "#020617",
+    background_color: "#04201b",
+    theme_color: "#04201b",
     icons: [
+      {
+        src: "/umora-icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/umora-icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/umora-icon-maskable-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
+      },
+      {
+        src: "/umora-mark.svg",
+        sizes: "any",
+        type: "image/svg+xml",
+        purpose: "any",
+      },
       {
         src: "/favicon.ico",
         sizes: "48x48",

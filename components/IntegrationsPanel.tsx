@@ -43,7 +43,7 @@ export default function IntegrationsPanel() {
           <div>
             <div className="flex items-center gap-3 text-xs font-black uppercase tracking-[0.45em] text-cyan-300">
               <PlugZap className="h-5 w-5" />
-              VYRON CORE INTEGRATIONS
+              UMORA INTEGRATIONS
             </div>
 
             <h1 className="mt-4 max-w-5xl text-5xl font-black tracking-tight md:text-6xl">

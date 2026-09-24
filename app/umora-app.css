@@ -1,0 +1,287 @@
+/* ==========================================================================
+   UMORA — authenticated application theme
+   --------------------------------------------------------------------------
+   Visual master: the approved UMORA software dashboard reference (deep
+   green sidebar, light operational canvas, white rounded cards, mint /
+   emerald accents, gold primary CTA). Same tokens as the public site
+   (components/marketing/umora/umora.module.css) so the marketing site and
+   the software read as one product.
+
+   Everything here is scoped to `.umora-app`, which the (app) and (auth)
+   segment layouts apply. The public marketing pages never carry that class,
+   so nothing below can leak into them.
+
+   The application's screens were built with VYRON CORE's cyan accent and
+   navy arbitrary colours. Rather than hand-editing ~19k lines of screen code,
+   this file re-points those shared values at the UMORA palette:
+
+     * Tailwind v4 utilities read `--color-<hue>-<step>` custom properties, so
+       redefining the cyan scale on the scope recolours every `*-cyan-*`
+       utility inside the app to UMORA teal/mint.
+     * The handful of navy arbitrary values (`bg-[#06101f]` etc.) are matched
+       by attribute selector and re-painted in UMORA ink green.
+
+   Class names such as `vyron-nav-item` are internal identifiers and are
+   intentionally left unchanged.
+   ========================================================================== */
+
+.umora-app {
+  --umora-ink: #04201b;
+  --umora-ink-2: #073a30;
+  --umora-ink-3: #0b4a3c;
+  --umora-navy: #0f1d33;
+  --umora-text: #33445a;
+  --umora-muted: #5d6b7e;
+  --umora-mint: #4fe3a1;
+  --umora-mint-soft: #8af0c4;
+  --umora-green: #148a57;
+  --umora-green-2: #1e9e67;
+  --umora-teal: #18b394;
+  --umora-gold-1: #fad66a;
+  --umora-gold-2: #eaa93b;
+  --umora-canvas: #f2f5f6;
+  --umora-card: #ffffff;
+  --umora-line: rgba(16, 42, 76, 0.09);
+  --umora-shadow: 0 1px 2px rgba(16, 42, 76, 0.04), 0 10px 28px rgba(16, 42, 76, 0.06);
+  --umora-shadow-lift: 0 2px 4px rgba(16, 42, 76, 0.05), 0 18px 40px rgba(16, 42, 76, 0.1);
+  --umora-sans: var(--font-umora-sans), "Montserrat", "Segoe UI", system-ui, sans-serif;
+  --umora-body: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --umora-script: var(--font-umora-script), "Segoe Script", "Bradley Hand", cursive;
+
+  /* VYRON cyan → UMORA teal / mint. */
+  --color-cyan-50: #ecfbf4;
+  --color-cyan-100: #d3f6e6;
+  --color-cyan-200: #a9eed1;
+  --color-cyan-300: #7eeec0;
+  --color-cyan-400: #4fe3a1;
+  --color-cyan-500: #22c08a;
+  --color-cyan-600: #179e70;
+  --color-cyan-700: #148a57;
+  --color-cyan-800: #106b46;
+  --color-cyan-900: #0c5139;
+  --color-cyan-950: #062b22;
+
+  /* Shared internal tokens (app/globals.css) re-pointed for the app scope. */
+  --vyron-bg: var(--umora-ink);
+  --vyron-bg-2: var(--umora-ink-2);
+  --vyron-cyan: var(--umora-mint);
+  --vyron-blue: var(--umora-green);
+  --vyron-text: var(--umora-navy);
+  --vyron-focus: rgba(79, 227, 161, 0.55);
+  --vyron-radius-panel: 1.25rem;
+  --vyron-radius-card: 1.25rem;
+  --vyron-shadow-panel: var(--umora-shadow);
+  --vyron-shadow-lift: var(--umora-shadow-lift);
+
+  font-family: var(--umora-body);
+  background: var(--umora-canvas);
+  color: var(--umora-navy);
+}
+
+.umora-app ::selection {
+  background: rgba(79, 227, 161, 0.32);
+  color: var(--umora-ink);
+}
+
+.umora-sans {
+  font-family: var(--umora-sans);
+}
+
+.umora-script {
+  font-family: var(--umora-script);
+}
+
+.umora-app h1,
+.umora-app h2,
+.umora-app h3 {
+  font-family: var(--umora-sans);
+  letter-spacing: -0.01em;
+}
+
+/* ---------------------------------------------------------------- canvas */
+
+/* The shell's own backgrounds were VYRON navy; the UMORA canvas is light. */
+.umora-app main[class*="bg-[#07101f]"],
+.umora-app main[class*="bg-[#f6f8fb]"],
+.umora-app section[class*="bg-[#f6f8fb]"] {
+  background-color: var(--umora-canvas) !important;
+}
+
+/* ------------------------------------------------------- dark surfaces */
+
+.umora-app [class*="bg-[#06101f]"],
+.umora-app [class*="bg-[#07101f]"],
+.umora-app [class*="bg-[#050b16]"],
+.umora-app [class*="bg-[#0b1a33]"],
+.umora-app [class*="bg-[#020617]"] {
+  background-color: var(--umora-ink) !important;
+}
+
+.umora-app section[class*="bg-[#06101f]"],
+.umora-app div[class*="bg-[#06101f]"][class*="rounded"],
+.umora-app [class*="from-[#07101f]"],
+.umora-app [class*="from-[#050d1a]"],
+.umora-app [class*="from-[#020617]"] {
+  background-image:
+    radial-gradient(circle at 88% 12%, rgba(79, 227, 161, 0.14), transparent 38%),
+    linear-gradient(135deg, #03161a 0%, var(--umora-ink) 45%, var(--umora-ink-2) 100%) !important;
+  border-color: rgba(79, 227, 161, 0.14) !important;
+}
+
+.umora-app [class*="text-[#06101f]"],
+.umora-app [class*="text-[#07101f]"] {
+  color: var(--umora-navy) !important;
+}
+
+/* VYRON's blue→cyan primary gradient becomes the UMORA emerald gradient. */
+.umora-app [class*="from-blue-6"][class*="to-cyan"],
+.umora-app [class*="from-blue-5"][class*="to-cyan"] {
+  background-image: linear-gradient(90deg, #0f7f5f 0%, #1fb28a 100%) !important;
+  --tw-shadow-color: rgba(31, 178, 138, 0.25);
+}
+
+/* Several legacy screens paint VYRON's navy/cyan diagonal split as a backdrop
+   (an arbitrary `bg-[linear-gradient(135deg,rgba(8,47,73,...` layer). The UMORA
+   canvas is flat and light, so that layer is neutralised. */
+.umora-app [class*="bg-[linear-gradient(135deg,rgba(8,47,73"] {
+  background: var(--umora-canvas) !important;
+}
+
+/* --------------------------------------------------------- proportions */
+
+/* The reference uses ~16–20px card radii; VYRON used 28–34px. */
+.umora-app [class*="rounded-[2rem]"],
+.umora-app [class*="rounded-[2.2rem]"],
+.umora-app [class*="rounded-[34px]"],
+.umora-app [class*="rounded-[28px]"],
+.umora-app [class*="rounded-[30px]"],
+.umora-app [class*="rounded-[32px]"] {
+  border-radius: 1.25rem !important;
+}
+
+/* White cards: clean border and a soft, low shadow as in the reference. */
+.umora-app main section[class*="bg-white"],
+.umora-app main div[class*="bg-white"][class*="rounded-[2rem]"],
+.umora-app main div[class*="bg-white"][class*="rounded-3xl"],
+.umora-app main div[class*="bg-white/95"],
+.umora-app main button[class*="bg-white/95"],
+.umora-app main article[class*="bg-white"] {
+  border-color: var(--umora-line);
+  box-shadow: var(--umora-shadow);
+}
+
+/* --------------------------------------------------------- form fields */
+
+.umora-app input:focus,
+.umora-app select:focus,
+.umora-app textarea:focus {
+  border-color: rgba(31, 178, 138, 0.8);
+  box-shadow: 0 0 0 4px rgba(79, 227, 161, 0.18);
+}
+
+.umora-app .vyron-focus-ring:focus-visible,
+.umora-app button:focus-visible,
+.umora-app a:focus-visible {
+  outline: 2px solid var(--umora-teal);
+  outline-offset: 3px;
+}
+
+/* ------------------------------------------------------------- sidebar */
+
+.umora-sidebar {
+  background:
+    radial-gradient(circle at 10% 0%, rgba(79, 227, 161, 0.16), transparent 34%),
+    radial-gradient(circle at 100% 72%, rgba(24, 179, 148, 0.14), transparent 40%),
+    linear-gradient(180deg, #06302a 0%, #04221e 38%, #031719 100%);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Content sits above the decorative line art. */
+.umora-sidebar > *:not(.umora-sidebar-lines) {
+  position: relative;
+  z-index: 1;
+}
+
+.umora-sidebar-lines {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 60%;
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+/* Active navigation item: emerald panel with a mint edge, as in the reference. */
+.umora-app .vyron-nav-item-active {
+  background: linear-gradient(90deg, rgba(31, 178, 138, 0.34) 0%, rgba(20, 138, 87, 0.22) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(126, 238, 192, 0.32),
+    0 10px 26px rgba(2, 30, 24, 0.35);
+}
+
+.umora-app .vyron-nav-item-active::before {
+  background: var(--umora-mint);
+  box-shadow: 0 0 14px rgba(79, 227, 161, 0.6);
+}
+
+.umora-app .vyron-status-loading::before {
+  background: var(--umora-mint);
+  box-shadow: 0 0 12px rgba(79, 227, 161, 0.55);
+}
+
+.umora-app .vyron-skeleton,
+.umora-app .vyron-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.14) 0%,
+    rgba(79, 227, 161, 0.18) 48%,
+    rgba(148, 163, 184, 0.14) 100%
+  );
+}
+
+/* ------------------------------------------------------- scrollbars */
+
+.umora-app * {
+  scrollbar-color: rgba(31, 178, 138, 0.5) rgba(15, 23, 42, 0.08);
+}
+
+.umora-sidebar * {
+  scrollbar-color: rgba(126, 238, 192, 0.28) transparent;
+}
+
+/* --------------------------------------------------- gold primary CTA */
+
+.umora-gold {
+  background: linear-gradient(180deg, var(--umora-gold-1) 0%, var(--umora-gold-2) 100%);
+  color: #2a1d05;
+  box-shadow: 0 8px 22px rgba(234, 169, 59, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.umora-gold:hover {
+  filter: brightness(1.04);
+}
+
+/* ------------------------------------------------------------- hero */
+
+.umora-hero {
+  background:
+    radial-gradient(circle at 18% 120%, rgba(79, 227, 161, 0.18), transparent 45%),
+    linear-gradient(100deg, #03161a 0%, #04201b 42%, #062a24 100%);
+}
+
+.umora-hero-photo-fade {
+  background: linear-gradient(90deg, #04201b 0%, rgba(4, 32, 27, 0.82) 22%, rgba(4, 32, 27, 0.15) 58%, rgba(4, 32, 27, 0) 100%);
+}
+
+@media (max-width: 767px) {
+  .umora-hero-photo-fade {
+    background: linear-gradient(180deg, rgba(4, 32, 27, 0.35) 0%, rgba(4, 32, 27, 0.88) 55%, #04201b 100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .umora-app *,
+  .umora-app *::before,
+  .umora-app *::after {
+    scroll-behavior: auto !important;
+  }
+}

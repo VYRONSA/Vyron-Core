@@ -49,7 +49,7 @@ export default function TrainingCentrePanel({ companyId = "", onProgressChange }
             <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-700">
               Training Centre
             </div>
-            <h2 className="mt-2 text-2xl font-black text-slate-950">VYRON CORE guides</h2>
+            <h2 className="mt-2 text-2xl font-black text-slate-950">UMORA guides</h2>
             <p className="mt-2 text-sm text-slate-500">
               Mark guides complete as you walk through pilot onboarding. Progress is saved per
               workspace.

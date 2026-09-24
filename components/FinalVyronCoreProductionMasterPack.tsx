@@ -6,10 +6,10 @@ export default function FinalVyronCoreProductionMasterPack() {
   return (
     <section className="space-y-6">
       <div className="rounded-[40px] bg-gradient-to-r from-[#050b18] via-[#09152b] to-[#0d2242] p-8 text-white shadow-2xl">
-        <div className="text-xs font-black uppercase tracking-[0.45em] text-cyan-300">VYRON CORE</div>
-        <h1 className="mt-4 text-5xl font-black">Final VYRON CORE Production Master Pack</h1>
+        <div className="text-xs font-black uppercase tracking-[0.45em] text-cyan-300">UMORA</div>
+        <h1 className="mt-4 text-5xl font-black">Final UMORA Production Master Pack</h1>
         <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300">
-          Enterprise-grade VYRON CORE production module.
+          Enterprise-grade UMORA production module.
         </p>
       </div>
     </section>

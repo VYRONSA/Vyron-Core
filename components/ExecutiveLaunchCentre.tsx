@@ -47,7 +47,7 @@ export default function ExecutiveLaunchCentre() {
             </h1>
 
             <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-300">
-              Final commercialisation layer for VYRON CORE before onboarding pilot customers.
+              Final commercialisation layer for UMORA before onboarding pilot customers.
             </p>
           </div>
 
@@ -154,7 +154,7 @@ export default function ExecutiveLaunchCentre() {
             <div className="flex items-start gap-3">
               <CheckCircle2 className="mt-0.5 h-5 w-5" />
               <p className="text-sm leading-6">
-                VYRON CORE is now moving from software development into commercial enterprise rollout.
+                UMORA is now moving from software development into commercial enterprise rollout.
               </p>
             </div>
           </div>

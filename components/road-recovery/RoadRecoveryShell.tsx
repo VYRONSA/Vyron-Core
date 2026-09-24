@@ -82,7 +82,7 @@ export const TAB_META: Record<RoadRecoveryTab, { label: string; href: string; bl
     label: "Billing",
     href: "/road-recovery/billing",
     blurb:
-      "Billing information for review. VYRON CORE prices the work; it never issues an invoice.",
+      "Billing information for review. UMORA prices the work; it never issues an invoice.",
   },
   intelligence: {
     label: "Intelligence",
@@ -153,7 +153,7 @@ export default function RoadRecoveryShell({
                 href="/dashboard"
                 className="vyron-focus-ring inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-white transition hover:bg-white/20"
               >
-                <span aria-hidden="true">←</span> VYRON CORE
+                <span aria-hidden="true">←</span> UMORA
               </Link>
               <span className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">
                 Road &amp; Recovery

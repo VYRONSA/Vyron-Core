@@ -85,7 +85,7 @@ export default function RecruitmentIntelligencePanel({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-700">
-              VYRON CORE · Phase 8
+              UMORA · Phase 8
             </p>
             <h1 className="mt-1 text-2xl font-black text-slate-950">Recruitment Intelligence</h1>
             <p className="mt-2 max-w-2xl text-sm font-medium text-slate-600">

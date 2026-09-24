@@ -16,7 +16,7 @@ const polishAreas = [
     title: "Visual Consistency",
     score: "82%",
     status: "Strong",
-    note: "Most major modules now follow the VYRON command-centre system.",
+    note: "Most major modules now follow the UMORA command-centre system.",
   },
   {
     title: "Workflow Clarity",
@@ -55,7 +55,7 @@ export default function EnterprisePolishCommandCentre() {
             </h1>
 
             <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-300">
-              Final VYRON CORE launch-readiness layer for polish, workflow clarity,
+              Final UMORA launch-readiness layer for polish, workflow clarity,
               system trust, UI consistency and production confidence.
             </p>
           </div>

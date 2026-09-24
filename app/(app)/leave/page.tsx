@@ -21,6 +21,7 @@ import {
 import { forecastBalance } from "@/lib/leave-enterprise";
 import { normalizeLeaveBalanceRow } from "@/lib/leave-balance-adapter";
 import { supabase } from "@/lib/supabase";
+import { UmoraLogo } from "@/components/brand/UmoraBrand";
 
 type EmployeeRow = {
   id: string;
@@ -664,21 +665,7 @@ export default function LeavePage() {
           <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cyan-300/30 blur-[80px]" />
           <div className="pointer-events-none absolute bottom-[-120px] left-1/3 h-72 w-72 rounded-full bg-blue-400/20 blur-[90px]" />
           <div className="relative z-10">
-          <div className="flex items-center gap-4">
-            <div className="relative h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-400 shadow-lg shadow-blue-500/30">
-              <div className="absolute left-[13px] top-[10px] h-8 w-3 rotate-[-28deg] rounded-sm bg-white" />
-              <div className="absolute right-[13px] top-[10px] h-8 w-3 rotate-[28deg] rounded-sm bg-slate-950/80" />
-            </div>
-
-            <div>
-              <div className="text-2xl font-black tracking-[0.34em] text-[#06101f]">
-                VYRON
-              </div>
-              <div className="mt-[-2px] text-xs font-semibold tracking-[0.55em] text-cyan-700">
-                CORE
-              </div>
-            </div>
-          </div>
+          <UmoraLogo size="md" tone="onLight" />
 
           <div className="mt-8 inline-flex rounded-full bg-cyan-100 px-4 py-2 text-xs font-black uppercase tracking-[0.35em] text-cyan-700">
             Employee Leave Kiosk

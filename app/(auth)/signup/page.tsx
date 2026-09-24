@@ -28,7 +28,7 @@ export default function SignupPage() {
               <span className={styles.kicker}>Start Free Trial</span>
               <h1 className={styles.h1}>Professional onboarding starts here.</h1>
               <p className={styles.lead}>
-                Create your VYRON CORE workspace with guided setup for workforce structure, attendance policy, and
+                Create your UMORA workspace with guided setup for workforce structure, attendance policy, and
                 payroll readiness workflows.
               </p>
 

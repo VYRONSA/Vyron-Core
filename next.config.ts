@@ -19,19 +19,19 @@ const nextConfig: NextConfig = {
         headers: [{ key: "Cache-Control", value: "no-cache, must-revalidate" }],
       },
       {
-        source: "/vyron-core-favicon.ico",
+        source: "/umora-apple-touch-icon.png",
         headers: [{ key: "Cache-Control", value: "no-cache, must-revalidate" }],
       },
       {
-        source: "/vyron-core-icon-192.png",
+        source: "/umora-icon-192.png",
         headers: [{ key: "Cache-Control", value: "no-cache, must-revalidate" }],
       },
       {
-        source: "/vyron-core-icon-512.png",
+        source: "/umora-icon-512.png",
         headers: [{ key: "Cache-Control", value: "no-cache, must-revalidate" }],
       },
       {
-        source: "/vyron-core-apple-touch-icon.png",
+        source: "/umora-icon-maskable-512.png",
         headers: [{ key: "Cache-Control", value: "no-cache, must-revalidate" }],
       },
     ];

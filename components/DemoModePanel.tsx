@@ -6,7 +6,7 @@ export default function DemoModePanel() {
   return (
     <div className="mt-8">
       <section className="rounded-[34px] bg-gradient-to-r from-[#07101f] to-[#0b1a33] p-6 text-white shadow-2xl shadow-slate-300">
-        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">VYRON CORE</div>
+        <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">UMORA</div>
         <h2 className="mt-3 text-4xl font-bold">Demo Mode Control</h2>
         <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300">Prepare and verify clean demo data before sales calls or client demonstrations.</p>
       </section>

@@ -698,7 +698,7 @@ export default function ClockPage() {
 
           <header className="rounded-[2.2rem] border border-white/70 bg-white/95 p-7 shadow-[0_22px_70px_rgba(15,23,42,0.16)] backdrop-blur-xl">
             <div className="inline-flex rounded-full bg-cyan-100 px-4 py-2 text-xs font-black uppercase tracking-[0.35em] text-cyan-700">
-              VYRON CORE CLOCKING
+              UMORA CLOCKING
             </div>
             <div className="mt-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div>
@@ -886,7 +886,7 @@ export default function ClockPage() {
                         {photoFile ? "Photo captured" : "Photo will be taken automatically"}
                       </div>
                       <div className="mt-1 text-sm font-bold text-slate-500">
-                        When you click Clock In or Clock Out, VYRON will automatically open the camera, take a photo, capture GPS and save the event.
+                        When you click Clock In or Clock Out, UMORA will automatically open the camera, take a photo, capture GPS and save the event.
                       </div>
                     </div>
                     <Camera className="h-7 w-7 text-cyan-700" />

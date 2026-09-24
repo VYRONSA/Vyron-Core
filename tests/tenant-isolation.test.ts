@@ -214,7 +214,7 @@ describe("shared Auth identities", () => {
     } catch (error) {
       assert.ok(error instanceof UserManagementError);
       assert.equal(error.status, 409);
-      assert.match(error.message, /another VYRON CORE workspace/i);
+      assert.match(error.message, /another UMORA workspace/i);
     }
 
     assert.equal(store.authUser(B_STAFF)?.password, "CompanyBPass1");
@@ -238,7 +238,7 @@ describe("shared Auth identities", () => {
       (error: unknown) =>
         error instanceof UserManagementError &&
         error.status === 409 &&
-        /another VYRON CORE workspace/i.test(error.message)
+        /another UMORA workspace/i.test(error.message)
     );
 
     assert.equal(store.authUser(B_STAFF)?.email, B_STAFF);

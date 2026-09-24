@@ -9,14 +9,14 @@
  */
 
 const BRAND_HEADER = `
-  <div style="background:#06101f;padding:24px;text-align:center;">
-    <span style="color:#ffffff;font-weight:900;font-size:20px;letter-spacing:0.05em;">VYRON CORE</span>
+  <div style="background:#04201b;padding:24px;text-align:center;">
+    <span style="color:#ffffff;font-weight:900;font-size:20px;letter-spacing:0.05em;">UMORA</span>
   </div>
 `;
 
 const BRAND_FOOTER = `
   <div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px;">
-    VYRON CORE — Workforce Intelligence Platform
+    UMORA — Human &amp; Workforce Intelligence · A VYRONSOFT product
   </div>
 `;
 
@@ -28,25 +28,25 @@ export type EmailTemplate = { subject: string; html: string };
 
 export function welcomeEmail(params: { companyName: string; adminName: string }): EmailTemplate {
   return {
-    subject: `Welcome to VYRON CORE, ${params.companyName}`,
+    subject: `Welcome to UMORA, ${params.companyName}`,
     html: wrap(
-      `<h1 style="font-size:20px;">Welcome, ${params.adminName}</h1><p>Your VYRON CORE workspace for <strong>${params.companyName}</strong> is ready.</p>`
+      `<h1 style="font-size:20px;">Welcome, ${params.adminName}</h1><p>Your UMORA workspace for <strong>${params.companyName}</strong> is ready.</p>`
     ),
   };
 }
 
 export function invitationEmail(params: { companyName: string; inviteUrl: string }): EmailTemplate {
   return {
-    subject: `You've been invited to ${params.companyName} on VYRON CORE`,
+    subject: `You've been invited to ${params.companyName} on UMORA`,
     html: wrap(
-      `<h1 style="font-size:20px;">You're invited</h1><p>You've been invited to administer <strong>${params.companyName}</strong>'s VYRON CORE workspace.</p><p><a href="${params.inviteUrl}" style="color:#0891b2;">Accept invitation</a></p>`
+      `<h1 style="font-size:20px;">You're invited</h1><p>You've been invited to administer <strong>${params.companyName}</strong>'s UMORA workspace.</p><p><a href="${params.inviteUrl}" style="color:#0891b2;">Accept invitation</a></p>`
     ),
   };
 }
 
 export function passwordResetEmail(params: { resetUrl: string }): EmailTemplate {
   return {
-    subject: "Reset your VYRON CORE password",
+    subject: "Reset your UMORA password",
     html: wrap(
       `<h1 style="font-size:20px;">Password reset</h1><p>Click below to set a new password.</p><p><a href="${params.resetUrl}" style="color:#0891b2;">Reset password</a></p>`
     ),
@@ -70,14 +70,14 @@ export function trialExpiryEmail(params: { companyName: string; expiresOn: strin
 export function customerSuspendedEmail(params: { companyName: string }): EmailTemplate {
   return {
     subject: `${params.companyName}: account suspended`,
-    html: wrap(`<h1 style="font-size:20px;">Account suspended</h1><p>Access to VYRON CORE has been suspended. Contact support to resolve this.</p>`),
+    html: wrap(`<h1 style="font-size:20px;">Account suspended</h1><p>Access to UMORA has been suspended. Contact support to resolve this.</p>`),
   };
 }
 
 export function customerReactivatedEmail(params: { companyName: string }): EmailTemplate {
   return {
     subject: `${params.companyName}: account reactivated`,
-    html: wrap(`<h1 style="font-size:20px;">Welcome back</h1><p>Your VYRON CORE account has been reactivated.</p>`),
+    html: wrap(`<h1 style="font-size:20px;">Welcome back</h1><p>Your UMORA account has been reactivated.</p>`),
   };
 }
 

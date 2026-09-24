@@ -26,7 +26,7 @@ export default function ManagerCopilot() {
       <div className="mt-8 grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
         <div className="rounded-[30px] bg-[#06101f] p-6 text-white">
           <Bot className="h-8 w-8 text-cyan-300" />
-          <h3 className="mt-5 text-2xl font-black">Ask VYRON CORE</h3>
+          <h3 className="mt-5 text-2xl font-black">Ask UMORA</h3>
           <p className="mt-3 text-sm leading-6 text-slate-300">
             The co-pilot can later read payroll checks, exceptions, leave, rosters and HR cases to recommend next actions.
           </p>

@@ -68,7 +68,7 @@ export default function ClientDemoStoryCentre() {
             </h1>
 
             <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-300">
-              A clear demo flow that shows prospects the value of VYRON CORE in minutes:
+              A clear demo flow that shows prospects the value of UMORA in minutes:
               find payroll leakage, prove the problem, assign action and protect payroll.
             </p>
           </div>
@@ -108,7 +108,7 @@ export default function ClientDemoStoryCentre() {
             <div>
               <h2 className="text-3xl font-black tracking-tight text-slate-950">Demo Flow</h2>
               <p className="mt-2 text-sm text-slate-500">
-                Use this exact order when showing VYRON CORE to a prospect.
+                Use this exact order when showing UMORA to a prospect.
               </p>
             </div>
             <div className="rounded-full bg-cyan-100 px-4 py-2 text-sm font-black text-cyan-700">
@@ -149,7 +149,7 @@ export default function ClientDemoStoryCentre() {
           <FileText className="h-8 w-8 text-cyan-300" />
           <h2 className="mt-5 text-3xl font-black">Demo Data Blueprint</h2>
           <p className="mt-4 text-sm leading-7 text-slate-300">
-            The demo company should feel real. It must include enough issues to prove VYRON CORE saves money,
+            The demo company should feel real. It must include enough issues to prove UMORA saves money,
             but not so much that the demo becomes confusing.
           </p>
 

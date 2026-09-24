@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const whatsappBody = `Hi ${employeeName}, ${feedback} Regards, VYRON CORE.`;
+    const whatsappBody = `Hi ${employeeName}, ${feedback} Regards, UMORA.`;
 
     const graphResponse = await fetch(
       `https://graph.facebook.com/${graphVersion}/${phoneNumberId}/messages`,

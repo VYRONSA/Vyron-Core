@@ -64,7 +64,7 @@ function OwnerRoadmapPanel() {
     {
       title: "Client-facing automation",
       status: "In build",
-      note: "Automation Centre becomes part of VYRON CORE.",
+      note: "Automation Centre becomes part of UMORA.",
     },
     {
       title: "Workforce intelligence integration",
@@ -148,7 +148,7 @@ function FounderLaunchChecklist() {
             Founder Launch Checklist
           </h2>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-500">
-            The practical checklist for turning VYRON CORE from product build into a sellable SaaS.
+            The practical checklist for turning UMORA from product build into a sellable SaaS.
           </p>
         </div>
 
@@ -195,7 +195,7 @@ export default function OwnerDashboardPage() {
           <div className="relative flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <div className="text-xs font-black uppercase tracking-[0.45em] text-cyan-300">
-                VYRON OWNER HQ
+                UMORA OWNER HQ
               </div>
 
               <h1 className="mt-4 max-w-5xl text-5xl font-black tracking-tight md:text-6xl">
@@ -277,7 +277,7 @@ export default function OwnerDashboardPage() {
             <Building2 className="h-8 w-8 text-cyan-700" />
             <h3 className="mt-5 text-2xl font-black text-slate-950">Client-facing app remains CORE</h3>
             <p className="mt-3 text-sm leading-6 text-slate-500">
-              Normal clients should remain inside the main VYRON CORE app with workforce,
+              Normal clients should remain inside the main UMORA app with workforce,
               payroll, HR, leave, compliance and automation modules.
             </p>
           </article>

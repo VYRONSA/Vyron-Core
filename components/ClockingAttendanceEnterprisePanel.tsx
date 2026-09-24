@@ -1033,7 +1033,7 @@ export default function ClockingAttendanceEnterprisePanel({
       <section className="rounded-[34px] bg-gradient-to-r from-[#07101f] to-[#0b1a33] p-6 text-white shadow-2xl shadow-slate-300">
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">VYRON ATTENDANCE</div>
+            <div className="text-xs font-bold uppercase tracking-[0.4em] text-cyan-300">UMORA ATTENDANCE</div>
             <h2 className="mt-3 text-4xl font-bold">Clocking & Attendance Excellence</h2>
             <p className="mt-4 max-w-4xl text-sm leading-7 text-slate-300">
               Enterprise attendance controls layered on top of existing clocking: live dashboard,

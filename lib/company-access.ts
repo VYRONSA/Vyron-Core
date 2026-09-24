@@ -418,7 +418,7 @@ function mapRpcRowToAccess(
   const subscriptionStatus = row.subscription_status || "active";
   return {
     company_id: row.company_id,
-    company_name: row.company_name || "VYRON CORE Workspace",
+    company_name: row.company_name || "UMORA Workspace",
     user_role: resolveVyronLayoutRole(email, row.user_role || "user"),
     user_status: row.user_status || "active",
     subscription_status: subscriptionStatus,
@@ -439,7 +439,7 @@ function mapCompanyUserJoinToAccess(
   const subscriptionStatus = company?.subscription_status || "active";
   return {
     company_id: companyId,
-    company_name: company?.name || "VYRON CORE Workspace",
+    company_name: company?.name || "UMORA Workspace",
     user_role: resolveVyronLayoutRole(email, row.role || "user"),
     user_status: row.status || "active",
     subscription_status: subscriptionStatus,

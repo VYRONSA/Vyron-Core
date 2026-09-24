@@ -39,7 +39,7 @@ export default function WorkforceOperatingSystemPage() {
           className="inline-flex items-center gap-2 text-sm font-bold text-cyan-800 hover:text-cyan-950"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to VYRON CORE
+          Back to UMORA
         </Link>
         {loading ? (
           <p className="text-sm font-semibold text-slate-500">Loading Workforce Operating System…</p>

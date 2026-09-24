@@ -75,7 +75,7 @@ export default function ExecutiveIntelligenceDashboard() {
           <div className="relative flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <div className="text-xs font-black uppercase tracking-[0.45em] text-cyan-300">
-                VYRON CORE INTELLIGENCE
+                UMORA INTELLIGENCE
               </div>
               <h1 className="mt-4 max-w-5xl text-5xl font-black tracking-tight md:text-6xl">
                 Workforce Loss Prevention Command Centre

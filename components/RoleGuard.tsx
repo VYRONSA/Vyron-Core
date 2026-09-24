@@ -30,7 +30,7 @@ export default function RoleGuard({
         <div className="mt-8 rounded-[28px] border border-rose-200 bg-rose-50 p-6 text-rose-800">
           <div className="text-sm font-black uppercase tracking-[0.2em]">Access blocked</div>
           <p className="mt-3 text-sm leading-6">
-            You do not have permission to view this VYRON CORE module.
+            You do not have permission to view this UMORA module.
           </p>
         </div>
       )

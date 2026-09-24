@@ -48,7 +48,7 @@ export default function ExecutiveDashboard() {
         <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <div className="text-xs font-black uppercase tracking-[0.45em] text-cyan-300">
-              VYRON CORE
+              UMORA
             </div>
 
             <h1 className="mt-4 text-5xl font-black tracking-tight">
