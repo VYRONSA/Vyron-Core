@@ -4,7 +4,7 @@ import MobileMenu from "@/components/marketing/umora/MobileMenu";
 import { Photo, Swoosh, UmoraLogo } from "@/components/marketing/umora/visuals";
 import s from "@/components/marketing/umora/umora.module.css";
 import { footerItems, navItems } from "@/lib/marketing/site";
-import { brand, links } from "@/lib/marketing/umora";
+import { brand, ecosystem, links, vyronsoft } from "@/lib/marketing/umora";
 import { ctaJourney } from "@/lib/marketing/umora-media";
 import styles from "./marketing.module.css";
 
@@ -89,6 +89,30 @@ export default function MarketingShell({ children }: MarketingShellProps) {
           </div>
         </section>
 
+        <section className={s.footEco} aria-labelledby="ecosystem-title">
+          <div className={`${s.container} ${s.footEcoGrid}`}>
+            <div className={s.footCorp}>
+              <a href={vyronsoft.url} className={s.footCorpName}>
+                {vyronsoft.legalName}
+              </a>
+              <p>{vyronsoft.statement}</p>
+            </div>
+            <div>
+              <h2 id="ecosystem-title" className={s.footEcoTitle}>
+                VYRONSOFT Software Ecosystem
+              </h2>
+              <ul className={s.footEcoList}>
+                {ecosystem.map((product) => (
+                  <li key={product.url}>
+                    <a href={product.url}>{product.name}</a>
+                    <span>{product.descriptor}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
         <div className={s.footBar}>
           <div className={`${s.container} ${s.footRow}`}>
             <nav className={s.footNav} aria-label="Footer">
@@ -101,11 +125,8 @@ export default function MarketingShell({ children }: MarketingShellProps) {
             <nav className={s.footLegal} aria-label="Legal">
               <Link href="/privacy">Privacy</Link>
               <Link href="/terms">Terms</Link>
-              <a href="https://www.linkedin.com" target="_blank" rel="noreferrer" className={s.social} aria-label="LinkedIn">
-                in
-              </a>
               <span className={s.copy}>
-                © {new Date().getFullYear()} {brand.parent}. All rights reserved.
+                © {new Date().getFullYear()} {vyronsoft.legalName}. All rights reserved.
               </span>
             </nav>
           </div>

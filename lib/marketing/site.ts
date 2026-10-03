@@ -4,11 +4,13 @@ export const siteName = "UMORA";
 export const siteDescription =
   "UMORA connects people, attendance, rostering, HR operations, payroll readiness and workforce intelligence in one intelligent platform.";
 
-/** Public UMORA domain. Overridden by NEXT_PUBLIC_SITE_URL per deployment. */
-const defaultSiteUrl = "https://umora.co.za";
-
-export const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || defaultSiteUrl;
+/**
+ * Official public UMORA origin, used for canonical URLs, Open Graph, the
+ * sitemap and robots.txt. Deliberately fixed rather than read from
+ * NEXT_PUBLIC_SITE_URL: a canonical must never point at a preview deployment,
+ * localhost or the bare apex domain, whatever a deployment's env says.
+ */
+export const siteUrl = "https://www.umora.co.za";
 
 export type Industry = {
   slug: string;

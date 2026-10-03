@@ -31,6 +31,24 @@ export const links = {
 
 export const SALES_EMAIL = "info@vyronsoft.co.za";
 
+// The VYRONSOFT corporate identity and software ecosystem shown in the footer.
+// Names, descriptors and URLs are identical across every VYRONSOFT product
+// site, so edit them only together with the other sites.
+export const vyronsoft = {
+  legalName: "VYRONSOFT (Pty) Ltd",
+  url: "https://www.vyronsoft.co.za/",
+  statement: "BUSINESS INTELLIGENCE FOR A STRONGER TOMORROW.",
+} as const;
+
+export const ecosystem = [
+  { name: "VOLORA™", descriptor: "Cost Intelligence", url: "https://www.volora.co.za/" },
+  { name: "UMORA™", descriptor: "Human & Workforce Intelligence", url: "https://www.umora.co.za/" },
+  { name: "LAVORARE™", descriptor: "Workforce & Payroll Intelligence", url: "https://www.lavorare.co.za/" },
+  { name: "SAFENZA™", descriptor: "Safety Intelligence", url: "https://www.safenza.co.za/" },
+  { name: "PROVENA™", descriptor: "Sustainability & Compliance Intelligence", url: "https://www.provena.co.za/" },
+  { name: "PRECISIA™", descriptor: "Finance Intelligence", url: "https://www.precisia.co.za/" },
+] as const;
+
 export const demoKpis = [
   { label: "Employees", value: "1,284", delta: "3%", dir: "up", good: true },
   { label: "Attendance", value: "94.8%", delta: "1.2%", dir: "up", good: true },

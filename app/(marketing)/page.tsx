@@ -33,8 +33,8 @@ import {
 } from "@/components/marketing/umora/visuals";
 import { platformModules } from "@/components/marketing/umora/content";
 import s from "@/components/marketing/umora/umora.module.css";
-import { industries, plans, siteUrl } from "@/lib/marketing/site";
-import { brand, demoKpis, links, seo } from "@/lib/marketing/umora";
+import { industries, siteUrl, socialImage } from "@/lib/marketing/site";
+import { SALES_EMAIL, brand, demoKpis, links, seo, vyronsoft } from "@/lib/marketing/umora";
 import { heroPerson, industryImages, workforcePortraits } from "@/lib/marketing/umora-media";
 
 export const metadata: Metadata = {
@@ -64,27 +64,42 @@ export const metadata: Metadata = {
   },
 };
 
-const organizationSchema = {
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  name: brand.parent,
-  url: siteUrl,
-  brand: { "@type": "Brand", name: brand.name, slogan: brand.tagline },
-};
+// One linked graph: VYRONSOFT publishes UMORA and this website. Only verified
+// facts — no ratings, reviews, prices or offers.
+const organizationId = `${vyronsoft.url}#organization`;
 
-const softwareSchema = {
+const structuredData = {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  name: brand.name,
-  description: seo.description,
-  applicationCategory: "BusinessApplication",
-  operatingSystem: "Web, Android",
-  publisher: { "@type": "Organization", name: brand.parent },
-  offers: plans.map((plan) => ({
-    "@type": "Offer",
-    name: plan.name,
-    description: `${plan.people} - ${plan.price}`,
-  })),
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": organizationId,
+      name: vyronsoft.legalName,
+      legalName: vyronsoft.legalName,
+      url: vyronsoft.url,
+      email: SALES_EMAIL,
+      slogan: vyronsoft.statement,
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${siteUrl}/#website`,
+      name: brand.name,
+      url: `${siteUrl}/`,
+      description: seo.description,
+      publisher: { "@id": organizationId },
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": `${siteUrl}/#software`,
+      name: brand.mark,
+      alternateName: brand.name,
+      url: `${siteUrl}/`,
+      description: seo.description,
+      image: `${siteUrl}${socialImage}`,
+      applicationCategory: "BusinessApplication",
+      publisher: { "@id": organizationId },
+    },
+  ],
 };
 
 const heroValues: { icon: LucideIcon; label: string }[] = [
@@ -114,8 +129,7 @@ const clockStory: { icon: LucideIcon; name: string; text: string }[] = [
 export default function LandingPage() {
   return (
     <>
-      <JsonLd data={organizationSchema} />
-      <JsonLd data={softwareSchema} />
+      <JsonLd data={structuredData} />
 
       <main className={s.page}>
         {/* ============================== HERO ============================== */}
