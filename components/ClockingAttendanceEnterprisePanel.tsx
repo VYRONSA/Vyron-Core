@@ -16,6 +16,16 @@ import {
 import { getCompanyAccess } from "@/lib/company-access";
 import { supabase } from "@/lib/supabase";
 import {
+  DEFAULT_ATTENDANCE_RULES,
+  computeAttendanceSummary,
+  computeAttendanceTrend,
+  lastSastDays,
+  sastDate,
+  type AttendanceLeave,
+  type AttendanceRules,
+} from "@/lib/attendance-summary";
+import { fetchAllPages } from "@/lib/supabase-paging";
+import {
   haversineDistanceMeters,
   validateMobileGpsRadius,
 } from "@/lib/mobile-workforce-gps";
@@ -36,6 +46,7 @@ type ClockEventRow = {
   latitude: number | null;
   longitude: number | null;
   clock_note?: string | null;
+  attendance_date?: string | null;
 };
 
 type EmployeeRow = {
@@ -207,97 +218,6 @@ function withinLastDays(iso: string | null | undefined, days: number) {
   return ms >= cutoff;
 }
 
-function computeSummary(params: {
-  employees: EmployeeRow[];
-  events: ClockEventRow[];
-  shifts: ShiftRow[];
-}) {
-  const { employees, events, shifts } = params;
-  const byEmployee = new Map<string, ClockEventRow[]>();
-
-  for (const event of events) {
-    if (!byEmployee.has(event.employee_id)) byEmployee.set(event.employee_id, []);
-    byEmployee.get(event.employee_id)?.push(event);
-  }
-
-  const shiftByEmployee = new Map<string, ShiftRow>();
-  for (const shift of shifts) {
-    if (!shift.employee_id) continue;
-    if (!shiftByEmployee.has(shift.employee_id)) {
-      shiftByEmployee.set(shift.employee_id, shift);
-    }
-  }
-
-  let clockedInNow = 0;
-  let missingClockOut = 0;
-  let absentToday = 0;
-  let lateToday = 0;
-  let overtimeToday = 0;
-  let earlyDepartures = 0;
-
-  for (const employee of employees) {
-    const employeeEvents = (byEmployee.get(employee.id) || []).sort(
-      (a, b) => toMs(a.event_time) - toMs(b.event_time)
-    );
-
-    const shift = shiftByEmployee.get(employee.id);
-
-    if (employeeEvents.length === 0) {
-      absentToday += 1;
-      continue;
-    }
-
-    const lastEvent = employeeEvents[employeeEvents.length - 1];
-    if (isClockIn(lastEvent.event_type)) {
-      clockedInNow += 1;
-      missingClockOut += 1;
-    }
-
-    const firstIn = employeeEvents.find((event) => isClockIn(event.event_type));
-    const lastOut = [...employeeEvents].reverse().find((event) => isClockOut(event.event_type));
-
-    const plannedStartMs = toMs(shift?.planned_start || null);
-    const plannedEndMs = toMs(shift?.planned_end || null);
-
-    if (firstIn && Number.isFinite(plannedStartMs)) {
-      const lateMinutes = Math.max(0, Math.round((toMs(firstIn.event_time) - plannedStartMs) / 60000));
-      if (lateMinutes > LATE_GRACE_MINUTES) {
-        lateToday += 1;
-      }
-    }
-
-    if (lastOut && Number.isFinite(plannedEndMs)) {
-      const diffMinutes = Math.round((toMs(lastOut.event_time) - plannedEndMs) / 60000);
-      if (diffMinutes < -EARLY_DEPARTURE_GRACE_MINUTES) {
-        earlyDepartures += 1;
-      }
-      if (diffMinutes > OVERTIME_GRACE_MINUTES) {
-        overtimeToday += 1;
-      }
-    }
-  }
-
-  const totalEmployees = employees.length;
-  const compliantEmployees = Math.max(
-    0,
-    totalEmployees - lateToday - absentToday - missingClockOut
-  );
-
-  const compliancePercent =
-    totalEmployees > 0 ? Math.round((compliantEmployees / totalEmployees) * 1000) / 10 : 0;
-
-  return {
-    totalEmployees,
-    clockedInNow,
-    missingClockOut,
-    absentToday,
-    lateToday,
-    overtimeToday,
-    earlyDepartures,
-    compliancePercent,
-  };
-}
-
 function Sparkline({ values }: { values: number[] }) {
   const width = 180;
   const height = 50;
@@ -370,6 +290,9 @@ function KpiCard({
   );
 }
 
+/** QA-only tools (test offline action, demo device event) — off in every real deployment. */
+const QA_TOOLS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_QA_TOOLS === "true";
+
 export default function ClockingAttendanceEnterprisePanel({
   companyId: companyIdProp,
 }: {
@@ -404,10 +327,18 @@ export default function ClockingAttendanceEnterprisePanel({
   const [newGeofenceRadius, setNewGeofenceRadius] = useState("150");
 
   const [reviewScope, setReviewScope] = useState<"daily" | "weekly">("daily");
-  const [reviewDate, setReviewDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [reviewDate, setReviewDate] = useState(() => sastDate(new Date()));
   const [reviewNoteBody, setReviewNoteBody] = useState("");
 
   const [bulkTargetStatus, setBulkTargetStatus] = useState<"approved" | "rejected">("approved");
+  const [approvedLeave, setApprovedLeave] = useState<AttendanceLeave[]>([]);
+  const [attendanceRules, setAttendanceRules] = useState<AttendanceRules>(DEFAULT_ATTENDANCE_RULES);
+  const todayKey = sastDate(new Date());
+  // Today's clockings (by attendance date) for the timeline and GPS variance views.
+  const todayEvents = useMemo(
+    () => events.filter((event) => (event.attendance_date || sastDate(event.event_time)) === todayKey),
+    [events, todayKey]
+  );
 
   const employeeMap = useMemo(() => {
     const map = new Map<string, EmployeeRow>();
@@ -421,19 +352,22 @@ export default function ClockingAttendanceEnterprisePanel({
     return map;
   }, [stores]);
 
+  // Roster- and leave-aware, SAST days, overnight shifts on their start day (lib/attendance-summary).
   const todaySummary = useMemo<AttendanceSummary>(() => {
-    return computeSummary({
-      employees,
+    return computeAttendanceSummary({
+      employeeIds: employees.map((employee) => employee.id),
       events,
       shifts,
+      leaves: approvedLeave,
+      rules: attendanceRules,
     });
-  }, [employees, events, shifts]);
+  }, [employees, events, shifts, approvedLeave, attendanceRules]);
 
   const timelineRows = useMemo(() => {
-    return [...events]
+    return [...todayEvents]
       .sort((a, b) => toMs(b.event_time) - toMs(a.event_time))
       .slice(0, 60);
-  }, [events]);
+  }, [todayEvents]);
 
   const pendingCorrections = useMemo(
     () => corrections.filter((item) => item.status === "pending"),
@@ -445,74 +379,18 @@ export default function ClockingAttendanceEnterprisePanel({
     [exceptions]
   );
 
-  const analyticsSeries = useMemo(() => {
-    const daily = new Map<string, { late: number; absent: number; overtime: number }>();
-
-    const today = new Date();
-    const days: string[] = [];
-    for (let i = 13; i >= 0; i -= 1) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i);
-      const key = date.toISOString().slice(0, 10);
-      days.push(key);
-      daily.set(key, { late: 0, absent: 0, overtime: 0 });
-    }
-
-    const shiftsByEmployeeDay = new Map<string, ShiftRow>();
-    for (const shift of shifts) {
-      const key = `${shift.employee_id}_${dateOnly(shift.shift_date || shift.planned_start || "")}`;
-      if (!shiftsByEmployeeDay.has(key)) shiftsByEmployeeDay.set(key, shift);
-    }
-
-    const eventsByEmployeeDay = new Map<string, ClockEventRow[]>();
-    for (const event of events) {
-      const key = `${event.employee_id}_${dateOnly(event.event_time)}`;
-      if (!eventsByEmployeeDay.has(key)) eventsByEmployeeDay.set(key, []);
-      eventsByEmployeeDay.get(key)?.push(event);
-    }
-
-    for (const day of days) {
-      for (const employee of employees) {
-        const employeeDayKey = `${employee.id}_${day}`;
-        const employeeEvents = (eventsByEmployeeDay.get(employeeDayKey) || []).sort(
-          (a, b) => toMs(a.event_time) - toMs(b.event_time)
-        );
-
-        const shift = shiftsByEmployeeDay.get(employeeDayKey);
-
-        if (!employeeEvents.length) {
-          daily.get(day)!.absent += 1;
-          continue;
-        }
-
-        const firstIn = employeeEvents.find((event) => isClockIn(event.event_type));
-        const lastOut = [...employeeEvents].reverse().find((event) => isClockOut(event.event_type));
-
-        const startMs = toMs(shift?.planned_start || null);
-        const endMs = toMs(shift?.planned_end || null);
-
-        if (firstIn && Number.isFinite(startMs)) {
-          const lateMinutes = Math.max(0, Math.round((toMs(firstIn.event_time) - startMs) / 60000));
-          if (lateMinutes > LATE_GRACE_MINUTES) {
-            daily.get(day)!.late += 1;
-          }
-        }
-
-        if (lastOut && Number.isFinite(endMs)) {
-          const overtimeMinutes = Math.round((toMs(lastOut.event_time) - endMs) / 60000);
-          if (overtimeMinutes > OVERTIME_GRACE_MINUTES) {
-            daily.get(day)!.overtime += 1;
-          }
-        }
-      }
-    }
-
-    const late = days.map((day) => daily.get(day)?.late || 0);
-    const absent = days.map((day) => daily.get(day)?.absent || 0);
-    const overtime = days.map((day) => daily.get(day)?.overtime || 0);
-
-    return { days, late, absent, overtime };
-  }, [employees, events, shifts]);
+  const analyticsSeries = useMemo(
+    () =>
+      computeAttendanceTrend({
+        employeeIds: employees.map((employee) => employee.id),
+        events,
+        shifts,
+        leaves: approvedLeave,
+        days: 14,
+        rules: attendanceRules,
+      }),
+    [employees, events, shifts, approvedLeave, attendanceRules]
+  );
 
   const offlineStatus = useMemo(() => getOfflineQueueStatus(), [events.length, corrections.length]);
 
@@ -551,6 +429,40 @@ export default function ClockingAttendanceEnterprisePanel({
   async function loadAll(activeCompanyId: string) {
     setLoading(true);
     setError(null);
+    // Flag shifts left open past the company maximum as missed clock-outs (manager-only;
+    // harmless no-op for others). Exceptions are idempotent per shift.
+    await supabase.rpc("vyron_flag_stale_open_shifts", { p_company_id: activeCompanyId });
+    const windowDays = lastSastDays(15);
+    const windowStart = windowDays[0];
+    const windowEnd = windowDays[windowDays.length - 1];
+
+    // Approved leave in the window (staff on leave are not absent) and the company's rules.
+    const [leaveRes, settingsRes] = await Promise.all([
+      supabase
+        .from("leave_requests")
+        .select("employee_id,start_date,end_date,status")
+        .eq("company_id", activeCompanyId)
+        .eq("status", "approved")
+        .lte("start_date", windowEnd)
+        .gte("end_date", windowStart),
+      supabase
+        .from("attendance_settings")
+        .select("late_grace_minutes,early_departure_grace_minutes,max_shift_hours")
+        .eq("company_id", activeCompanyId)
+        .maybeSingle(),
+    ]);
+    setApprovedLeave((leaveRes.data || []) as AttendanceLeave[]);
+    if (settingsRes.data) {
+      setAttendanceRules({
+        ...DEFAULT_ATTENDANCE_RULES,
+        lateGraceMinutes: Number(settingsRes.data.late_grace_minutes ?? DEFAULT_ATTENDANCE_RULES.lateGraceMinutes),
+        earlyDepartureGraceMinutes: Number(
+          settingsRes.data.early_departure_grace_minutes ?? DEFAULT_ATTENDANCE_RULES.earlyDepartureGraceMinutes
+        ),
+        maxShiftHours: Number(settingsRes.data.max_shift_hours ?? DEFAULT_ATTENDANCE_RULES.maxShiftHours),
+      });
+    }
+
 
     const [
       employeesRes,
@@ -574,21 +486,28 @@ export default function ClockingAttendanceEnterprisePanel({
         .select("id,name,latitude,longitude")
         .eq("company_id", activeCompanyId)
         .order("name", { ascending: true }),
-      supabase
-        .from("clock_events")
-        .select("id,company_id,employee_id,store_id,event_type,event_time,source,latitude,longitude,clock_note")
-        .eq("company_id", activeCompanyId)
-        .gte("event_time", startOfDayIso())
-        .lte("event_time", endOfDayIso())
-        .order("event_time", { ascending: false })
-        .limit(1200),
-      supabase
-        .from("roster_shifts")
-        .select("id,employee_id,planned_start,planned_end,shift_date")
-        .eq("company_id", activeCompanyId)
-        .or(`shift_date.eq.${new Date().toISOString().slice(0, 10)},planned_start.gte.${startOfDayIso()}`)
-        .order("planned_start", { ascending: true })
-        .limit(1200),
+      // 14 days (plus one for shifts that started the evening before), every row — paged.
+      fetchAllPages<ClockEventRow>((from, to) =>
+        supabase
+          .from("clock_events")
+          .select("id,company_id,employee_id,store_id,event_type,event_time,source,latitude,longitude,clock_note,attendance_date")
+          .eq("company_id", activeCompanyId)
+          .gte("attendance_date", windowStart)
+          .order("event_time", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to)
+      ).then((result) => ({ data: result.data, error: result.error ? { message: result.error } : null })),
+      fetchAllPages<ShiftRow>((from, to) =>
+        supabase
+          .from("roster_shifts")
+          .select("id,employee_id,planned_start,planned_end,shift_date,status")
+          .eq("company_id", activeCompanyId)
+          .gte("shift_date", windowStart)
+          .lte("shift_date", windowEnd)
+          .order("planned_start", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to)
+      ).then((result) => ({ data: result.data, error: result.error ? { message: result.error } : null })),
       supabase
         .from("time_exceptions")
         .select("id,employee_id,exception_type,severity,status,description,created_at")
@@ -664,6 +583,8 @@ export default function ClockingAttendanceEnterprisePanel({
     }
 
     const linkedEvent = events.find((event) => event.id === selectedClockEventId);
+    const { data: authData } = await supabase.auth.getUser();
+    const requesterEmail = authData.user?.email?.toLowerCase() || null;
 
     const { data: createdCorrection, error: createError } = await supabase
       .from("attendance_corrections")
@@ -676,6 +597,7 @@ export default function ClockingAttendanceEnterprisePanel({
         requested_store_id: linkedEvent?.store_id || null,
         reason: correctionReason.trim(),
         status: "pending",
+        requested_by: requesterEmail,
         original_record: linkedEvent || {},
       })
       .select("id")
@@ -690,7 +612,7 @@ export default function ClockingAttendanceEnterprisePanel({
       company_id: companyId,
       correction_id: createdCorrection?.id,
       action: "requested",
-      action_by: "ui",
+      action_by: requesterEmail || "unknown",
       details: {
         employee_id: selectedEmployeeId,
         clock_event_id: selectedClockEventId,
@@ -713,50 +635,19 @@ export default function ClockingAttendanceEnterprisePanel({
     const correction = corrections.find((item) => item.id === correctionId);
     if (!correction) return;
 
-    const { error: updateError } = await supabase
-      .from("attendance_corrections")
-      .update({
-        status,
-        reviewed_by: "ui",
-        reviewed_at: new Date().toISOString(),
-        review_notes:
-          status === "approved"
-            ? "Approved by supervisor review workflow"
-            : "Rejected by supervisor review workflow",
-      })
-      .eq("id", correctionId)
-      .eq("company_id", companyId);
+    const { error: reviewError } = await supabase.rpc("vyron_review_attendance_correction", {
+      p_correction_id: correctionId,
+      p_decision: status,
+      p_notes:
+        status === "approved"
+          ? "Approved by supervisor review workflow"
+          : "Rejected by supervisor review workflow",
+    });
 
-    if (updateError) {
-      setError(updateError.message);
+    if (reviewError) {
+      setError(reviewError.message);
       return;
     }
-
-    if (status === "approved" && correction.clock_event_id && correction.requested_event_time) {
-      const { error: clockUpdateError } = await supabase
-        .from("clock_events")
-        .update({
-          event_time: correction.requested_event_time,
-          clock_note: `Corrected via attendance workflow (${new Date().toISOString()})`,
-        })
-        .eq("id", correction.clock_event_id)
-        .eq("company_id", companyId);
-
-      if (clockUpdateError) {
-        setError(clockUpdateError.message);
-        return;
-      }
-    }
-
-    await supabase.from("attendance_correction_audit").insert({
-      company_id: companyId,
-      correction_id: correctionId,
-      action: status,
-      action_by: "ui",
-      details: {
-        reviewed_at: new Date().toISOString(),
-      },
-    });
 
     setMessage(`Correction ${status}.`);
     await loadAll(companyId);
@@ -770,35 +661,26 @@ export default function ClockingAttendanceEnterprisePanel({
       return;
     }
 
-    const { error: updateError } = await supabase
-      .from("attendance_corrections")
-      .update({
-        status,
-        reviewed_by: "ui-bulk",
-        reviewed_at: new Date().toISOString(),
-        review_notes: `Bulk ${status}`,
-      })
-      .in("id", pendingIds)
-      .eq("company_id", companyId);
+    setMessage(null);
+    setError(null);
 
-    if (updateError) {
-      setError(updateError.message);
-      return;
+    // Each correction is decided individually by the audited server function, so the
+    // reviewer, separation-of-duties and original-time rules apply to bulk actions too.
+    const failures: string[] = [];
+    for (const id of pendingIds) {
+      const { error: reviewError } = await supabase.rpc("vyron_review_attendance_correction", {
+        p_correction_id: id,
+        p_decision: status,
+        p_notes: `Bulk ${status}`,
+      });
+      if (reviewError) failures.push(reviewError.message);
     }
 
-    await supabase.from("attendance_correction_audit").insert(
-      pendingIds.map((id) => ({
-        company_id: companyId,
-        correction_id: id,
-        action: `bulk_${status}`,
-        action_by: "ui-bulk",
-        details: {
-          reviewed_at: new Date().toISOString(),
-        },
-      }))
-    );
-
-    setMessage(`Bulk ${status} completed for ${pendingIds.length} request(s).`);
+    if (failures.length) {
+      setError(`${pendingIds.length - failures.length} of ${pendingIds.length} corrections ${status}. Not processed: ${[...new Set(failures)].join("; ")}`);
+    } else {
+      setMessage(`${pendingIds.length} corrections ${status}.`);
+    }
     await loadAll(companyId);
   }
 
@@ -1007,7 +889,7 @@ export default function ClockingAttendanceEnterprisePanel({
   const todayStoreDistanceVariance = useMemo(() => {
     const values: number[] = [];
 
-    for (const event of events) {
+    for (const event of todayEvents) {
       if (!event.store_id || event.latitude == null || event.longitude == null) continue;
       const store = storeMap.get(event.store_id);
       if (!store || store.latitude == null || store.longitude == null) continue;
@@ -1026,7 +908,7 @@ export default function ClockingAttendanceEnterprisePanel({
     const avg = Math.round(values.reduce((sum, item) => sum + item, 0) / values.length);
     const max = Math.max(...values);
     return { avg, max };
-  }, [events, storeMap]);
+  }, [todayEvents, storeMap]);
 
   return (
     <div className="mt-8 space-y-8">
@@ -1091,7 +973,7 @@ export default function ClockingAttendanceEnterprisePanel({
         <KpiCard
           title="Late"
           value={String(todaySummary.lateToday)}
-          helper={`Grace ${LATE_GRACE_MINUTES}m`}
+          helper={`Grace ${attendanceRules.lateGraceMinutes}m`}
           tone="border-amber-200 bg-amber-50 text-amber-900"
           icon={<Timer className="h-5 w-5" />}
         />
@@ -1202,18 +1084,23 @@ export default function ClockingAttendanceEnterprisePanel({
             >
               {syncing ? "Syncing..." : "Run Offline Sync"}
             </button>
-            <button
-              onClick={queueSampleOfflineAction}
-              className="rounded-2xl bg-cyan-100 px-4 py-3 text-sm font-black text-cyan-900"
-            >
-              Queue Test Offline Action
-            </button>
-            <button
-              onClick={ingestDeviceEvent}
-              className="rounded-2xl bg-indigo-100 px-4 py-3 text-sm font-black text-indigo-900"
-            >
-              Insert Device Ingestion Event
-            </button>
+            {/* QA-only: these create test clock data. Never shown unless NEXT_PUBLIC_ENABLE_QA_TOOLS=true. */}
+            {QA_TOOLS_ENABLED && (
+              <>
+                <button
+                  onClick={queueSampleOfflineAction}
+                  className="rounded-2xl bg-cyan-100 px-4 py-3 text-sm font-black text-cyan-900"
+                >
+                  Queue Test Offline Action
+                </button>
+                <button
+                  onClick={ingestDeviceEvent}
+                  className="rounded-2xl bg-indigo-100 px-4 py-3 text-sm font-black text-indigo-900"
+                >
+                  Insert Device Ingestion Event
+                </button>
+              </>
+            )}
           </div>
         </div>
       </section>

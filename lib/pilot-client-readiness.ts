@@ -36,7 +36,7 @@ export type PilotReadinessInput = {
   stores: Array<{ id: string; name: string }>;
   employees: Array<{
     id: string;
-    pin_code?: string | null;
+    pin_configured?: boolean | null;
     kiosk_access_enabled?: boolean | null;
   }>;
   rosterShifts: Array<{ id: string }>;
@@ -145,7 +145,7 @@ export function computePilotReadiness(input: PilotReadinessInput): PilotReadines
   const hasStore = stores.length > 0;
   const hasEmployees = employees.length > 0;
   const employeesWithKiosk = employees.filter(
-    (e) => e.kiosk_access_enabled !== false && Boolean(e.pin_code?.trim())
+    (e) => e.kiosk_access_enabled !== false && Boolean(e.pin_configured)
   ).length;
   const kioskPinsReady = hasEmployees && employeesWithKiosk >= Math.min(3, employees.length);
   const hasRoster = rosterShifts.length > 0;

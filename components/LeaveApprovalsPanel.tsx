@@ -9,6 +9,7 @@ import {
   Search,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { countLeaveWorkingDays } from "@/lib/leave-days";
 
 type LeaveStatus = "pending" | "approved" | "declined" | "amended";
 
@@ -94,15 +95,8 @@ function formatDateTime(value: string | null | undefined) {
 }
 
 function leaveDays(startDate: string, endDate: string) {
-  if (!startDate || !endDate) return 0;
-
-  const start = new Date(`${startDate}T12:00:00`);
-  const end = new Date(`${endDate}T12:00:00`);
-  const difference = end.getTime() - start.getTime();
-
-  if (difference < 0) return 0;
-
-  return Math.floor(difference / (1000 * 60 * 60 * 24)) + 1;
+  // Working days (Mon–Fri); the database count (requested_days) is authoritative.
+  return countLeaveWorkingDays(startDate, endDate);
 }
 
 function datesOverlap(startA: string, endA: string, startB: string, endB: string) {

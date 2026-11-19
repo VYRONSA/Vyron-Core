@@ -12,7 +12,15 @@ import {
   Search,
 } from "lucide-react";
 import { getCompanyAccess } from "../lib/company-access";
+import { fetchAllPages } from "@/lib/supabase-paging";
+
 import { supabase } from "../lib/supabase";
+
+/** "YYYY-MM-DD HH:mm:ss" in South African time, for exports read by people. */
+function formatSast(value: string | null | undefined): string {
+  if (!value) return "";
+  return new Date(value).toLocaleString("sv-SE", { timeZone: "Africa/Johannesburg" });
+}
 
 type ReportTab = "leave" | "hr" | "clocking";
 
@@ -435,13 +443,19 @@ export default function HistoryReportsPanel({ companyId: companyIdProp }: { comp
     }
 
     if (activeTab === "clocking") {
-      const { data, error: clockError } = await supabase
-        .from("clock_events")
-        .select("*")
-        .eq("company_id", companyId)
-        .gte("event_time", dateFrom)
-        .lte("event_time", dateTo)
-        .order("event_time", { ascending: false });
+      // Every row in the range (paged): a plain select stops at 1,000 rows without warning.
+      const { data, error: clockErrorMessage } = await fetchAllPages<ClockingHistoryRow>((from, to) =>
+        supabase
+          .from("clock_events")
+          .select("*")
+          .eq("company_id", companyId)
+          .gte("event_time", dateFrom)
+          .lte("event_time", dateTo)
+          .order("event_time", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to)
+      );
+      const clockError = clockErrorMessage ? { message: clockErrorMessage } : null;
 
       if (clockError) {
         setError(clockError.message);
@@ -559,21 +573,42 @@ export default function HistoryReportsPanel({ companyId: companyIdProp }: { comp
           "Employee Name",
           "Store",
           "Event Type",
-          "Event Time",
+          "Attendance Date",
+          "Event Time (SAST)",
+          "Event Time (UTC)",
           "Source",
+          "GPS Check",
+          "Distance From Store (m)",
+          "Verification",
+          "Original Time (if corrected)",
           "Latitude",
           "Longitude",
         ],
-        ...filteredClockRows.map((row) => [
-          row.employee_id,
-          row.employee_name || "",
-          row.store_name || "",
-          formatText(row.event_type),
-          row.event_time,
-          row.source,
-          row.latitude,
-          row.longitude,
-        ]),
+        ...filteredClockRows.map((row) => {
+          const extra = row as ClockingHistoryRow & {
+            attendance_date?: string | null;
+            gps_verification_status?: string | null;
+            gps_distance_from_store_meters?: number | null;
+            verification_status?: string | null;
+            original_event_time?: string | null;
+          };
+          return [
+            row.employee_id,
+            row.employee_name || "",
+            row.store_name || "",
+            formatText(row.event_type),
+            extra.attendance_date || "",
+            formatSast(row.event_time),
+            row.event_time,
+            row.source,
+            extra.gps_verification_status || "",
+            extra.gps_distance_from_store_meters ?? "",
+            extra.verification_status || "",
+            extra.original_event_time ? formatSast(extra.original_event_time) : "",
+            row.latitude,
+            row.longitude,
+          ];
+        }),
       ]);
     }
   }

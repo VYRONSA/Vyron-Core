@@ -137,45 +137,13 @@ export default function PayrollIntelligencePanel({
   async function prepareExportPack(
     platform: "vyron_pay" | "sage" | "payspace" | "vip" | "csv" | "excel"
   ) {
-    if (!dashboard) return;
-    setPrepareBusy(platform);
-
-    const rowsPrepared = dashboard.employeeReadiness.filter((row) => row.state !== "blocked").length;
-
-    const { error } = await supabase.from("payroll_export_preparations").insert({
-      company_id: companyId,
-      pay_period_id: dashboard.payPeriod.id,
-      target_platform: platform,
-      preparation_status: "prepared",
-      rows_prepared: rowsPrepared,
-      payload: {
-        scoreDate: dashboard.scoreDate,
-        readinessScore: dashboard.readinessScore,
-        readinessBand: dashboard.readinessBand,
-      },
-    });
-
-    if (error) {
-      setSyncNote(`Export prep note: ${error.message}`);
-      setPrepareBusy(null);
-      return;
-    }
-
-    await supabase.from("payroll_readiness_timeline").insert({
-      company_id: companyId,
-      pay_period_id: dashboard.payPeriod.id,
-      event_type: "export",
-      title: `Export prep generated (${platform.toUpperCase()})`,
-      detail: `${rowsPrepared} validated employee row(s) prepared for ${platform.toUpperCase()} output.`,
-      metadata: {
-        platform,
-        rowsPrepared,
-        scoreDate: dashboard.scoreDate,
-      },
-    });
-
+    // Platform-specific payroll files (Sage, PaySpace, VIP, Excel) are not implemented yet, and
+    // the table this used to write to does not exist in production. Say so plainly instead of
+    // implying a file was produced. The approved, locked payroll export is in Payroll Prep.
     setPrepareBusy(null);
-    await load();
+    setSyncNote(
+      `${platform.toUpperCase()} export files are not available yet. Use Payroll Prep → "Export Approved Payroll CSV" for the approved, locked hours file.`
+    );
   }
 
   return (

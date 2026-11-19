@@ -14,6 +14,7 @@ import {
 import { getCompanyAccess } from "../lib/company-access";
 import { appLeaveTypeToDb, normalizeLeaveBalanceRow } from "../lib/leave-balance-adapter";
 import { supabase } from "../lib/supabase";
+import { countLeaveWorkingDays } from "@/lib/leave-days";
 
 type LeaveRequest = {
   id: string;
@@ -174,15 +175,8 @@ function formatDateTime(value: string | null | undefined) {
 }
 
 function leaveDays(startDate: string, endDate: string) {
-  if (!startDate || !endDate) return 0;
-
-  const start = new Date(`${startDate}T12:00:00`);
-  const end = new Date(`${endDate}T12:00:00`);
-  const difference = end.getTime() - start.getTime();
-
-  if (difference < 0) return 0;
-
-  return Math.floor(difference / (1000 * 60 * 60 * 24)) + 1;
+  // Working days (Mon–Fri); the database count (requested_days) is authoritative.
+  return countLeaveWorkingDays(startDate, endDate);
 }
 
 function normaliseLeaveType(value: string | null | undefined) {

@@ -261,3 +261,51 @@ describe("shared Auth identities", () => {
     assert.ok(result.notices.some((notice) => notice.includes("another workspace")));
   });
 });
+
+/**
+ * The readiness audit's account takeover: a member edits company_users so a row with an
+ * unused e-mail carries another tenant's auth id, then asks the service-role API to reset
+ * "their" password. The service must resolve the account from Auth by e-mail and refuse
+ * when it is not the account the row names — never trust the row's user_id.
+ */
+describe("forged membership rows (audit X1)", () => {
+  function forgedRow() {
+    const { store, aOwner } = twoTenantStore();
+    const victimId = store.authUser(B_OWNER)?.id as string;
+    store.authUsers.push(fakeAuthUser("unused-x@company-a.test"));
+    const forged = membership({
+      company_id: COMPANY_A,
+      user_email: "unused-x@company-a.test",
+      role: "employee",
+      user_id: victimId,
+    });
+    store.memberships.push(forged);
+    return { store, aOwner, forged };
+  }
+
+  it("refuses a password reset for a row pointing at someone else's account", async () => {
+    const { store, aOwner, forged } = forgedRow();
+    const before = store.authUser(B_OWNER)?.password;
+    await assert.rejects(
+      () => resetCompanyUserPassword(store, actorA(aOwner.id), forged.id, { passwordMode: "generate" }),
+      (error: unknown) => error instanceof UserManagementError && error.status === 409
+    );
+    assert.equal(store.authUser(B_OWNER)?.password, before, "the other tenant's owner keeps their password");
+  });
+
+  it("refuses an e-mail change through a forged row", async () => {
+    const { store, aOwner, forged } = forgedRow();
+    await assert.rejects(
+      () => updateCompanyUser(store, actorA(aOwner.id), forged.id, { email: "attacker@evil.test" }),
+      (error: unknown) => error instanceof UserManagementError && error.status === 409
+    );
+    assert.equal(store.authUser(B_OWNER)?.email, B_OWNER);
+  });
+
+  it("does not ban the other tenant's account when the forged row is deleted", async () => {
+    const { store, aOwner, forged } = forgedRow();
+    const result = await deleteCompanyUser(store, actorA(aOwner.id), forged.id);
+    assert.equal(store.authUser(B_OWNER)?.banned, false);
+    assert.ok(result.notices.some((notice) => /not disabled/i.test(notice)));
+  });
+});

@@ -1,6 +1,7 @@
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { EMPLOYEE_READABLE_COLUMNS } from "@/lib/employee-columns";
 
 export const CONTRACT_TEMPLATE_BUCKET = "hr-contract-templates";
 export const CONTRACT_OUTPUT_BUCKET = "hr-signed-documents";
@@ -328,7 +329,7 @@ export async function fetchEmployeeAndCompanyData(
   employeeId: string
 ): Promise<{ employee: Record<string, unknown>; company: Record<string, unknown> }> {
   const [employeeRes, companyRes] = await Promise.all([
-    supabase.from("employees").select("*").eq("id", employeeId).eq("company_id", companyId).maybeSingle(),
+    supabase.from("employees").select(EMPLOYEE_READABLE_COLUMNS).eq("id", employeeId).eq("company_id", companyId).maybeSingle(),
     supabase.from("companies").select("*").eq("id", companyId).maybeSingle(),
   ]);
 

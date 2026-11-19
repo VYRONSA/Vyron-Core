@@ -20,16 +20,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: false, error: access.message }, { status: access.status });
     }
 
+    // Optional pay period (YYYY-MM-DD). Already-exported rows never block a new run.
+    const periodStart = (request.nextUrl.searchParams.get("periodStart") || "").trim();
+    const periodEnd = (request.nextUrl.searchParams.get("periodEnd") || "").trim();
+    const isDate = (value: string) => /^d{4}-d{2}-d{2}$/.test(value);
+    let payrollQuery = auth.supabase
+      .from("payroll_hours")
+      .select("id,status,missing_clock_events")
+      .eq("company_id", companyId)
+      .neq("status", "exported");
+    if (isDate(periodStart) && isDate(periodEnd)) {
+      payrollQuery = payrollQuery.eq("period_start", periodStart).eq("period_end", periodEnd);
+    }
+
     const [ex, hr, ph] = await Promise.all([
-      auth.supabase.from("time_exceptions").select("id,status").eq("company_id", companyId),
+      // Only exceptions still awaiting action (rejected/closed/approved are decided).
+      auth.supabase
+        .from("time_exceptions")
+        .select("id,status")
+        .eq("company_id", companyId)
+        .in("status", ["open", "employee_response_required", "manager_review"]),
       auth.supabase
         .from("hr_cases")
         .select("id,status,employee_response_required")
         .eq("company_id", companyId),
-      auth.supabase
-        .from("payroll_hours")
-        .select("id,status,missing_clock_events")
-        .eq("company_id", companyId),
+      payrollQuery,
     ]);
 
     if (ex.error || hr.error || ph.error) {
@@ -40,9 +55,7 @@ export async function GET(request: NextRequest) {
     const exceptions = ex.data || [];
     const hrCases = hr.data || [];
     const payroll = ph.data || [];
-    const openExceptions = exceptions.filter(
-      (x: { status?: string | null }) => x.status !== "closed" && x.status !== "approved"
-    ).length;
+    const openExceptions = exceptions.length;
     const openHrCases = hrCases.filter(
       (x: { status?: string | null }) => x.status !== "closed"
     ).length;

@@ -139,7 +139,7 @@ const EMPLOYEE_ALLOWED_PREFIXES = [
   "/employee-leave",
   "/clock",
   "/kiosk",
-  "/staff-leave",
+  // "/staff-leave" is the manager approval console — not an employee route.
   "/mobile-workforce",
   // Drivers are ordinary employees. They get their own Road & Recovery job list
   // (accept / decline / en route / GPS arrival) and nothing else in the vertical — the
@@ -192,7 +192,16 @@ export function normalizeRbacRole(input?: string | null): VyronRbacRole {
   if (isPlatformOperatorRole([value])) return "platform_operator";
   if (value === "owner" || value === "super_user" || value === "superuser") return "owner";
   if (value === "supervisor") return "supervisor";
-  if (value === "manager" || value === "admin") return "manager";
+  // HR, operations and payroll staff manage people, attendance and pay: manager-level routes.
+  if (
+    value === "manager" ||
+    value === "admin" ||
+    value === "hr_manager" ||
+    value === "operations_manager" ||
+    value === "payroll"
+  ) {
+    return "manager";
+  }
   return "employee";
 }
 

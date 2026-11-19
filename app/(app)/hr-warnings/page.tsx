@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { getCompanyAccess } from '@/lib/company-access';
-import { buildHrWarningInsert } from '@/lib/hr-warning-schema';
+import { buildHrWarningInsert, warningTypeFromDb } from '@/lib/hr-warning-schema';
 import { supabase } from '@/lib/supabase';
 import { UmoraLogo } from '@/components/brand/UmoraBrand';
 
@@ -120,7 +120,9 @@ function calculateStatus(expiryDate: string): WarningStatus {
 }
 
 function displayWarningType(value: WarningType) {
-  return warningTypeOptions.find((item) => item.value === value)?.label || value;
+  // Stored as e.g. "verbal_warning"; the options use the short form.
+  const short = warningTypeFromDb(value);
+  return warningTypeOptions.find((item) => item.value === short)?.label || value;
 }
 
 function displayIncidentType(value: IncidentType) {

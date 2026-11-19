@@ -37,6 +37,37 @@ export type RosterRuleLite = {
   maximum_weekly_hours: number;
 };
 
+/**
+ * Roster timestamps in South African time (UTC+02:00, no daylight saving). A time without an
+ * offset is stored as UTC by the database, which moved every planned shift two hours late.
+ * An end time at or before the start time is an overnight shift ending the next day.
+ */
+export function sastShiftTimestamps(day: string, startTime: string, endTime: string) {
+  const norm = (value: string) => (value.length === 5 ? `${value}:00` : value.slice(0, 8));
+  const start = norm(startTime);
+  const end = norm(endTime);
+  let endDay = day;
+  if (end <= start) {
+    const next = new Date(`${day}T00:00:00Z`);
+    next.setUTCDate(next.getUTCDate() + 1);
+    endDay = next.toISOString().slice(0, 10);
+  }
+  return { planned_start: `${day}T${start}+02:00`, planned_end: `${endDay}T${end}+02:00` };
+}
+
+/** Moves a shift to another day keeping its exact local times and length. */
+export function moveShiftToDay(
+  shift: { shift_date: string; planned_start: string; planned_end: string },
+  nextDate: string
+) {
+  const deltaMs = Date.parse(`${nextDate}T00:00:00Z`) - Date.parse(`${shift.shift_date}T00:00:00Z`);
+  return {
+    shift_date: nextDate,
+    planned_start: new Date(Date.parse(shift.planned_start) + deltaMs).toISOString(),
+    planned_end: new Date(Date.parse(shift.planned_end) + deltaMs).toISOString(),
+  };
+}
+
 export function parseHourMinute(value: string): number {
   if (!value) return 0;
   const section = value.includes("T") ? value.split("T")[1] || "" : value;
@@ -222,8 +253,7 @@ export function buildSimpleAutoPlan(input: {
         employee_id: employee.id,
         store_id: employee.default_store_id || store.id,
         shift_date: day,
-        planned_start: `${day}T${input.defaultStart}:00`,
-        planned_end: `${day}T${input.defaultEnd}:00`,
+        ...sastShiftTimestamps(day, input.defaultStart, input.defaultEnd),
         role: "Auto Planned Shift",
         status: "scheduled",
       });

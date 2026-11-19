@@ -32,6 +32,7 @@ import {
   summarizeModuleAccess,
 } from "@/lib/tenant/module-access";
 import { generateTemporaryPassword } from "@/lib/tenant/password-generator";
+import { isPlatformOperatorSessionUser } from "@/lib/server/platform-operator";
 import {
   redactSecrets,
   validatePassword,
@@ -173,6 +174,59 @@ export type MutationResult = {
 };
 
 const ACTIVE_STATUS: UserStatus = "active";
+
+/**
+ * The auth account a membership may act on.
+ *
+ * `company_users.user_id` is row data, so it is never trusted on its own: a member able to
+ * write that row could point it at someone else's account and then use a service-role
+ * operation (password, e-mail, ban) to take that account over. The account is therefore
+ * resolved from Auth by the membership's e-mail and must be the very account the row names.
+ * From a customer workspace, accounts that belong to platform staff or to any other
+ * workspace are never changed — one credential is shared by every tenant it belongs to.
+ */
+async function resolveManagedAuthUserId(
+  store: UserManagementStore,
+  actor: UserManagementActor,
+  target: MembershipRow,
+  operation: string
+): Promise<string> {
+  if (!target.user_id) {
+    throw new UserManagementError(
+      "This user has no sign-in account yet. Send them an invitation instead.",
+      400
+    );
+  }
+
+  const authUser = await store.findAuthUserByEmail(target.user_email);
+  if (!authUser || authUser.id !== target.user_id) {
+    throw new UserManagementError(
+      `This membership's sign-in account does not match its email address, so its ${operation} cannot be changed here. Contact VYRONSOFT support.`,
+      409
+    );
+  }
+
+  if (!actor.platformOperator) {
+    if (isPlatformOperatorSessionUser(authUser)) {
+      throw new UserManagementError(
+        `A VYRONSOFT platform account's ${operation} cannot be changed from a customer workspace.`,
+        403
+      );
+    }
+    const otherTenants = await store.countOtherCompanyMemberships(
+      target.user_email,
+      actor.companyId
+    );
+    if (otherTenants > 0) {
+      throw new UserManagementError(
+        `This account is also used in another UMORA workspace, so its ${operation} cannot be changed from here. Contact VYRONSOFT support.`,
+        409
+      );
+    }
+  }
+
+  return authUser.id;
+}
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -767,11 +821,17 @@ export async function updateCompanyUser(
 
   // Auth first: if the address cannot be changed in Auth, the membership must not drift
   // away from it. A failure here throws before anything in public is written.
-  if (newEmail && target.user_id) {
-    await store.updateAuthUser(target.user_id, { email: newEmail });
+  const touchesAuth =
+    Boolean(newEmail) || Boolean(patch.first_name || patch.last_name || patch.mobile !== undefined);
+  const authUserId =
+    touchesAuth && target.user_id
+      ? await resolveManagedAuthUserId(store, actor, target, "sign-in details")
+      : null;
+  if (newEmail && authUserId) {
+    await store.updateAuthUser(authUserId, { email: newEmail });
   }
-  if ((patch.first_name || patch.last_name || patch.mobile !== undefined) && target.user_id) {
-    await store.updateAuthUser(target.user_id, {
+  if ((patch.first_name || patch.last_name || patch.mobile !== undefined) && authUserId) {
+    await store.updateAuthUser(authUserId, {
       metadata: {
         first_name: (patch.first_name as string) ?? target.first_name,
         last_name: (patch.last_name as string) ?? target.last_name,
@@ -880,26 +940,8 @@ export async function resetCompanyUserPassword(
   if (!target) throw new UserManagementError("User not found in this company.", 404);
   assertTargetManageable(actor, target);
 
-  if (!target.user_id) {
-    throw new UserManagementError(
-      "This user has no sign-in account yet. Send them an invitation instead.",
-      400
-    );
-  }
-
-  // Same reasoning as the email change: one credential, many possible tenants.
-  if (!actor.platformOperator) {
-    const otherTenants = await store.countOtherCompanyMemberships(
-      target.user_email,
-      actor.companyId
-    );
-    if (otherTenants > 0) {
-      throw new UserManagementError(
-        "This account is also used in another UMORA workspace, so its password cannot be reset from here. Contact VYRONSOFT support.",
-        409
-      );
-    }
-  }
+  // Resolved from Auth by e-mail and cross-checked; never the row's user_id on its own.
+  const authUserId = await resolveManagedAuthUserId(store, actor, target, "password");
 
   let generatedPassword: string | undefined;
   let password: string;
@@ -913,7 +955,7 @@ export async function resetCompanyUserPassword(
     password = input.password as string;
   }
 
-  await store.updateAuthUser(target.user_id, { password });
+  await store.updateAuthUser(authUserId, { password });
 
   const mustChange = input.requirePasswordChange ?? true;
   const updated = await store.updateMembership(actor.companyId, membershipId, {
@@ -985,9 +1027,21 @@ export async function deleteCompanyUser(
     );
     if (otherTenants === 0) {
       // Banned, not destroyed: auth.users.id is referenced by company_users.user_id and
-      // by historical records, and a hard delete would orphan them.
-      await store.updateAuthUser(target.user_id, { banDuration: "876000h" });
-      notices.push("The sign-in account was disabled.");
+      // by historical records, and a hard delete would orphan them. The account is
+      // re-resolved from Auth so a tampered row can never ban someone else.
+      let authUserId: string | null = null;
+      try {
+        authUserId = await resolveManagedAuthUserId(store, actor, target, "sign-in access");
+      } catch (error) {
+        if (!(error instanceof UserManagementError)) throw error;
+        notices.push(
+          "Access to this company was removed. The sign-in account was not disabled: " + error.message
+        );
+      }
+      if (authUserId) {
+        await store.updateAuthUser(authUserId, { banDuration: "876000h" });
+        notices.push("The sign-in account was disabled.");
+      }
     } else {
       notices.push(
         "Access to this company was removed. The sign-in account remains active because it is used in another workspace."
@@ -1030,7 +1084,8 @@ export async function restoreCompanyUser(
   });
 
   if (target.user_id) {
-    await store.updateAuthUser(target.user_id, { banDuration: "none" });
+    const authUserId = await resolveManagedAuthUserId(store, actor, target, "sign-in access");
+    await store.updateAuthUser(authUserId, { banDuration: "none" });
   }
 
   await audit(store, {
@@ -1070,7 +1125,8 @@ export async function resendCompanyUserInvite(
 
   const updated = await store.updateMembership(actor.companyId, membershipId, {
     invited_at: nowIso(),
-    user_id: target.user_id || authUser.id,
+    // Always the account Auth resolved for this e-mail, never a stored id.
+    user_id: authUser.id,
   });
 
   await audit(store, {

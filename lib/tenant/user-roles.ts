@@ -29,6 +29,7 @@ export const CUSTOMER_ASSIGNABLE_ROLES = [
   "manager",
   "supervisor",
   "employee",
+  "kiosk",
 ] as const;
 
 export type CustomerRole = (typeof CUSTOMER_ASSIGNABLE_ROLES)[number];
@@ -41,6 +42,8 @@ export const CUSTOMER_ROLE_DESCRIPTION: Record<CustomerRole, string> = {
   manager: "Runs their teams — approvals, rosters, leave and reports.",
   supervisor: "Day-to-day team oversight without reporting or compliance centres.",
   employee: "Self-service only — clocking, leave requests and their own profile.",
+  kiosk:
+    "Shared clocking device only — lists staff and records clockings with each employee's PIN. No access to HR, payroll, rosters or reports.",
 };
 
 /**
@@ -82,6 +85,7 @@ const ROLE_RANK: Record<CustomerRole, number> = {
   manager: 30,
   supervisor: 20,
   employee: 10,
+  kiosk: 5,
 };
 
 /** Roles permitted to manage other users inside their company. */
@@ -108,6 +112,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<CustomerRole, ModulePermissionLeve
   manager: ["view", "create", "edit", "approve", "export"],
   supervisor: ["view", "create", "edit"],
   employee: ["view"],
+  kiosk: [],
 };
 
 function normalize(value: string | null | undefined): string {
@@ -142,7 +147,9 @@ export function toCustomerRole(role: string | null | undefined): CustomerRole {
 
 /** A tenant role usable by lib/tenant-rbac.ts helpers. */
 export function toTenantRole(role: string | null | undefined): VyronTenantRole {
-  return toCustomerRole(role);
+  const customerRole = toCustomerRole(role);
+  // A kiosk device navigates as the least-privileged layer; its database rights are narrower still.
+  return customerRole === "kiosk" ? "employee" : customerRole;
 }
 
 export function roleRank(role: CustomerRole): number {

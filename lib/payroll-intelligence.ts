@@ -184,7 +184,20 @@ const PAYROLL_TABLES = [
   "payroll_export_preparations",
 ] as const;
 
-const DEFAULT_HOURLY_RATE = DEFAULT_FIELD_COST_RATE.labourRatePerHour;
+/**
+ * Rand estimates use each employee's own hourly_rate. There is no hardcoded fallback rate:
+ * an employee without a rate contributes no rand value (the issue is still counted), so no
+ * invented figure can reach a manager's screen or a stored record.
+ */
+function employeeHourlyRate(ctx: { employees: { id: string; hourly_rate?: number | null }[] }, employeeId: string): number {
+  const rate = Number(ctx.employees.find((employee) => employee.id === employeeId)?.hourly_rate ?? 0);
+  return Number.isFinite(rate) && rate > 0 ? rate : 0;
+}
+
+function averageHourlyRate(ctx: { employees: { hourly_rate?: number | null }[] }): number {
+  const rates = ctx.employees.map((employee) => Number(employee.hourly_rate ?? 0)).filter((rate) => rate > 0);
+  return rates.length ? rates.reduce((sum, rate) => sum + rate, 0) / rates.length : 0;
+}
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -244,7 +257,7 @@ type PayrollContext = {
   payPeriod: PayrollPayPeriod;
   stores: { id: string; name: string }[];
   companyUsers: { user_email: string; role: string; status: string | null }[];
-  employees: { id: string; first_name: string; last_name: string; default_store_id: string | null }[];
+  employees: { id: string; first_name: string; last_name: string; default_store_id: string | null; hourly_rate?: number | null }[];
   payrollClockChecks: {
     employee_id: string;
     store_id: string | null;
@@ -986,10 +999,10 @@ function recurringManagerIssues(checks: PayrollReadinessCheck[]) {
 
 export function buildPayrollLeakageEvents(ctx: PayrollContext): PayrollLeakageEvent[] {
   const events: PayrollLeakageEvent[] = [];
-  const hourly = DEFAULT_HOURLY_RATE;
   const otMult = DEFAULT_FIELD_COST_RATE.overtimeMultiplier;
 
   for (const ph of ctx.payrollHours) {
+    const hourly = employeeHourlyRate(ctx, ph.employee_id);
     const normal = Number(ph.normal_hours || 0);
     const ot = Number(ph.overtime_hours || 0);
     const missing = Number(ph.missing_clock_events || 0);
@@ -1035,7 +1048,7 @@ export function buildPayrollLeakageEvents(ctx: PayrollContext): PayrollLeakageEv
       id: leakageId("duplicate_hours", key),
       leakageType: "duplicate_hours",
       employeeId,
-      amountZar: Math.round(8 * hourly),
+      amountZar: Math.round(8 * employeeHourlyRate(ctx, employeeId)),
       severity: "warning",
       message: `Duplicate payroll clock entries for ${empLabel(ctx.employees, employeeId)} on ${shiftDate}.`,
       status: "open",
@@ -1048,7 +1061,7 @@ export function buildPayrollLeakageEvents(ctx: PayrollContext): PayrollLeakageEv
     if (otMin <= 0) continue;
     const approved = (c.payroll_status || "").toLowerCase() === "approved";
     if (!approved) {
-      const amount = (otMin / 60) * hourly * otMult;
+      const amount = (otMin / 60) * employeeHourlyRate(ctx, c.employee_id) * otMult;
       events.push({
         id: leakageId("overtime_without_approval", `${c.employee_id}-${c.shift_date}`),
         leakageType: "overtime_without_approval",
@@ -1067,7 +1080,7 @@ export function buildPayrollLeakageEvents(ctx: PayrollContext): PayrollLeakageEv
       if (j.route.jobsCompleted > 0) continue;
       if (j.route.travelSeconds < 1800) continue;
       const travelHours = j.route.travelSeconds / 3600;
-      const amount = travelHours * hourly;
+      const amount = travelHours * employeeHourlyRate(ctx, j.employeeId);
       events.push({
         id: leakageId("travel_without_jobs", `${j.employeeId}-${ctx.scoreDate}`),
         leakageType: "travel_without_jobs",
@@ -1088,7 +1101,7 @@ export function buildPayrollForecast(
   ctx: PayrollContext,
   leakageEvents: PayrollLeakageEvent[]
 ): PayrollForecast {
-  const hourly = DEFAULT_HOURLY_RATE;
+  const hourly = averageHourlyRate(ctx);
   const otMult = DEFAULT_FIELD_COST_RATE.overtimeMultiplier;
 
   const normalHours = ctx.payrollHours.reduce((s, r) => s + Number(r.normal_hours || 0), 0);

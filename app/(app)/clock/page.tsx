@@ -20,6 +20,15 @@ import {
 } from "@/lib/kiosk-company-context";
 import ClockingAttendanceEnterprisePanel from "@/components/ClockingAttendanceEnterprisePanel";
 import { supabase } from "@/lib/supabase";
+import {
+  describeClockAction,
+  fetchClockState,
+  newClockAttemptId,
+  readDevicePosition,
+  recordClockEvent,
+  uploadClockPhoto,
+  type ClockState,
+} from "@/lib/clocking-client";
 
 type EmployeeRow = {
   id: string;
@@ -32,7 +41,8 @@ type EmployeeRow = {
   active: boolean;
   email: string | null;
   phone: string | null;
-  pin_code?: string | null;
+  /** True when a PIN is set. PINs are verified on the server and never sent to the browser. */
+  pin_configured?: boolean | null;
 };
 
 type StoreRow = {
@@ -140,6 +150,13 @@ export default function ClockPage() {
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
   const [stores, setStores] = useState<StoreRow[]>([]);
   const [todayEvents, setTodayEvents] = useState<ClockEventRow[]>([]);
+  // Server-side clock state (open shift across midnight), not "today's" events.
+  const [clockState, setClockState] = useState<ClockState | null>(null);
+  // One attempt id per intended clocking, kept across retries so a retry never duplicates.
+  const clockAttemptRef = useRef<{ key: string; id: string } | null>(null);
+  // Kiosk mode (/clock?mode=kiosk) hides the manager attendance tools from the shared screen.
+  const kioskMode = searchParams.get("mode") === "kiosk";
+  const [isManager, setIsManager] = useState(false);
 
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [staffCode, setStaffCode] = useState("");
@@ -200,9 +217,8 @@ export default function ClockPage() {
   const searchHasMatches = matchedEmployees.length > 0;
   const visibleEmployees = (searchHasMatches ? matchedEmployees : activeEmployees).slice(0, 80);
 
-  const lastEvent = todayEvents[0] || null;
-  const currentlyClockedIn = lastEvent ? isClockIn(lastEvent.event_type) : false;
-  const nextAction: "clock_in" | "clock_out" = currentlyClockedIn ? "clock_out" : "clock_in";
+  const currentlyClockedIn = clockState ? clockState.open_shift : false;
+  const nextAction: "clock_in" | "clock_out" = clockState?.next_action === "clock_out" ? "clock_out" : "clock_in";
 
   const firstClockInToday = [...todayEvents].reverse().find((event) => isClockIn(event.event_type));
   const lastClockOutToday = todayEvents.find((event) => isClockOut(event.event_type));
@@ -233,25 +249,28 @@ export default function ClockPage() {
       loadTodayEvents(selectedEmployeeId);
     } else {
       setTodayEvents([]);
+      setClockState(null);
     }
+    clockAttemptRef.current = null;
   }, [selectedEmployeeId]);
 
   async function loadBaseData(activeCompanyId: string) {
     setLoading(true);
     setError(null);
 
-    const [employeeResult, storeResult] = await Promise.all([
-      supabase
-        .from("employees")
-        .select("id,company_id,employee_number,first_name,last_name,job_title,default_store_id,active,email,phone,pin_code")
-        .eq("company_id", activeCompanyId)
-        .order("first_name", { ascending: true }),
+    // Staff list through the kiosk function: works for a dedicated kiosk login (which cannot
+    // read the employees table) and returns no pay, contact or PIN data.
+    const [employeeResult, storeResult, managerResult] = await Promise.all([
+      supabase.rpc("vyron_kiosk_directory", { p_company_id: activeCompanyId }),
       supabase
         .from("stores")
         .select("id,name,city,region,status")
         .eq("company_id", activeCompanyId)
         .order("name", { ascending: true }),
+      supabase.rpc("vyron_is_company_manager", { p_company_id: activeCompanyId }),
     ]);
+    // Manager tools are shown only to managers — never on a kiosk device login.
+    setIsManager(managerResult.data === true);
 
     if (employeeResult.error) {
       setError(formatClientSafeError(employeeResult.error.message));
@@ -265,7 +284,9 @@ export default function ClockPage() {
       return;
     }
 
-    setEmployees((employeeResult.data || []) as EmployeeRow[]);
+    setEmployees(
+      ((employeeResult.data || []) as EmployeeRow[]).map((employee) => ({ ...employee, company_id: activeCompanyId }))
+    );
     setStores((storeResult.data || []) as StoreRow[]);
     setLoading(false);
   }
@@ -274,20 +295,23 @@ export default function ClockPage() {
     setHistoryLoading(true);
     setError(null);
 
-    const { startIso, endIso } = todayRange();
-
-    let clockQuery = supabase
-      .from("clock_events")
-      .select("*")
-      .eq("employee_id", employeeId)
-      .gte("event_time", startIso)
-      .lt("event_time", endIso);
-
-    if (companyId) {
-      clockQuery = clockQuery.eq("company_id", companyId);
+    // State comes from the server so an overnight shift is still "clocked in" after midnight.
+    const stateResult = await fetchClockState(supabase, employeeId);
+    setClockState(stateResult.state);
+    if (stateResult.error) {
+      setError(formatClientSafeError(stateResult.error));
     }
 
-    const { data, error: eventError } = await clockQuery.order("event_time", { ascending: false });
+    // History: today, plus the start of an open shift that began before midnight.
+    const { startIso } = todayRange();
+    const sessionStart = stateResult.state?.session_started_at || null;
+    const sinceIso =
+      sessionStart && new Date(sessionStart).getTime() < new Date(startIso).getTime() ? sessionStart : startIso;
+
+    const { data, error: eventError } = await supabase.rpc("vyron_kiosk_recent_events", {
+      p_employee_id: employeeId,
+      p_since: sinceIso,
+    });
 
     if (eventError) {
       setError(formatClientSafeError(eventError.message));
@@ -319,20 +343,20 @@ export default function ClockPage() {
     const code = staffCode.trim().toLowerCase();
 
     if (!code) {
-      setError("Type your staff code, employee number, phone number or PIN first.");
+      setError("Type your staff code, employee number or phone number first.");
       return;
     }
 
+    // The PIN is a secret, not an identifier: look up by employee number or phone only.
     const match = employees.find((employee) => {
-      const pin = String(employee.pin_code || "").trim().toLowerCase();
       const number = String(employee.employee_number || "").trim().toLowerCase();
       const phone = String(employee.phone || "").trim().toLowerCase();
 
-      return employee.active !== false && (code === pin || code === number || code === phone);
+      return employee.active !== false && (code === number || code === phone);
     });
 
     if (!match) {
-      setError("No active employee found for that code/PIN.");
+      setError("No active employee found for that employee number or phone number.");
       return;
     }
 
@@ -436,22 +460,6 @@ export default function ClockPage() {
   }
 
 
-  async function getCurrentPosition(): Promise<GeolocationPosition> {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error("GPS is not available on this device."));
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0,
-      });
-    });
-  }
-
-
   async function capturePhotoAutomatically() {
     setError(null);
 
@@ -513,32 +521,6 @@ export default function ClockPage() {
     }
   }
 
-  async function uploadPhoto(employeeId: string, eventType: string, providedPhotoFile?: File | null) {
-    const fileToUpload = providedPhotoFile || photoFile;
-
-    if (!fileToUpload) return { photo_bucket: null, photo_path: null, photo_url: null };
-
-    const extension = fileToUpload.name.includes(".") ? fileToUpload.name.split(".").pop() : "jpg";
-    const filePath = `${employeeId}/${new Date().toISOString().slice(0, 10)}/${Date.now()}-${eventType}.${extension}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("clock-event-photos")
-      .upload(filePath, fileToUpload, {
-        contentType: fileToUpload.type || "image/jpeg",
-        upsert: false,
-      });
-
-    if (uploadError) {
-      throw new Error(uploadError.message);
-    }
-
-    return {
-      photo_bucket: "clock-event-photos",
-      photo_path: filePath,
-      photo_url: filePath,
-    };
-  }
-
   async function openPhoto(event: ClockEventRow) {
     if (!event.photo_bucket || !event.photo_path) {
       setError("No photo saved for this clock event.");
@@ -569,7 +551,7 @@ export default function ClockPage() {
       return;
     }
 
-    if (!selectedEmployee.pin_code) {
+    if (!selectedEmployee.pin_configured) {
       setError("This employee does not have a PIN set up yet. A manager must create one first.");
       setSaving(false);
       return;
@@ -581,93 +563,76 @@ export default function ClockPage() {
       return;
     }
 
-    if (pinCode.trim() !== selectedEmployee.pin_code) {
-      await supabase.from("attendance_pin_failures").insert({
-        company_id: selectedEmployee.company_id || companyId || null,
-        employee_id: selectedEmployee.id,
-        failure_reason: "incorrect_pin",
-        source: "kiosk",
-      });
-      setError("Incorrect PIN. Clocking was not saved.");
-      setSaving(false);
-      return;
-    }
-
     if (!storeId) {
       setError("Select the store/location first.");
       setSaving(false);
       return;
     }
 
+    // The same intended clocking keeps its attempt id across retries and double taps.
+    const attemptKey = `${selectedEmployee.id}:${nextAction}`;
+    if (!clockAttemptRef.current || clockAttemptRef.current.key !== attemptKey) {
+      clockAttemptRef.current = { key: attemptKey, id: newClockAttemptId() };
+    }
+    const attemptId = clockAttemptRef.current.id;
+
     try {
-      const { startIso, endIso } = todayRange();
-
-      let freshQuery = supabase
-        .from("clock_events")
-        .select("*")
-        .eq("employee_id", selectedEmployee.id)
-        .gte("event_time", startIso)
-        .lt("event_time", endIso);
-
-      const scopedCompanyId = selectedEmployee.company_id || companyId;
-      if (scopedCompanyId) {
-        freshQuery = freshQuery.eq("company_id", scopedCompanyId);
+      // Photo: taken automatically when a camera is available. If the camera fails, the
+      // clocking still goes to the server, which applies the company's photo policy.
+      let autoPhotoFile: File | null = photoFile;
+      if (!autoPhotoFile) {
+        try {
+          // A camera that never answers (permission prompt left open, device busy) must not
+          // freeze the kiosk: give it 8 seconds, then clock without a photo.
+          autoPhotoFile = await Promise.race([
+            capturePhotoAutomatically(),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
+          ]);
+        } catch {
+          autoPhotoFile = null;
+        }
       }
 
-      const { data: freshEvents, error: freshError } = await freshQuery.order("event_time", {
-        ascending: false,
+      const position = await readDevicePosition();
+      const photo = autoPhotoFile
+        ? await uploadClockPhoto(supabase, selectedEmployee.id, attemptId, nextAction, autoPhotoFile)
+        : null;
+
+      const result = await recordClockEvent(supabase, {
+        employeeId: selectedEmployee.id,
+        attemptId,
+        action: nextAction,
+        source: "kiosk",
+        pin: pinCode.trim(),
+        storeId,
+        position,
+        photo,
+        note: nextAction === "clock_in" ? "Staff clocked in at kiosk." : "Staff clocked out at kiosk.",
       });
 
-      if (freshError) {
-        throw new Error(freshError.message);
+      if (!result.ok) {
+        // A definitive refusal ends this attempt; a network failure keeps it for the retry.
+        if (result.code !== "network") clockAttemptRef.current = null;
+        // Refresh first: loading the state clears messages, and the refusal must stay visible.
+        await loadTodayEvents(selectedEmployee.id);
+        setError(result.message);
+        setSaving(false);
+        return;
       }
 
-      const freshTodayEvents = (freshEvents || []) as ClockEventRow[];
-      const freshLastEvent = freshTodayEvents[0] || null;
-      const freshCurrentlyClockedIn = freshLastEvent ? isClockIn(freshLastEvent.event_type) : false;
-      const eventType = nextAction;
-
-      if (eventType === "clock_in" && freshCurrentlyClockedIn) {
-        throw new Error("You are already clocked in. Clock out before clocking in again.");
+      clockAttemptRef.current = null;
+      if (position) {
+        setGpsMessage(
+          `GPS saved: ${position.latitude.toFixed(5)}, ${position.longitude.toFixed(5)} · accuracy ${Math.round(position.accuracy)}m`
+        );
+      } else {
+        setGpsMessage("No GPS position was available for this clocking.");
       }
-
-      if (eventType === "clock_out" && !freshCurrentlyClockedIn) {
-        throw new Error("You must clock in before you can clock out.");
-      }
-
-      const autoPhotoFile = photoFile || (await capturePhotoAutomatically());
-
-      const position = await getCurrentPosition();
-      const { latitude, longitude, accuracy } = position.coords;
-
-      const photoEvidence = await uploadPhoto(selectedEmployee.id, eventType, autoPhotoFile);
-
-      const payload: any = {
-        company_id: selectedEmployee.company_id || companyId || null,
-        employee_id: selectedEmployee.id,
-        store_id: storeId,
-        roster_shift_id: null,
-        event_type: eventType,
-        event_time: new Date().toISOString(),
-        source: "kiosk",
-        latitude,
-        longitude,
-        gps_accuracy: accuracy,
-        photo_bucket: photoEvidence.photo_bucket,
-        photo_path: photoEvidence.photo_path,
-        photo_url: photoEvidence.photo_url,
-        device_info: typeof window !== "undefined" ? window.navigator.userAgent : null,
-        clock_note: eventType === "clock_in" ? "Staff clocked in with photo and GPS." : "Staff clocked out with photo and GPS.",
-      };
-
-      const { error: insertError } = await supabase.from("clock_events").insert(payload);
-
-      if (insertError) {
-        throw new Error(insertError.message);
-      }
-
-      setGpsMessage(`GPS saved: ${latitude.toFixed(5)}, ${longitude.toFixed(5)} · accuracy ${Math.round(accuracy)}m`);
-      setMessage(`${employeeName(selectedEmployee)} ${eventType === "clock_in" ? "clocked in" : "clocked out"} successfully.`);
+      const warnings = result.warnings.length ? ` ${result.warnings.join(" ")}` : "";
+      setMessage(
+        `${employeeName(selectedEmployee)} ${describeClockAction(result.event.event_type)} at ${formatTime(result.event.event_time)}.${warnings}`
+      );
+      setPinCode("");
       clearPhoto();
 
       await loadTodayEvents(selectedEmployee.id);
@@ -729,7 +694,7 @@ export default function ClockPage() {
 
               <div className="mt-6 grid gap-4">
                 <label className="text-sm font-black text-slate-200">
-                  Staff Code / Employee Number / PIN / Phone
+                  Staff Code / Employee Number / Phone
                   <div className="mt-2 flex gap-2">
                     <input
                       value={staffCode}
@@ -1101,7 +1066,7 @@ export default function ClockPage() {
             </div>
           </section>
 
-          <ClockingAttendanceEnterprisePanel companyId={companyId} />
+          {!kioskMode && isManager && <ClockingAttendanceEnterprisePanel companyId={companyId} />}
         </div>
       </section>
     </main>

@@ -71,7 +71,18 @@ export async function registerUserSession(
   }
 ): Promise<{ token: string | null; error: string | null }> {
   const email = params.userEmail.trim().toLowerCase();
-  const token = readLocalSessionToken(email) || generateSessionToken();
+  // Re-use the browser's token while it is live; a revoked one (Force Logout) is never
+  // resurrected — this login gets a new token instead.
+  let token = readLocalSessionToken(email);
+  if (token) {
+    const { data: existing } = await supabase
+      .from("vyron_user_sessions")
+      .select("revoked_at")
+      .eq("session_token", token)
+      .maybeSingle();
+    if ((existing as { revoked_at?: string | null } | null)?.revoked_at) token = null;
+  }
+  token = token || generateSessionToken();
   writeLocalSessionToken(email, token);
 
   const now = new Date();
@@ -86,7 +97,6 @@ export async function registerUserSession(
       ip_address: params.ipAddress || null,
       last_seen_at: now.toISOString(),
       expires_at: expiresAt,
-      revoked_at: null,
     },
     { onConflict: "session_token" }
   );

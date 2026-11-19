@@ -21,7 +21,9 @@ import {
 import { forecastBalance } from "@/lib/leave-enterprise";
 import { normalizeLeaveBalanceRow } from "@/lib/leave-balance-adapter";
 import { supabase } from "@/lib/supabase";
+import { verifyEmployeePin as verifyEmployeePinOnServer } from "@/lib/kiosk-pin";
 import { UmoraLogo } from "@/components/brand/UmoraBrand";
+import { countLeaveWorkingDays } from "@/lib/leave-days";
 
 type EmployeeRow = {
   id: string;
@@ -30,7 +32,8 @@ type EmployeeRow = {
   first_name: string;
   last_name: string;
   active: boolean;
-  pin_code: string | null;
+  /** True when a PIN is set. The PIN itself is never readable by the browser. */
+  pin_configured: boolean | null;
   kiosk_access_enabled: boolean | null;
 };
 
@@ -141,15 +144,8 @@ function formatDateTime(value: string | null | undefined) {
 }
 
 function leaveDays(startDate: string, endDate: string) {
-  if (!startDate || !endDate) return 0;
-
-  const start = new Date(`${startDate}T12:00:00`);
-  const end = new Date(`${endDate}T12:00:00`);
-  const difference = end.getTime() - start.getTime();
-
-  if (difference < 0) return 0;
-
-  return Math.floor(difference / (1000 * 60 * 60 * 24)) + 1;
+  // Working days (Mon–Fri); the database count (requested_days) is authoritative.
+  return countLeaveWorkingDays(startDate, endDate);
 }
 
 function statusTone(status: string) {
@@ -332,7 +328,7 @@ export default function LeavePage() {
     const { data, error: employeesError } = await supabase
       .from("employees")
       .select(
-        "id,company_id,employee_number,first_name,last_name,active,pin_code,kiosk_access_enabled"
+        "id,company_id,employee_number,first_name,last_name,active,pin_configured,kiosk_access_enabled"
       )
       .eq("company_id", activeCompanyId)
       .eq("active", true)
@@ -388,12 +384,12 @@ export default function LeavePage() {
   }
 
   async function loadLeaveBalancesForEmployee(targetEmployee: EmployeeRow) {
-    let balanceQuery = supabase
+    const balanceQuery = supabase
       .from("leave_balances_live")
       .select("*")
       .eq("employee_id", targetEmployee.id)
       .order("leave_type", { ascending: true });
-    if (companyId) balanceQuery = balanceQuery.eq("company_id", companyId);
+    // leave_balances_live has no company_id column; access is scoped by RLS through the employee.
 
     const { data, error: balanceError } = await balanceQuery;
 
@@ -459,14 +455,16 @@ export default function LeavePage() {
       return;
     }
 
-    if (!selectedEmployee.pin_code) {
+    if (!selectedEmployee.pin_configured) {
       setError("This employee does not have a PIN set up yet. A manager must create one first.");
       setCheckingPin(false);
       return;
     }
 
-    if (pinCode.trim() !== selectedEmployee.pin_code) {
-      setError("Incorrect PIN code.");
+    // Checked on the server (hashed PIN, lockout after repeated failures).
+    const pinCheck = await verifyEmployeePinOnServer(supabase, selectedEmployee.id, pinCode.trim());
+    if (!pinCheck.ok) {
+      setError(pinCheck.message);
       setCheckingPin(false);
       return;
     }

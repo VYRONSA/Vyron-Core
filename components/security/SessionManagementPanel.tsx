@@ -2,16 +2,13 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { LogOut, RefreshCcw, Shield } from "lucide-react";
-import {
-  fetchActiveSessionsForCompany,
-  revokeUserSession,
-  type UserSessionRow,
-} from "@/lib/session-management";
-import { writeAuditLog } from "@/lib/audit-log";
+import { fetchActiveSessionsForCompany, type UserSessionRow } from "@/lib/session-management";
+import { authFetch } from "@/lib/authenticated-api-client";
 import { supabase } from "@/lib/supabase";
 
 type Props = {
   companyId: string;
+  /** Kept for callers; the Force Logout route records the acting user itself. */
   operatorEmail: string;
 };
 
@@ -30,7 +27,7 @@ function formatWhen(value: string | null | undefined): string {
   }
 }
 
-export default function SessionManagementPanel({ companyId, operatorEmail }: Props) {
+export default function SessionManagementPanel({ companyId }: Props) {
   const [sessions, setSessions] = useState<UserSessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyToken, setBusyToken] = useState<string | null>(null);
@@ -54,23 +51,25 @@ export default function SessionManagementPanel({ companyId, operatorEmail }: Pro
 
     setBusyToken(session.session_token);
     setMessage(null);
-    const result = await revokeUserSession(supabase, session.session_token);
-    if (result.error) {
-      setMessage(result.error);
+    // Server-side Force Logout: revokes the session AND signs the person out at the
+    // authentication server (app/api/company/sessions/revoke). The server writes the audit entry.
+    const response = await authFetch("/api/company/sessions/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionToken: session.session_token }),
+    });
+    const result = (await response.json().catch(() => ({}))) as {
+      ok?: boolean;
+      message?: string;
+      notices?: string[];
+    };
+    if (!response.ok || !result.ok) {
+      setMessage(result.message || "Force logout failed.");
       setBusyToken(null);
       return;
     }
 
-    await writeAuditLog(supabase, {
-      companyId,
-      userEmail: operatorEmail,
-      action: "force_logout",
-      entityType: "user_session",
-      entityId: session.id,
-      metadata: { targetEmail: session.user_email },
-    });
-
-    setMessage(`Session revoked for ${session.user_email}.`);
+    setMessage(`Session revoked for ${session.user_email}. ${(result.notices || []).join(" ")}`);
     setBusyToken(null);
     await load();
   }

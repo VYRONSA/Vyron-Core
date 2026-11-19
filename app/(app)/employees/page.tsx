@@ -39,7 +39,8 @@ type EmployeeRow = {
   email: string | null;
   phone: string | null;
   employment_type: string | null;
-  pin_code?: string | null;
+  /** True when a PIN is set. The PIN itself is never readable by the browser. */
+  pin_configured?: boolean | null;
   kiosk_access_enabled?: boolean | null;
 };
 
@@ -244,7 +245,8 @@ export default function EmployeesPage() {
     setEmploymentType(selectedEmployee.employment_type || "permanent");
     setPhone(selectedEmployee.phone || "");
     setEmail(selectedEmployee.email || "");
-    setPinCode(selectedEmployee.pin_code || "");
+    // PINs are write-only: leave blank to keep the current PIN.
+    setPinCode("");
     setKioskEnabled(selectedEmployee.kiosk_access_enabled !== false);
     setActiveStatus(selectedEmployee.active !== false);
     setMessage(null);
@@ -412,7 +414,7 @@ export default function EmployeesPage() {
       supabase
         .from("employees")
         .select(
-          "id,company_id,employee_number,first_name,last_name,job_title,default_store_id,active,email,phone,employment_type,pin_code,kiosk_access_enabled"
+          "id,company_id,employee_number,first_name,last_name,job_title,default_store_id,active,email,phone,employment_type,pin_configured,kiosk_access_enabled"
         )
         .eq("company_id", activeCompanyId)
         .order("first_name", { ascending: true }),
@@ -485,7 +487,8 @@ export default function EmployeesPage() {
         employment_type: employmentType || "permanent",
         phone: phone.trim() || null,
         email: email.trim() || null,
-        pin_code: pinCode.trim() || null,
+        // Only send a PIN when one was typed; blank keeps the existing PIN.
+        ...(pinCode.trim() ? { pin_code: pinCode.trim() } : {}),
         kiosk_access_enabled: kioskEnabled,
         active: activeStatus,
       })
@@ -721,7 +724,13 @@ export default function EmployeesPage() {
       .eq("company_id", companyId);
 
     if (deleteError) {
-      setError(deleteError.message);
+      // Attendance, roster and payroll history must be kept, so the database refuses to
+      // delete an employee who has any. Archive or terminate them instead.
+      setError(
+        /foreign key|violates|23503/i.test(deleteError.message)
+          ? "This employee has attendance, roster or payroll history, which must be kept. Archive or terminate the employee instead of deleting."
+          : deleteError.message
+      );
       setSaving(false);
       return;
     }
@@ -932,7 +941,7 @@ export default function EmployeesPage() {
                       <input
                         value={pinCode}
                         onChange={(event) => setPinCode(event.target.value.replace(/\D/g, "").slice(0, 4))}
-                        placeholder="4-digit PIN"
+                        placeholder={selectedEmployee?.pin_configured ? "PIN set — type a new 4-digit PIN to change it" : "4-digit PIN"}
                         className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-950 outline-none focus:border-blue-500"
                       />
                       <button onClick={generatePin} className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-bold text-white">Auto Generate PIN</button>

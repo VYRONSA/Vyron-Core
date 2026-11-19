@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { EMPLOYEE_READABLE_COLUMNS } from "@/lib/employee-columns";
 import { calculateWorkforceIntelligence } from "@/lib/intelligence-suite";
 import { evaluateDiscipline } from "@/lib/progressive-discipline-engine";
 import { shouldSuppressWorkspaceLoadError } from "@/lib/company-access";
@@ -276,7 +277,7 @@ async function loadDataset(supabase: SupabaseClient, companyId: string): Promise
     selectMaybe(
       supabase
         .from("employees")
-        .select("*")
+        .select(EMPLOYEE_READABLE_COLUMNS)
         .eq("company_id", companyId)
     ),
     selectMaybe(

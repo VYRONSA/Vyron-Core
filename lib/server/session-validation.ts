@@ -69,6 +69,77 @@ export function resolveSessionTimeoutMinutes(
   return { idleMinutes, absoluteMinutes };
 }
 
+/**
+ * When a request carries no tracked session row (no session cookie, or an unknown token),
+ * a Force Logout must still hold: deleting the session cookie must not resurrect a session
+ * that an administrator revoked. If any of this user's tracked sessions was revoked after
+ * their most recent sign-in, the untracked request is treated as revoked. Signing in again
+ * (a new password/OTP login updates last_sign_in_at) is the way back in.
+ */
+export function revokedRowForUntrackedRequest(
+  latestRevokedAt: string | null | undefined,
+  lastSignInAt: string | null | undefined
+): SessionRow | null {
+  if (!latestRevokedAt) return null;
+  const revokedMs = new Date(latestRevokedAt).getTime();
+  const signInMs = lastSignInAt ? new Date(lastSignInAt).getTime() : Number.NEGATIVE_INFINITY;
+  if (!Number.isFinite(revokedMs) || revokedMs <= signInMs) return null;
+  return {
+    session_token: "",
+    revoked_at: latestRevokedAt,
+    last_seen_at: null,
+    created_at: null,
+    company_id: null,
+  } as SessionRow;
+}
+
+/**
+ * A Force Logout revokes the logins that existed at that moment. If the person has signed in
+ * again since (last_sign_in_at after revoked_at), the revoked row belongs to the old login and
+ * must not lock out the new one: it is ignored, the untracked-request rule above still applies,
+ * and the dashboard bootstrap issues a fresh session token.
+ */
+export function sessionRowForCurrentLogin(
+  row: SessionRow | null,
+  lastSignInAt: string | null | undefined
+): SessionRow | null {
+  if (!row?.revoked_at || !lastSignInAt) return row;
+  const revokedMs = new Date(row.revoked_at).getTime();
+  const signInMs = new Date(lastSignInAt).getTime();
+  return Number.isFinite(revokedMs) && Number.isFinite(signInMs) && signInMs > revokedMs ? null : row;
+}
+
+type SessionQueryClient = {
+  from: (table: string) => {
+    select: (columns: string) => {
+      eq: (column: string, value: string) => {
+        not: (column: string, operator: string, value: null) => {
+          order: (column: string, options: { ascending: boolean }) => {
+            limit: (count: number) => PromiseLike<{ data: unknown }>;
+          };
+        };
+      };
+    };
+  };
+};
+
+/** Latest revocation time among this user's tracked sessions (RLS: own rows only). */
+export async function fetchLatestSessionRevocation(
+  supabase: unknown,
+  email: string | null | undefined
+): Promise<string | null> {
+  if (!email) return null;
+  const { data } = await (supabase as SessionQueryClient)
+    .from("vyron_user_sessions")
+    .select("revoked_at")
+    .eq("user_email", email.trim().toLowerCase())
+    .not("revoked_at", "is", null)
+    .order("revoked_at", { ascending: false })
+    .limit(1);
+  const rows = (data as Array<{ revoked_at: string | null }> | null) || [];
+  return rows[0]?.revoked_at || null;
+}
+
 export function evaluateSessionValidity(
   session: SessionRow | null,
   company: CompanyTimeoutConfig | null | undefined,

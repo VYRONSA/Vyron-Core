@@ -3,6 +3,7 @@ import {
   validateMaintenanceOverride,
   logMaintenanceOverrideAttempt,
   MAINTENANCE_BYPASS_COOKIE,
+  createMaintenanceBypassToken,
 } from "@/lib/platform/maintenance-mode";
 
 export const runtime = "nodejs";
@@ -26,8 +27,14 @@ export async function POST(request: NextRequest) {
 
   url.pathname = next.startsWith("/") ? next : "/dashboard";
   url.search = "";
+  const token = await createMaintenanceBypassToken(BYPASS_TTL_SECONDS);
+  if (!token) {
+    url.pathname = "/maintenance";
+    url.search = `?next=${encodeURIComponent(next)}&invalid=1`;
+    return NextResponse.redirect(url);
+  }
   const response = NextResponse.redirect(url);
-  response.cookies.set(MAINTENANCE_BYPASS_COOKIE, "1", {
+  response.cookies.set(MAINTENANCE_BYPASS_COOKIE, token, {
     httpOnly: true,
     secure: true,
     sameSite: "lax",

@@ -142,6 +142,7 @@ export type CopilotEmployee = {
   first_name: string;
   last_name: string;
   default_store_id: string | null;
+  hourly_rate?: number | null;
 };
 
 export type CopilotStore = {
@@ -253,7 +254,7 @@ export async function fetchCopilotContext(
     await Promise.all([
       supabase
         .from("employees")
-        .select("id, first_name, last_name, default_store_id")
+        .select("id, first_name, last_name, default_store_id, hourly_rate")
         .eq("company_id", companyId)
         .eq("active", true),
       supabase.from("stores").select("id, name").eq("company_id", companyId),

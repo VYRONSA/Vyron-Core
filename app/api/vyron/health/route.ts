@@ -9,10 +9,8 @@ const UPSTREAM_TIMEOUT_MS = 4000;
 /**
  * Phase 1D Task 2 — production health check. Reports env-config validity plus a live,
  * unauthenticated reachability probe of Supabase's REST (database) and Storage APIs, so
- * "the URL looks right" and "the service actually responds" are distinguished. OpenAI and
- * WhatsApp are config-presence checks only (no live/billed calls on a route that may be
- * polled frequently by uptime monitors). Response never includes key values — only
- * booleans/host/status — so it is safe to expose without auth.
+ * "the URL looks right" and "the service actually responds" are distinguished. It does not
+ * disclose which server-side secrets are configured, and never includes key values.
  */
 
 type Reachability = { reachable: boolean; status: number | null; error: string | null };
@@ -60,10 +58,6 @@ export async function GET() {
     ]);
   }
 
-  const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY?.trim());
-  const hasWhatsappPhoneNumberId = Boolean(process.env.WHATSAPP_PHONE_NUMBER_ID);
-  const hasWhatsappAccessToken = Boolean(process.env.WHATSAPP_ACCESS_TOKEN);
-
   const ok = supabaseProblems.length === 0 && database.reachable && storage.reachable;
 
   return NextResponse.json({
@@ -78,11 +72,13 @@ export async function GET() {
       supabaseConfigOk: supabaseProblems.length === 0,
       supabaseProblems,
       hasAnonKey: Boolean(anonKey),
-      hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY),
-      hasOpenAiKey,
-      hasWhatsappPhoneNumberId,
-      hasWhatsappAccessToken,
-      whatsappConfigured: hasWhatsappPhoneNumberId && hasWhatsappAccessToken,
+      // Which server-side secrets are configured is deliberately not disclosed on this
+      // public route (it only aids reconnaissance). Check them in the Vercel dashboard.
+    },
+    // Build identity, so the live version can be matched to source control.
+    version: {
+      commit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_BUILD_COMMIT || null,
+      deploymentId: process.env.VERCEL_DEPLOYMENT_ID || null,
     },
   });
 }

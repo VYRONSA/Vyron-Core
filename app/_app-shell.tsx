@@ -4,7 +4,7 @@
 // VYRON CORE FINAL PREMIUM POLISH BUILD
 // Full app preserved. Payroll stability, duplicate-safe calculations, exception safety, dashboard polish, and safer UI states.
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import NextImage from "next/image";
 import {
@@ -111,6 +111,15 @@ import {
 import { formatSupabaseAuthErrorMessage, readPublicSupabaseEnv } from "../lib/public-env";
 import { authFetch } from "../lib/authenticated-api-client";
 import { supabase } from "../lib/supabase";
+import {
+  describeClockAction,
+  fetchClockState,
+  newClockAttemptId,
+  readDevicePosition,
+  recordClockEvent,
+  uploadClockPhoto as uploadClockPhotoToStorage,
+  type ClockState,
+} from "@/lib/clocking-client";
 import {
   attachCompanyUsersToDirectoryRows,
   COMPANY_USERS_DIRECTORY_EMBED,
@@ -272,7 +281,7 @@ import MobileAppShell, {
   type MobileShellActionSection,
   type MobileShellNavItem,
 } from "@/components/mobile/MobileAppShell";
-import { buildSimpleAutoPlan, dateRange } from "@/lib/roster-enterprise";
+import { buildSimpleAutoPlan, dateRange, moveShiftToDay, sastShiftTimestamps } from "@/lib/roster-enterprise";
 import { useVyronDevPlatform } from "../components/vyron-dev/useVyronDevPlatform";
 import {
   ensureClientProfile,
@@ -290,6 +299,7 @@ import { requestCreateClientLoginUser } from "@/lib/create-client-login-user-cli
 import { canAccessRouteForRole, normalizeRbacRole } from "@/lib/server/auth-routing";
 import { TAB_META, TAB_ORDER } from "@/components/road-recovery/RoadRecoveryShell";
 import { useHasModule } from "@/lib/tenant/use-module-access";
+import { countLeaveWorkingDays } from "@/lib/leave-days";
 
 type ClientRecommendationRow = {
   id: string;
@@ -983,7 +993,8 @@ type EmployeeRow = {
   email: string | null;
   phone: string | null;
   employment_type: string | null;
-  pin_code?: string | null;
+  /** True when a PIN is set. The PIN itself is never readable by the browser. */
+  pin_configured?: boolean | null;
   kiosk_access_enabled?: boolean | null;
 };
 
@@ -2969,13 +2980,52 @@ function CreateShiftModal({
       return;
     }
 
+    // SAST times; an end at or before the start is an overnight shift ending the next day.
+    const times = sastShiftTimestamps(shiftDate, startTime, endTime);
+
+    // No double-booking: refuse a shift that overlaps another live shift of this employee.
+    const { data: overlapping, error: overlapError } = await supabase
+      .from("roster_shifts")
+      .select("id,shift_date,planned_start,planned_end")
+      .eq("company_id", companyId)
+      .eq("employee_id", employeeId)
+      .neq("status", "cancelled")
+      .lt("planned_start", times.planned_end)
+      .gt("planned_end", times.planned_start)
+      .limit(1);
+    if (overlapError) {
+      setError(overlapError.message);
+      setSaving(false);
+      return;
+    }
+    if (overlapping && overlapping.length > 0) {
+      setError(`This employee already has an overlapping shift on ${overlapping[0].shift_date}.`);
+      setSaving(false);
+      return;
+    }
+
+    // Not while on approved leave.
+    const { data: leaveClash } = await supabase
+      .from("leave_requests")
+      .select("id,start_date,end_date")
+      .eq("company_id", companyId)
+      .eq("employee_id", employeeId)
+      .eq("status", "approved")
+      .lte("start_date", shiftDate)
+      .gte("end_date", shiftDate)
+      .limit(1);
+    if (leaveClash && leaveClash.length > 0) {
+      setError(`This employee is on approved leave from ${leaveClash[0].start_date} to ${leaveClash[0].end_date}.`);
+      setSaving(false);
+      return;
+    }
+
     const { error: insertError } = await supabase.from("roster_shifts").insert({
       company_id: companyId,
       employee_id: employeeId,
       store_id: storeId,
       shift_date: shiftDate,
-      planned_start: toShiftDateTime(shiftDate, startTime),
-      planned_end: toShiftDateTime(shiftDate, endTime),
+      ...times,
       role: role.trim() || null,
       status: "scheduled"
 });
@@ -3101,17 +3151,28 @@ function ManualClockEventModal({
       return;
     }
 
-    const { error: insertError } = await supabase.from("clock_events").insert({
-      company_id: companyId,
-      employee_id: employeeId,
-      store_id: storeId || null,
-      roster_shift_id: rosterShiftId || null,
-      event_type: eventType,
-      event_time: toShiftDateTime(eventDate, eventTime),
-      source: "kiosk",
-      latitude: latitude.trim() ? Number(latitude) : null,
-      longitude: longitude.trim() ? Number(longitude) : null
-});
+    const reason = window.prompt(
+      "Reason for this manual clock entry (required — it is recorded in the attendance audit trail):"
+    );
+    if (!reason || !reason.trim()) {
+      setError("A reason is required for a manual clock entry.");
+      setSaving(false);
+      return;
+    }
+
+    // Manual entries go through the audited manager function (never a direct insert).
+    const { data: manualResult, error: insertError } = await supabase.rpc("vyron_manager_record_clock_event", {
+      p_employee_id: employeeId,
+      p_event_type: eventType,
+      p_event_time: toShiftDateTime(eventDate, eventTime),
+      p_reason: reason.trim(),
+      p_store_id: storeId || null,
+      p_roster_shift_id: rosterShiftId || null,
+      p_client_event_id: null,
+    });
+    void manualResult;
+    void latitude;
+    void longitude;
 
     if (insertError) {
       setError(insertError.message);
@@ -3371,7 +3432,7 @@ function HrResponseModal({
       case_type: caseType,
       title: title.trim(),
       description: description.trim(),
-      validity_status: "waiting_for_employee",
+      validity_status: "review_required", // allowed by hr_cases_validity_status_check
       status: "open",
       employee_response_required: employeeResponseRequired,
       employee_response: null
@@ -3667,13 +3728,8 @@ function LeaveApprovalsScreen({
   const amendedCount = leaveRequests.filter((request) => request.status === "amended").length;
 
   function leaveDays(startDate: string, endDate: string) {
-    try {
-      const start = new Date(`${startDate}T12:00:00`);
-      const end = new Date(`${endDate}T12:00:00`);
-      return Math.max(1, Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-    } catch {
-      return 1;
-    }
+    // Working days (Mon–Fri); the database count (requested_days) is authoritative.
+    return countLeaveWorkingDays(startDate, endDate);
   }
 
   function employeeContact(employeeCode: string | null) {
@@ -4125,7 +4181,8 @@ function EmployeesScreen({
     setEditEmploymentType(selectedEmployee.employment_type || "permanent");
     setEditPhone(selectedEmployee.phone || "");
     setEditEmail(selectedEmployee.email || "");
-    setEditPinCode(selectedEmployee.pin_code || "");
+    // PINs are write-only: blank keeps the current PIN.
+    setEditPinCode("");
     setEditKioskEnabled(selectedEmployee.kiosk_access_enabled !== false);
     setEditActive(selectedEmployee.active !== false);
     setEmployeeSaveMessage(null);
@@ -4174,7 +4231,8 @@ function EmployeesScreen({
       employment_type: editEmploymentType || "permanent",
       phone: editPhone.trim() || null,
       email: editEmail.trim() || null,
-      pin_code: editPinCode.trim() || null,
+      // Only send a PIN when one was typed; blank keeps the existing PIN.
+      ...(editPinCode.trim() ? { pin_code: editPinCode.trim() } : {}),
       kiosk_access_enabled: editKioskEnabled,
       active: editActive
 };
@@ -4184,7 +4242,7 @@ function EmployeesScreen({
       .update(updatePayload)
       .eq("id", selectedEmployee.id)
       .eq("company_id", companyId)
-      .select("id,employee_number,first_name,last_name,job_title,default_store_id,active,email,phone,employment_type,pin_code,kiosk_access_enabled")
+      .select("id,employee_number,first_name,last_name,job_title,default_store_id,active,email,phone,employment_type,pin_configured,kiosk_access_enabled")
       .maybeSingle();
 
     if (updateError) {
@@ -4227,7 +4285,7 @@ function EmployeesScreen({
       })
       .eq("id", employee.id)
       .eq("company_id", companyId)
-      .select("id,employee_number,first_name,last_name,job_title,default_store_id,active,email,phone,employment_type,pin_code,kiosk_access_enabled")
+      .select("id,employee_number,first_name,last_name,job_title,default_store_id,active,email,phone,employment_type,pin_configured,kiosk_access_enabled")
       .maybeSingle();
 
     if (updateError) {
@@ -4894,7 +4952,7 @@ function ExceptionsPanel({
       case_type: "disciplinary",
       title: `Case: ${formatText(exceptionItem.exception_type)}`,
       description: exceptionItem.description,
-      validity_status: "waiting_for_employee",
+      validity_status: "review_required", // allowed by hr_cases_validity_status_check
       status: "open",
       employee_response_required: true
 });
@@ -5171,7 +5229,7 @@ function HRCasesScreen({
 
 function PayrollPrepScreen({
   payrollBatches,
-  payrollHours,
+  payrollHours: allPayrollHours,
   rosterShifts,
   clockEvents,
   exceptions,
@@ -5193,6 +5251,23 @@ function PayrollPrepScreen({
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [updatingHourId, setUpdatingHourId] = useState<string | null>(null);
+
+  // Current pay period: the calendar month in South African time, built as plain dates
+  // (new Date(y, m, 1).toISOString() shifted the period by a day in UTC+2 browsers).
+  const periodStart = useMemo(() => {
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" });
+    return `${today.slice(0, 7)}-01`;
+  }, []);
+  const periodEnd = useMemo(() => {
+    const [year, month] = periodStart.split("-").map(Number);
+    const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    return `${periodStart.slice(0, 7)}-${String(lastDay).padStart(2, "0")}`;
+  }, [periodStart]);
+  // Only this period's rows (all periods used to be summed together).
+  const payrollHours = useMemo(
+    () => allPayrollHours.filter((row) => row.period_start === periodStart && row.period_end === periodEnd),
+    [allPayrollHours, periodStart, periodEnd]
+  );
 
   const blockedExceptions = exceptions.filter((item) => item.status !== "closed" && item.status !== "approved").length;
   const hrBlocks = hrCases.filter(
@@ -5216,139 +5291,75 @@ function PayrollPrepScreen({
   const approvedUnexportedHours = payrollHours.filter((item) => item.status === "approved" && !item.exported_at);
   const canExportPayroll = isReady && approvedUnexportedHours.length > 0 && reviewHoursCount === 0;
 
-  const periodStart = useMemo(() => {
-    const date = new Date();
-    return new Date(date.getFullYear(), date.getMonth(), 1).toISOString().slice(0, 10);
-  }, []);
-
-  const periodEnd = useMemo(() => {
-    const date = new Date();
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().slice(0, 10);
-  }, []);
-
   function getEmployeeDisplayName(id: string) {
     const employee = employees.find((item) => item.id === id);
     return employee ? `${employee.first_name} ${employee.last_name}` : "Unknown employee";
   }
 
-  function minutesBetween(start: string, end: string) {
-    const startMs = new Date(start).getTime();
-    const endMs = new Date(end).getTime();
-    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) return 0;
-    return Math.round((endMs - startMs) / 60000);
-  }
-
-  function findShiftClockEvents(shift: RosterShiftRow) {
-    const shiftDate = shift.shift_date;
-    const shiftEvents = clockEvents
-      .filter((event) => event.employee_id === shift.employee_id && event.event_time.slice(0, 10) === shiftDate)
-      .sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime());
-
-    const firstClockIn = shiftEvents.find((event) => event.event_type === "clock_in") || null;
-    const lastClockOut =
-      [...shiftEvents].reverse().find((event) => event.event_type === "clock_out") || null;
-
-    return { shiftEvents, firstClockIn, lastClockOut };
-  }
-
-  function buildAutoExceptionKey(exceptionType: string, employeeId: string, shiftId: string, companyId: string) {
-    return `${companyId}:${employeeId}:${shiftId}:${exceptionType}`;
+  // All payroll actions run in the database (sql/103): calculated per period from every
+  // clocking, audited, never auto-approved, and locked once exported.
+  async function setPayrollStatus(ids: string[], status: "approved" | "needs_review", note: string | null, onlyClean = false) {
+    const { data, error } = await supabase.rpc("vyron_set_payroll_hours_status", {
+      p_company_id: companyId,
+      p_ids: ids,
+      p_status: status,
+      p_note: note,
+      p_only_clean: onlyClean,
+    });
+    if (error) return error.message;
+    const skipped = ((data as { skipped?: { reason: string }[] } | null)?.skipped || []).map((item) => item.reason);
+    return skipped.length ? `${skipped.length} row(s) not changed: ${[...new Set(skipped)].join("; ")}.` : null;
   }
 
   async function updatePayrollHourStatus(id: string, status: "approved" | "needs_review") {
+    const row = payrollHours.find((item) => item.id === id);
+    let note: string | null = status === "approved" ? "Approved after manager review" : "Sent back for payroll review";
+    if (status === "approved" && row?.status === "needs_review") {
+      note = window.prompt("This row was flagged for review. Note what you checked before approving:") || "";
+      if (!note.trim()) {
+        setGenerateError("A review note is required to approve a flagged row.");
+        return;
+      }
+    }
     setUpdatingHourId(id);
     setGenerateError(null);
-
-    const updates =
-      status === "approved"
-        ? {
-            status,
-            approved_at: new Date().toISOString(),
-            approval_note: "Approved after manager review"
-}
-        : {
-            status,
-            approved_at: null,
-            approval_note: "Sent back for payroll review"
-};
-
-    const { error } = await supabase
-      .from("payroll_hours")
-      .update(updates)
-      .eq("id", id)
-      .eq("company_id", companyId);
-
-    if (error) {
-      setGenerateError(error.message);
-      setUpdatingHourId(null);
-      return;
-    }
-
+    const problem = await setPayrollStatus([id], status, note);
+    if (problem) setGenerateError(problem);
     setUpdatingHourId(null);
     onRefresh();
   }
 
   async function approveAllCleanHours() {
+    const ids = payrollHours.filter((row) => row.status === "draft").map((row) => row.id);
+    if (ids.length === 0) {
+      setGenerateError("No calculated rows without issues are waiting for approval.");
+      return;
+    }
     setUpdatingHourId("all");
     setGenerateError(null);
-
-    const cleanIds = payrollHours
-      .filter(
-        (row) =>
-          Number(row.late_minutes || 0) === 0 &&
-          Number(row.missing_clock_events || 0) === 0 &&
-          Number(row.overtime_hours || 0) === 0 &&
-          row.status !== "approved"
-      )
-      .map((row) => row.id);
-
-    if (cleanIds.length === 0) {
-      setGenerateError("No clean payroll hour rows available to approve.");
-      setUpdatingHourId(null);
-      return;
-    }
-
-    const { error } = await supabase
-      .from("payroll_hours")
-      .update({
-        status: "approved",
-        approved_at: new Date().toISOString(),
-        approval_note: "Bulk-approved clean payroll rows"
-})
-      .in("id", cleanIds)
-      .eq("company_id", companyId);
-
-    if (error) {
-      setGenerateError(error.message);
-      setUpdatingHourId(null);
-      return;
-    }
-
+    const problem = await setPayrollStatus(ids, "approved", "Bulk-approved rows without issues", true);
+    if (problem) setGenerateError(problem);
     setUpdatingHourId(null);
     onRefresh();
   }
 
   async function approveAllHoursAfterReview() {
-    setUpdatingHourId("all");
-    setGenerateError(null);
-
-    const { error } = await supabase
-      .from("payroll_hours")
-      .update({
-        status: "approved",
-        approved_at: new Date().toISOString(),
-        approval_note: "Approved after final payroll review"
-})
-      .eq("company_id", companyId)
-      .eq("period_start", periodStart)
-      .eq("period_end", periodEnd);
-
-    if (error) {
-      setGenerateError(error.message);
-      setUpdatingHourId(null);
+    const ids = payrollHours.filter((row) => row.status !== "approved" && row.status !== "exported").map((row) => row.id);
+    if (ids.length === 0) {
+      setGenerateError("Nothing left to approve in this period.");
       return;
     }
-
+    const note = window.prompt(
+      "Approving every remaining row, including flagged ones. Describe the review you performed (recorded in the payroll audit):"
+    );
+    if (!note || !note.trim()) {
+      setGenerateError("A review note is required to approve flagged rows.");
+      return;
+    }
+    setUpdatingHourId("all");
+    setGenerateError(null);
+    const problem = await setPayrollStatus(ids, "approved", note.trim());
+    if (problem) setGenerateError(problem);
     setUpdatingHourId(null);
     onRefresh();
   }
@@ -5359,20 +5370,59 @@ function PayrollPrepScreen({
       return;
     }
 
-    const exportRows = approvedUnexportedHours;
-    const header = ["Employee", "Period Start", "Period End", "Normal Hours", "Overtime Hours", "Late Minutes", "Missing Clock Events", "Status"];
-    const lines = exportRows.map((row) => [
-      getEmployeeDisplayName(row.employee_id),
-      row.period_start,
-      row.period_end,
-      Number(row.normal_hours || 0).toFixed(2),
-      Number(row.overtime_hours || 0).toFixed(2),
-      String(row.late_minutes || 0),
-      String(row.missing_clock_events || 0),
-      row.status,
-    ]);
+    const { data, error } = await supabase.rpc("vyron_export_payroll_period", {
+      p_company_id: companyId,
+      p_period_start: periodStart,
+      p_period_end: periodEnd,
+      p_payroll_system: "csv",
+    });
+    if (error) {
+      alert("Payroll export refused: " + error.message);
+      return;
+    }
 
-    const csv = [header, ...lines]
+    const result = data as { export_batch_id: string; rows: Record<string, unknown>[] };
+    const header = [
+      "Employee Number",
+      "Employee",
+      "Period Start",
+      "Period End",
+      "Ordinary Hours",
+      "Overtime Hours",
+      "Sunday Hours",
+      "Public Holiday Hours",
+      "Night Hours",
+      "Break Hours",
+      "Late Minutes",
+      "Early Departure Minutes",
+      "Absent Days",
+      "Leave Days",
+      "Shifts Worked",
+      "Approved By",
+      "Approval Note",
+      "Export Batch",
+    ];
+    const keys = [
+      "employee_number",
+      "employee_name",
+      "period_start",
+      "period_end",
+      "ordinary_hours",
+      "overtime_hours",
+      "sunday_hours",
+      "public_holiday_hours",
+      "night_hours",
+      "break_hours",
+      "late_minutes",
+      "early_departure_minutes",
+      "absent_days",
+      "leave_days",
+      "shifts_worked",
+      "approved_by",
+      "approval_note",
+      "export_batch_id",
+    ];
+    const csv = [header, ...result.rows.map((row) => keys.map((key) => row[key] ?? ""))]
       .map((line) => line.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))
       .join("\n");
 
@@ -5380,46 +5430,13 @@ function PayrollPrepScreen({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `vyron-payroll-${periodStart}-to-${periodEnd}.csv`;
+    link.download = `umora-payroll-${periodStart}-to-${periodEnd}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    const exportBatchId = crypto.randomUUID();
-
-    const { error: logError } = await supabase.from("payroll_export_logs").insert({
-      id: exportBatchId,
-      company_id: companyId,
-      export_name: `Payroll CSV ${periodStart} to ${periodEnd}`,
-      export_status: "exported",
-      employee_count: exportRows.length,
-      shift_count: rosterShifts.length,
-      exception_blocks: blockedExceptions,
-      hr_blocks: hrBlocks
-});
-
-    if (logError) {
-      alert("Payroll CSV downloaded, but export log failed: " + logError.message);
-      return;
-    }
-
-    const { error: markExportedError } = await supabase
-      .from("payroll_hours")
-      .update({
-        status: "exported",
-        exported_at: new Date().toISOString(),
-        export_batch_id: exportBatchId
-})
-      .in("id", exportRows.map((row) => row.id))
-      .eq("company_id", companyId);
-
-    if (markExportedError) {
-      alert("Payroll CSV downloaded, but locking exported hours failed: " + markExportedError.message);
-      return;
-    }
-
-    alert(`${exportRows.length} approved payroll hour row(s) exported and locked.`);
+    alert(`${result.rows.length} approved payroll row(s) exported. The period is now locked.`);
     onRefresh();
   }
 
@@ -5427,240 +5444,24 @@ function PayrollPrepScreen({
     setGenerating(true);
     setGenerateError(null);
 
-    const { data: existingAutoExceptionRows, error: existingAutoError } = await supabase
-      .from("time_exceptions")
-      .select("exception_key,employee_id,roster_shift_id,exception_type")
-      .eq("company_id", companyId)
-      .eq("source", "auto");
+    const { data, error } = await supabase.rpc("vyron_generate_payroll_hours", {
+      p_company_id: companyId,
+      p_period_start: periodStart,
+      p_period_end: periodEnd,
+    });
 
-    if (existingAutoError) {
-      setGenerateError(existingAutoError.message);
+    if (error) {
+      setGenerateError(error.message);
       setGenerating(false);
       return;
     }
 
-    const existingAutoKeys = new Set(
-      (existingAutoExceptionRows || [])
-        .map((item: any) =>
-          item.exception_key ||
-          (item.employee_id && item.roster_shift_id && item.exception_type
-            ? buildAutoExceptionKey(item.exception_type, item.employee_id, item.roster_shift_id, companyId)
-            : null)
-        )
-        .filter((key: string | null): key is string => Boolean(key))
-    );
-
-    const autoExceptions: Array<{
-      company_id: string;
-      employee_id: string;
-      store_id: string | null;
-      roster_shift_id: string | null;
-      exception_type: string;
-      severity: string;
-      description: string;
-      status: string;
-      source: string;
-      exception_key: string;
-    }> = [];
-
-    const autoExceptionShiftKeys = new Set<string>();
-
-    function addAutoException({
-      shift,
-      exceptionType,
-      severity,
-      description
-}: {
-      shift: RosterShiftRow;
-      exceptionType: string;
-      severity: string;
-      description: string;
-    }) {
-      const shiftKey = buildAutoExceptionKey(exceptionType, shift.employee_id, shift.id, companyId);
-
-      if (autoExceptionShiftKeys.has(shiftKey)) return;
-      if (existingAutoKeys.has(shiftKey)) return;
-
-      autoExceptionShiftKeys.add(shiftKey);
-
-      autoExceptions.push({
-        company_id: companyId,
-        employee_id: shift.employee_id,
-        store_id: shift.store_id || null,
-        roster_shift_id: shift.id,
-        exception_type: exceptionType,
-        severity,
-        description,
-        status: "open",
-        source: "auto",
-        exception_key: shiftKey
-});
+    const summary = data as { awaiting_approval: number; needs_review: number; already_exported: number };
+    if (summary.already_exported > 0) {
+      setGenerateError(`${summary.already_exported} row(s) were already exported and were not recalculated.`);
     }
-
-    const rows = employees
-      .filter((employee) => employee.active)
-      .map((employee) => {
-        const employeeEvents = clockEvents
-          .filter((event) => employee.id === event.employee_id)
-          .sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime());
-
-        let workedMinutes = 0;
-        let missingClockEvents = 0;
-        let lateMinutes = 0;
-
-        const eventsByDate = employeeEvents.reduce<Record<string, ClockEventRow[]>>((acc, event) => {
-          const key = event.event_time.slice(0, 10);
-          if (!acc[key]) acc[key] = [];
-          acc[key].push(event);
-          return acc;
-        }, {});
-
-        Object.values(eventsByDate).forEach((events) => {
-          let openClockIn: ClockEventRow | null = null;
-
-          events.forEach((event) => {
-            if (event.event_type === "clock_in") {
-              openClockIn = event;
-            }
-
-            if (event.event_type === "clock_out" && openClockIn) {
-              workedMinutes += minutesBetween(openClockIn.event_time, event.event_time);
-              openClockIn = null;
-            }
-          });
-
-          if (openClockIn) missingClockEvents += 1;
-        });
-
-        const employeeShifts = rosterShifts.filter((shift) => shift.employee_id === employee.id);
-
-        employeeShifts.forEach((shift) => {
-          const { firstClockIn, lastClockOut } = findShiftClockEvents(shift);
-          const plannedMinutes = minutesBetween(shift.planned_start, shift.planned_end);
-          const workedForShiftMinutes = firstClockIn && lastClockOut ? minutesBetween(firstClockIn.event_time, lastClockOut.event_time) : 0;
-
-          if (!firstClockIn) {
-            missingClockEvents += 1;
-            addAutoException({
-              shift,
-              exceptionType: "missing_clock_in",
-              severity: "high",
-              description: `${getEmployeeDisplayName(employee.id)} has no clock-in for planned shift on ${formatDate(shift.shift_date)}.`
-});
-          }
-
-          if (!lastClockOut) {
-            missingClockEvents += 1;
-            addAutoException({
-              shift,
-              exceptionType: "missing_clock_out",
-              severity: "high",
-              description: `${getEmployeeDisplayName(employee.id)} has no clock-out for planned shift on ${formatDate(shift.shift_date)}.`
-});
-          }
-
-          if (firstClockIn) {
-            const shiftLateMinutes = Math.max(0, minutesBetween(shift.planned_start, firstClockIn.event_time));
-            lateMinutes += shiftLateMinutes;
-
-            if (shiftLateMinutes > 5) {
-              addAutoException({
-                shift,
-                exceptionType: "late_arrival",
-                severity: shiftLateMinutes > 15 ? "medium" : "low",
-                description: `${getEmployeeDisplayName(employee.id)} clocked in ${shiftLateMinutes} minutes late on ${formatDate(shift.shift_date)}.`
-});
-            }
-          }
-
-          if (lastClockOut) {
-            const earlyLeaveMinutes = Math.max(0, minutesBetween(lastClockOut.event_time, shift.planned_end));
-
-            if (earlyLeaveMinutes > 5) {
-              addAutoException({
-                shift,
-                exceptionType: "early_leave",
-                severity: earlyLeaveMinutes > 15 ? "medium" : "low",
-                description: `${getEmployeeDisplayName(employee.id)} clocked out ${earlyLeaveMinutes} minutes before planned end on ${formatDate(shift.shift_date)}.`
-});
-            }
-          }
-
-          if (plannedMinutes > 0 && workedForShiftMinutes > plannedMinutes + 30) {
-            const overtimeRiskMinutes = workedForShiftMinutes - plannedMinutes;
-
-            addAutoException({
-              shift,
-              exceptionType: "overtime_risk",
-              severity: overtimeRiskMinutes > 60 ? "high" : "medium",
-              description: `${getEmployeeDisplayName(employee.id)} worked ${overtimeRiskMinutes} minutes over planned shift on ${formatDate(shift.shift_date)}.`
-});
-          }
-        });
-
-        const workedHours = Number((workedMinutes / 60).toFixed(2));
-        const normalCap = employeeShifts.length > 0 ? employeeShifts.length * 8 : workedHours;
-        const normalHours = Math.min(workedHours, normalCap);
-        const overtimeHours = Math.max(0, workedHours - normalHours);
-
-        const hasProblem = missingClockEvents > 0 || lateMinutes > 0 || overtimeHours > 0;
-
-        return {
-          company_id: companyId,
-          employee_id: employee.id,
-          period_start: periodStart,
-          period_end: periodEnd,
-          normal_hours: Number(normalHours.toFixed(2)),
-          overtime_hours: Number(overtimeHours.toFixed(2)),
-          late_minutes: lateMinutes,
-          missing_clock_events: missingClockEvents,
-          status: hasProblem ? "needs_review" : "approved",
-          approved_at: hasProblem ? null : new Date().toISOString(),
-          approval_note: hasProblem
-            ? "Generated with payroll risk and requires manager review"
-            : "Auto-approved clean hours: no late minutes, missing clock events, or overtime risk",
-          exported_at: null,
-          export_batch_id: null
-};
-      });
-
-    if (rows.length > 0) {
-      const { error: upsertError } = await supabase.from("payroll_hours").upsert(rows, {
-        onConflict: "company_id,employee_id,period_start,period_end"
-});
-
-      if (upsertError) {
-        setGenerateError(upsertError.message);
-        setGenerating(false);
-        return;
-      }
-    }
-    if (autoExceptions.length > 0) {
-      const { error: exceptionInsertError } = await supabase
-        .from("time_exceptions")
-        .upsert(autoExceptions, {
-          onConflict: "exception_key",
-          ignoreDuplicates: true
-});
-
-      if (exceptionInsertError) {
-        setGenerateError(exceptionInsertError.message);
-        setGenerating(false);
-        return;
-      }
-    }
-
     setGenerating(false);
     onRefresh();
-
-    const autoApprovedCount = rows.filter((row) => row.status === "approved").length;
-    const needsReviewCount = rows.filter((row) => row.status === "needs_review").length;
-
-    if (autoExceptions.length > 0) {
-      alert(`${autoExceptions.length} auto exception(s) created. ${autoApprovedCount} clean hour row(s) auto-approved and ${needsReviewCount} row(s) need review.`);
-    } else {
-      alert(`Hours generated. ${autoApprovedCount} clean hour row(s) auto-approved. ${needsReviewCount} row(s) need review.`);
-    }
   }
 
   return (
@@ -9072,10 +8873,28 @@ function StaffClockingScreen({
   const [gpsMessage, setGpsMessage] = useState<string | null>(null);
   const [lastMessage, setLastMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pinCode, setPinCode] = useState("");
+  // Server-side clock state (an overnight shift stays open after midnight).
+  const [clockState, setClockState] = useState<ClockState | null>(null);
+  // One attempt id per intended clocking, kept across retries so a retry never duplicates.
+  const clockAttemptRef = useRef<{ key: string; id: string } | null>(null);
 
   useEffect(() => {
     setLocalClockEvents(clockEvents);
   }, [clockEvents]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!employeeId) return;
+    fetchClockState(supabase, employeeId).then(({ state, error: stateError }) => {
+      if (cancelled) return;
+      setClockState(state);
+      if (stateError) setError(stateError);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId]);
 
   const selectedEmployee = employees.find((employee) => employee.id === employeeId) || null;
   const selectedStore = stores.find((store) => store.id === storeId) || null;
@@ -9089,9 +8908,8 @@ function StaffClockingScreen({
     .sort((a, b) => new Date(b.event_time).getTime() - new Date(a.event_time).getTime());
 
   const selectedEmployeeTodayEvents = todayEvents.filter((event) => event.employee_id === employeeId);
-  const lastEvent = selectedEmployeeTodayEvents[0] || null;
-  const currentlyClockedIn = lastEvent ? isClockIn(lastEvent.event_type) : false;
-  const nextAction: "clock_in" | "clock_out" = currentlyClockedIn ? "clock_out" : "clock_in";
+  const currentlyClockedIn = clockState ? clockState.open_shift : false;
+  const nextAction: "clock_in" | "clock_out" = clockState?.next_action === "clock_out" ? "clock_out" : "clock_in";
 
   const firstClockInToday = [...selectedEmployeeTodayEvents]
     .reverse()
@@ -9123,6 +8941,10 @@ function StaffClockingScreen({
   });
 
   function selectEmployee(nextEmployeeId: string) {
+    // A new employee starts a new clocking: fresh PIN, state and attempt id.
+    clockAttemptRef.current = null;
+    setPinCode("");
+    setClockState(null);
     setEmployeeId(nextEmployeeId);
     const employee = employees.find((item) => item.id === nextEmployeeId) || null;
     if (employee?.default_store_id) setStoreId(employee.default_store_id);
@@ -9136,20 +8958,20 @@ function StaffClockingScreen({
     const code = staffCode.trim().toLowerCase();
 
     if (!code) {
-      setError("Type your staff code, employee number or PIN first.");
+      setError("Type your staff code, employee number or phone number first.");
       return;
     }
 
     const matchedEmployee = activeEmployees.find((employee) => {
-      const pin = String(employee.pin_code || "").trim().toLowerCase();
       const employeeNumber = String(employee.employee_number || "").trim().toLowerCase();
       const phone = String(employee.phone || "").trim().toLowerCase();
 
-      return code === pin || code === employeeNumber || code === phone;
+      // The PIN is a secret, not an identifier.
+      return code === employeeNumber || code === phone;
     });
 
     if (!matchedEmployee) {
-      setError("No employee found for that code/PIN.");
+      setError("No employee found for that employee number or phone number.");
       return;
     }
 
@@ -9171,30 +8993,6 @@ function StaffClockingScreen({
         maximumAge: 0,
       });
     });
-  }
-
-  async function uploadClockPhoto(employeeIdForUpload: string, eventType: string) {
-    if (!photoFile) return { photo_bucket: null, photo_path: null, photo_url: null };
-
-    const extension = photoFile.name.includes(".") ? photoFile.name.split(".").pop() : "jpg";
-    const filePath = `${employeeIdForUpload}/${todayKey}/${Date.now()}-${eventType}.${extension}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("clock-event-photos")
-      .upload(filePath, photoFile, {
-        contentType: photoFile.type || "image/jpeg",
-        upsert: false,
-      });
-
-    if (uploadError) {
-      throw new Error(uploadError.message);
-    }
-
-    return {
-      photo_bucket: "clock-event-photos",
-      photo_path: filePath,
-      photo_url: filePath,
-    };
   }
 
   async function openClockPhoto(event: ClockEventRow) {
@@ -9235,72 +9033,62 @@ function StaffClockingScreen({
       return;
     }
 
-    if (!photoFile) {
-      setError("A live photo is required before clocking.");
+    if (!pinCode.trim()) {
+      setError("Enter your PIN before clocking.");
       setSaving(false);
       return;
     }
 
-    const latestEventNow = localClockEvents
-      .filter((event) => event.employee_id === selectedEmployee.id && String(event.event_time || "").slice(0, 10) === todayKey)
-      .sort((a, b) => new Date(b.event_time).getTime() - new Date(a.event_time).getTime())[0] || null;
-
-    const latestIsClockedIn = latestEventNow ? isClockIn(latestEventNow.event_type) : false;
-    const lockedNextAction: "clock_in" | "clock_out" = latestIsClockedIn ? "clock_out" : "clock_in";
-
-    if (lockedNextAction !== nextAction) {
-      setError("Clocking status changed. Please refresh and try again.");
-      setSaving(false);
-      return;
+    const attemptKey = `${selectedEmployee.id}:${nextAction}`;
+    if (!clockAttemptRef.current || clockAttemptRef.current.key !== attemptKey) {
+      clockAttemptRef.current = { key: attemptKey, id: newClockAttemptId() };
     }
+    const attemptId = clockAttemptRef.current.id;
 
     try {
-      const position = await getCurrentPosition();
-      const { latitude, longitude, accuracy } = position.coords;
+      const position = await readDevicePosition();
+      if (position) {
+        setGpsMessage(
+          `GPS captured: ${position.latitude.toFixed(5)}, ${position.longitude.toFixed(5)} · accuracy ${Math.round(position.accuracy)}m`
+        );
+      }
+      const photo = photoFile
+        ? await uploadClockPhotoToStorage(supabase, selectedEmployee.id, attemptId, nextAction, photoFile)
+        : null;
 
-      setGpsMessage(`GPS captured: ${latitude.toFixed(5)}, ${longitude.toFixed(5)} · accuracy ${Math.round(accuracy)}m`);
-
-      const photoEvidence = await uploadClockPhoto(selectedEmployee.id, lockedNextAction);
-
-      const payload: any = {
-        company_id: companyId,
-        employee_id: selectedEmployee.id,
-        store_id: storeId,
-        roster_shift_id: rosterShiftId || null,
-        event_type: lockedNextAction,
-        event_time: new Date().toISOString(),
+      const result = await recordClockEvent(supabase, {
+        employeeId: selectedEmployee.id,
+        attemptId,
+        action: nextAction,
         source: "kiosk",
-        latitude,
-        longitude,
-        gps_accuracy: accuracy,
-        photo_bucket: photoEvidence.photo_bucket,
-        photo_path: photoEvidence.photo_path,
-        photo_url: photoEvidence.photo_url,
-        device_info: typeof window !== "undefined" ? window.navigator.userAgent : null,
-        clock_note: lockedNextAction === "clock_in" ? "Staff clocked in with photo and GPS." : "Staff clocked out with photo and GPS.",
-      };
+        pin: pinCode.trim(),
+        storeId,
+        position,
+        photo,
+        note: nextAction === "clock_in" ? "Staff clocked in." : "Staff clocked out.",
+      });
 
-      const { data, error: insertError } = await supabase
-        .from("clock_events")
-        .insert(payload)
-        .select("*")
-        .single();
-
-      if (insertError) {
-        setError(insertError.message);
+      if (!result.ok) {
+        if (result.code !== "network") clockAttemptRef.current = null;
+        setError(result.message);
+        const refreshed = await fetchClockState(supabase, selectedEmployee.id);
+        setClockState(refreshed.state);
         setSaving(false);
         return;
       }
 
-      if (data) {
-        setLocalClockEvents((current) => [data as ClockEventRow, ...current]);
-      }
-
-      setPhotoFile(null);
-      setLastMessage(
-        `${getEmployeeDisplayName(selectedEmployee)} ${lockedNextAction === "clock_in" ? "clocked in" : "clocked out"} successfully.`
+      clockAttemptRef.current = null;
+      setLocalClockEvents((current) =>
+        current.some((event) => event.id === result.event.id)
+          ? current
+          : [result.event as unknown as ClockEventRow, ...current]
       );
-
+      setPhotoFile(null);
+      setPinCode("");
+      const warnings = result.warnings.length ? ` ${result.warnings.join(" ")}` : "";
+      setLastMessage(`${getEmployeeDisplayName(selectedEmployee)} ${describeClockAction(result.event.event_type)}.${warnings}`);
+      const refreshed = await fetchClockState(supabase, selectedEmployee.id);
+      setClockState(refreshed.state);
       await onRefresh();
     } catch (clockError: any) {
       setError(clockError?.message || "Clocking failed.");
@@ -9434,7 +9222,20 @@ function StaffClockingScreen({
               </div>
 
               <label className="text-sm font-black text-slate-700">
-                Live Photo Required
+                Employee PIN
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={pinCode}
+                  onChange={(event) => setPinCode(event.target.value.replace(/\D/g, "").slice(0, 8))}
+                  placeholder="Enter PIN before clocking"
+                  className="mt-2 w-full rounded-2xl border border-white/80 bg-white px-4 py-4 font-bold shadow-sm outline-none focus:border-cyan-400"
+                />
+              </label>
+
+              <label className="text-sm font-black text-slate-700">
+                Live Photo
                 <input
                   type="file"
                   accept="image/*"
@@ -9470,7 +9271,7 @@ function StaffClockingScreen({
 
               <button
                 onClick={saveClockEvent}
-                disabled={saving || !selectedEmployee}
+                disabled={saving || !selectedEmployee || !pinCode.trim()}
                 className={`rounded-2xl px-5 py-5 text-sm font-black shadow-lg disabled:bg-slate-300 disabled:text-slate-500 ${
                   nextAction === "clock_in"
                     ? "bg-emerald-600 text-white"
@@ -11326,17 +11127,11 @@ function RosterManagementPanel({
     const shift = rosterShifts.find((item) => item.id === shiftId);
     if (!shift) return;
 
-    const startTime = shift.planned_start.slice(11, 19);
-    const endTime = shift.planned_end.slice(11, 19);
-
     setBusy("move");
     const { error } = await supabase
       .from("roster_shifts")
-      .update({
-        shift_date: nextDate,
-        planned_start: `${nextDate}T${startTime}`,
-        planned_end: `${nextDate}T${endTime}`,
-      })
+      // Same local times on the new day (the old code re-used UTC clock times without an offset).
+      .update(moveShiftToDay(shift, nextDate))
       .eq("id", shiftId)
       .eq("company_id", companyId);
 
@@ -11404,8 +11199,7 @@ function RosterManagementPanel({
       employee_id: payload.employeeId,
       store_id: payload.storeId,
       shift_date: day,
-      planned_start: `${day}T${template.start_time}`,
-      planned_end: `${day}T${template.end_time}`,
+      ...sastShiftTimestamps(day, template.start_time, template.end_time),
       role: template.shift_type,
       status: "scheduled",
       shift_template_id: template.id,
@@ -15981,7 +15775,7 @@ function HrCasesWithWhatsAppActions({
             status,
             employee_response_required: true,
             manager_feedback: cleanFeedback,
-            validity_status: "waiting_for_employee",
+            validity_status: "review_required", // allowed by hr_cases_validity_status_check
           })
           .eq("id", hrCase.id);
 
@@ -17902,7 +17696,7 @@ export default function Page() {
           .order("name"),
         supabase
           .from("employees")
-          .select("id,employee_number,first_name,last_name,job_title,default_store_id,active,email,phone,employment_type,pin_code,kiosk_access_enabled,record_status")
+          .select("id,employee_number,first_name,last_name,job_title,default_store_id,active,email,phone,employment_type,pin_configured,kiosk_access_enabled,record_status")
           .eq("company_id", activeCompanyId)
           .order("first_name"),
         supabase.from("time_exceptions").select("id,exception_type,severity,description,status,employee_id,store_id,roster_shift_id,source,exception_key").eq("company_id", activeCompanyId).order("created_at", { ascending: false }),

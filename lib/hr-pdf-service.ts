@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { EMPLOYEE_READABLE_COLUMNS } from "@/lib/employee-columns";
 import {
   getDocumentHistory,
   listEmployeeDocuments,
@@ -95,7 +96,7 @@ async function loadCompanyAndEmployee(
 ): Promise<{ company: CompanyRow; employee: EmployeeRow }> {
   const [companyRes, employeeRes] = await Promise.all([
     supabase.from("companies").select("*").eq("id", companyId).maybeSingle(),
-    supabase.from("employees").select("*").eq("id", employeeId).eq("company_id", companyId).maybeSingle(),
+    supabase.from("employees").select(EMPLOYEE_READABLE_COLUMNS).eq("id", employeeId).eq("company_id", companyId).maybeSingle(),
   ]);
 
   if (companyRes.error || !companyRes.data) {

@@ -1,6 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeRbacRole, type VyronRbacRole } from "@/lib/server/auth-routing";
-import { evaluateSessionValidity, type SessionRow } from "@/lib/server/session-validation";
+import {
+  evaluateSessionValidity,
+  fetchLatestSessionRevocation,
+  revokedRowForUntrackedRequest,
+  sessionRowForCurrentLogin,
+  type SessionRow,
+} from "@/lib/server/session-validation";
 import { isPlatformOperatorRole } from "@/lib/server/platform-operator";
 
 /** Shape of the verified user from supabase.auth.getUser(). */
@@ -162,16 +168,23 @@ async function fetchMembershipViaRpc(supabase: SupabaseClient): Promise<RpcAcces
 
 async function fetchSessionByToken(
   supabase: SupabaseClient,
-  sessionToken: string
+  sessionToken: string,
+  user: { email?: string | null; last_sign_in_at?: string | null }
 ): Promise<SessionRow | null> {
-  if (!sessionToken) return null;
-  const { data } = await supabase
-    .from("vyron_user_sessions")
-    .select("session_token,revoked_at,last_seen_at,created_at,company_id")
-    .eq("session_token", sessionToken)
-    .limit(1)
-    .maybeSingle();
-  return (data as SessionRow | null) || null;
+  if (sessionToken) {
+    const { data } = await supabase
+      .from("vyron_user_sessions")
+      .select("session_token,revoked_at,last_seen_at,created_at,company_id")
+      .eq("session_token", sessionToken)
+      .limit(1)
+      .maybeSingle();
+    const current = sessionRowForCurrentLogin((data as SessionRow | null) || null, user.last_sign_in_at);
+    if (current) return current;
+  }
+  // No tracked row: a revocation since the last sign-in still applies (cookie deletion
+  // must not undo a Force Logout).
+  const latestRevokedAt = await fetchLatestSessionRevocation(supabase, user.email);
+  return revokedRowForUntrackedRequest(latestRevokedAt, user.last_sign_in_at);
 }
 
 /**
@@ -206,7 +219,7 @@ export async function resolveServerAuthorizationContext(
     if (membership?.company_id) {
       const [company, session] = await Promise.all([
         fetchCompanyById(supabase, membership.company_id),
-        fetchSessionByToken(supabase, sessionToken),
+        fetchSessionByToken(supabase, sessionToken, user),
       ]);
 
       const role = platformOperator ? "platform_operator" : normalizeRbacRole(membership.role || "employee");
@@ -235,7 +248,7 @@ export async function resolveServerAuthorizationContext(
 
     if (!rpc?.company_id) {
       if (!platformOperator) return denied;
-      const session = await fetchSessionByToken(supabase, sessionToken);
+      const session = await fetchSessionByToken(supabase, sessionToken, user);
       return {
         authenticated: true,
         userId,
@@ -251,7 +264,7 @@ export async function resolveServerAuthorizationContext(
 
     const [company, session] = await Promise.all([
       fetchCompanyById(supabase, rpc.company_id),
-      fetchSessionByToken(supabase, sessionToken),
+      fetchSessionByToken(supabase, sessionToken, user),
     ]);
     const role = platformOperator ? "platform_operator" : normalizeRbacRole(rpc.user_role || "employee");
     const membershipActive = normalizeStatus(rpc.user_status || "active") === "active";

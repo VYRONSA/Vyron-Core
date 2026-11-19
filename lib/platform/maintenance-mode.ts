@@ -10,6 +10,60 @@ function stripEnvQuotes(value: string): string {
  * checked by middleware.ts to skip the maintenance redirect. */
 export const MAINTENANCE_BYPASS_COOKIE = "vyron_maintenance_bypass";
 
+/*
+ * The bypass cookie is a signed, expiring token ("<expiresAtMs>.<hmac>"), not a constant:
+ * a fixed value could be set by anyone in their own browser. The HMAC key is derived from
+ * the server-side Supabase secret, so no extra environment variable is required and the
+ * value cannot be forged without server secrets. Web Crypto works in middleware and routes.
+ */
+const BYPASS_SIGNING_LABEL = "umora-maintenance-bypass-v1";
+
+function bypassSigningSecret(): string {
+  return stripEnvQuotes(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || "");
+}
+
+function toHex(buffer: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buffer))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function signBypassPayload(payload: string): Promise<string | null> {
+  const secret = bypassSigningSecret();
+  if (!secret) return null;
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(`${BYPASS_SIGNING_LABEL}:${secret}`),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  return toHex(await crypto.subtle.sign("HMAC", key, encoder.encode(payload)));
+}
+
+/** Cookie value for a valid emergency override, or null when signing is unavailable. */
+export async function createMaintenanceBypassToken(ttlSeconds: number): Promise<string | null> {
+  const expiresAt = String(Date.now() + ttlSeconds * 1000);
+  const signature = await signBypassPayload(expiresAt);
+  return signature ? `${expiresAt}.${signature}` : null;
+}
+
+/** True only for an unexpired token signed by this server. */
+export async function verifyMaintenanceBypassToken(value: string | null | undefined): Promise<boolean> {
+  if (!value) return false;
+  const [expiresAt, signature] = value.split(".");
+  if (!expiresAt || !signature || !/^\d+$/.test(expiresAt)) return false;
+  if (Number(expiresAt) < Date.now()) return false;
+  const expected = await signBypassPayload(expiresAt);
+  if (!expected || expected.length !== signature.length) return false;
+  let diff = 0;
+  for (let index = 0; index < expected.length; index += 1) {
+    diff |= expected.charCodeAt(index) ^ signature.charCodeAt(index);
+  }
+  return diff === 0;
+}
+
 export type MaintenanceModeStatus = {
   enabled: boolean;
   message: string;

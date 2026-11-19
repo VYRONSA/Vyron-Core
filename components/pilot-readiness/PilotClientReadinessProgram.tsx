@@ -25,7 +25,7 @@ import {
 type StoreRow = { id: string; name: string };
 type EmployeeRow = {
   id: string;
-  pin_code?: string | null;
+  pin_configured?: boolean | null;
   kiosk_access_enabled?: boolean | null;
 };
 type RosterShiftRow = { id: string };

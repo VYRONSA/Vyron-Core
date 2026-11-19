@@ -2,7 +2,13 @@ import type { NextRequest } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { getAvailableCompanies } from "@/lib/company-access";
-import { evaluateSessionValidity, type SessionRow } from "@/lib/server/session-validation";
+import {
+  evaluateSessionValidity,
+  fetchLatestSessionRevocation,
+  revokedRowForUntrackedRequest,
+  sessionRowForCurrentLogin,
+  type SessionRow,
+} from "@/lib/server/session-validation";
 import { isPlatformOperatorRole } from "@/lib/server/platform-operator";
 import { VYRON_SESSION_TOKEN_COOKIE } from "@/lib/server/auth-routing";
 
@@ -166,7 +172,12 @@ export async function authenticateApiRequest(
       .select("session_token,revoked_at,last_seen_at,created_at,company_id")
       .eq("session_token", sessionToken)
       .maybeSingle();
-    sessionRow = (sessionData as SessionRow | null) || null;
+    sessionRow = sessionRowForCurrentLogin((sessionData as SessionRow | null) || null, data.user.last_sign_in_at);
+  }
+  if (!sessionRow) {
+    // Cookie deletion must not undo a Force Logout: see revokedRowForUntrackedRequest.
+    const latestRevokedAt = await fetchLatestSessionRevocation(supabase, data.user.email);
+    sessionRow = revokedRowForUntrackedRequest(latestRevokedAt, data.user.last_sign_in_at);
   }
 
   let companyTimeoutConfig: { session_idle_timeout_minutes: number | null; session_absolute_timeout_minutes: number | null } | null = null;

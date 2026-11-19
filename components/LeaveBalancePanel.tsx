@@ -213,10 +213,17 @@ export default function LeaveBalancePanel({
 
     const { error: updateError } = await supabase
       .from("leave_balances")
+      // Real leave_balances columns (the old names opening_balance/accrued/taken do not exist).
       .update({
-        opening_balance: numberValue(balance.opening_balance_days),
-        accrued: numberValue(balance.days_accrued_live || balance.cycle_leave_entitlement_days),
-        taken: numberValue(balance.days_taken),
+        opening_balance_days: numberValue(balance.opening_balance_days),
+        cycle_leave_entitlement_days: numberValue(balance.cycle_leave_entitlement_days),
+        days_taken: numberValue(balance.days_taken),
+        pending_days: numberValue(balance.pending_days),
+        adjustment_days: numberValue(balance.adjustment_days),
+        carry_forward_days: numberValue(balance.carry_forward_days),
+        accrual_frequency: balance.accrual_frequency || null,
+        status: balance.status || "active",
+        notes: balance.notes || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", balance.id);

@@ -10,7 +10,11 @@ import {
 } from "@/lib/server/auth-routing";
 import { resolveServerAuthorizationContext } from "@/lib/server/authorization";
 import { hasModuleEntitlement } from "@/lib/server/module-entitlement";
-import { getMaintenanceMode, MAINTENANCE_BYPASS_COOKIE } from "@/lib/platform/maintenance-mode";
+import {
+  getMaintenanceMode,
+  MAINTENANCE_BYPASS_COOKIE,
+  verifyMaintenanceBypassToken,
+} from "@/lib/platform/maintenance-mode";
 import { createMiddlewareSupabase, withSessionCookies } from "@/lib/supabase-middleware";
 
 function redirectToLogin(request: NextRequest, session: NextResponse): NextResponse {
@@ -101,7 +105,9 @@ export async function middleware(request: NextRequest) {
 
     if (authz.role !== "platform_operator") {
       const maintenance = await getMaintenanceMode();
-      const bypassCookie = request.cookies.get(MAINTENANCE_BYPASS_COOKIE)?.value === "1";
+      const bypassCookie =
+        maintenance.enabled &&
+        (await verifyMaintenanceBypassToken(request.cookies.get(MAINTENANCE_BYPASS_COOKIE)?.value));
       if (maintenance.enabled && !bypassCookie) {
         const url = request.nextUrl.clone();
         url.pathname = "/maintenance";

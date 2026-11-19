@@ -121,10 +121,10 @@ function bandFromCount(count: number, warnAt: number, critAt: number): "green" |
 function isOnboardingIncomplete(emp: {
   id: string;
   default_store_id: string | null;
-  pin_code?: string | null;
+  pin_configured?: boolean | null;
   kiosk_access_enabled?: boolean | null;
 }): boolean {
-  return !emp.default_store_id || !emp.pin_code || emp.kiosk_access_enabled === false;
+  return !emp.default_store_id || !emp.pin_configured || emp.kiosk_access_enabled === false;
 }
 
 function isPromoteCandidate(jobTitle: string | null | undefined): boolean {
@@ -143,7 +143,7 @@ type LifecycleContext = {
     job_title: string | null;
     default_store_id: string | null;
     active: boolean;
-    pin_code?: string | null;
+    pin_configured?: boolean | null;
     kiosk_access_enabled?: boolean | null;
     created_at?: string | null;
   }[];
@@ -531,7 +531,7 @@ async function fetchLifecycleContext(
       supabase
         .from("employees")
         .select(
-          "id, first_name, last_name, job_title, default_store_id, active, pin_code, kiosk_access_enabled, created_at"
+          "id, first_name, last_name, job_title, default_store_id, active, pin_configured, kiosk_access_enabled, created_at"
         )
         .eq("company_id", companyId),
       supabase

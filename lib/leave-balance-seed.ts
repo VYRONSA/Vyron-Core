@@ -29,13 +29,19 @@ export async function seedEmployeeLeaveBalances(
 
     if (existing?.id) continue;
 
+    // Real leave_balances columns; the table has no company_id (scoped through the employee).
+    const cycleStart = `${new Date().getFullYear()}-01-01`;
+    const cycleEnd = `${new Date().getFullYear()}-12-31`;
     const { error } = await supabase.from("leave_balances").insert({
-      company_id: opts.companyId,
       employee_id: opts.employeeId,
+      employee_name: opts.employeeName,
       leave_type: leaveType,
-      opening_balance: 0,
-      accrued: seed.accrued,
-      taken: 0,
+      cycle_start: cycleStart,
+      cycle_end: cycleEnd,
+      opening_balance_days: 0,
+      cycle_leave_entitlement_days: seed.accrued,
+      days_taken: 0,
+      status: "active",
     });
 
     if (error) {

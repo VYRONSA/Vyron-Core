@@ -26,8 +26,14 @@ import type {
  * Pure aggregations over raw-ish DB-shaped records (employees, clock_events, roster_shifts).
  */
 
-const BASE_RATE_ZAR_PER_HOUR = 85;
-const MISSING_CLOCK_OUT_PENALTY_ZAR = 340;
+/**
+ * Rand estimates use the company's real employee rates (average of employees.hourly_rate),
+ * set at the start of each calculateWorkforceIntelligence run. With no rates on file the
+ * estimates are zero rather than invented; issues are still counted. A missing clock-out is
+ * counted as an issue, not priced at a fixed amount.
+ */
+let BASE_RATE_ZAR_PER_HOUR = 0;
+const MISSING_CLOCK_OUT_PENALTY_ZAR = 0;
 const BUDDY_WINDOW_MS = 180_000;
 const GPS_ROUND_DECIMALS = 4;
 /** Manager approval cues for overtime vouching (clock_note / exception text). */
@@ -64,6 +70,7 @@ interface EmployeeLite {
   last_name?: string;
   job_title?: string | null;
   default_store_id?: string | null;
+  hourly_rate?: number | null;
   department?: string | null;
   store_name?: string | null;
 }
@@ -219,7 +226,6 @@ function unvouchedOvertimeHours(
   return grossOt;
 }
 
-const MINUTE_RATE = BASE_RATE_ZAR_PER_HOUR / 60;
 
 function leakageEngine(
   companyId: string,
@@ -288,7 +294,7 @@ function leakageEngine(
       if (Number.isFinite(tin) && Number.isFinite(tout)) {
         const workedH = Math.max(0, (tout - tin) / 3_600_000);
         const lateMin = ps ? minutesLate(new Date(tin), ps) : 0;
-        const lateZ = lateMin * MINUTE_RATE;
+        const lateZ = lateMin * (BASE_RATE_ZAR_PER_HOUR / 60);
 
         const otH = unvouchedOvertimeHours(workedH, rosterMinutes, lastOut.clock_note ?? firstInTime.clock_note);
         const otZ = otH * BASE_RATE_ZAR_PER_HOUR;
@@ -830,7 +836,7 @@ function computePhase1Intelligence(input: {
       repeatedLateArrivals += 1;
       const row = ensureEmpRisk(eid);
       row.score += Math.min(12, Math.floor(late / 5));
-      row.leakage += late * MINUTE_RATE;
+      row.leakage += late * (BASE_RATE_ZAR_PER_HOUR / 60);
       row.triggers.add("late_arrival");
       row.lateArrivals += 1;
     }
@@ -1485,6 +1491,8 @@ export function calculateWorkforceIntelligence(
   const p = safeArray<PayrollCheckLite>(payrollChecks);
   const t = safeArray<TrainingLite>(trainings);
   const safeCompanyId = str(companyId) || "_";
+  const rates = e.map((employee) => Number(employee.hourly_rate ?? 0)).filter((rate) => rate > 0);
+  BASE_RATE_ZAR_PER_HOUR = rates.length ? rates.reduce((sum, rate) => sum + rate, 0) / rates.length : 0;
 
   const leakage = leakageEngine(safeCompanyId, e, c, r);
   const buddyClocking = buddyClockingGuard(c);

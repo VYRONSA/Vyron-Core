@@ -43,11 +43,16 @@ const ROLE_ALIASES: Record<string, VyronTenantRole> = {
   admin: "admin",
   manager: "manager",
   supervisor: "supervisor",
+  hr_manager: "manager",
+  operations_manager: "manager",
+  payroll: "manager",
   employee: "employee",
   user: "employee",
   limited_user: "employee",
   limited: "employee",
   staff: "employee",
+  // Shared clocking device: employee-level routes only (the database limits it further).
+  kiosk: "employee",
 };
 
 /** Routes reserved for company owners (billing, workspace governance). */
@@ -71,8 +76,8 @@ export const TENANT_EMPLOYEE_NAV = new Set([
   "Stores & Rosters",
   "Rosters",
   "Leave Management",
-  "Employees",
-  "Staff",
+  // "Employees" and "Staff" are the company directory and its management screens — not
+  // employee self-service (the database only returns an employee's own record anyway).
   "Field Mobile",
   "Mobile Workforce Hub",
   "Training Centre",

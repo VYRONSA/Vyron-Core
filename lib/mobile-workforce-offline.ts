@@ -5,9 +5,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordFieldJobEvent, type FieldEventType } from "@/lib/field-operations";
 import { flushOfflineEvidence, type MobileEvidenceType } from "@/lib/mobile-workforce-platform";
+import { newClockAttemptId, recordClockEvent } from "@/lib/clocking-client";
 
 export const MOBILE_OFFLINE_QUEUE_KEY = "vyron_mobile_offline_queue";
 export const MOBILE_LAST_SYNC_KEY = "vyron_mobile_last_sync";
+/** Items the server refused for good (e.g. out of order, too old). Kept for a manager —
+ * never silently discarded. */
+export const MOBILE_OFFLINE_REJECTED_KEY = "vyron_mobile_offline_rejected";
+
+export type RejectedOfflineItem = OfflineQueueItem & { rejectedAt: string; reason: string };
 
 export type OfflineActionType =
   | "clock_in"
@@ -54,6 +60,26 @@ function writeQueue(items: OfflineQueueItem[]): void {
   window.localStorage.setItem(MOBILE_OFFLINE_QUEUE_KEY, JSON.stringify(items));
 }
 
+export function readRejectedOfflineItems(): RejectedOfflineItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(MOBILE_OFFLINE_REJECTED_KEY) || "[]");
+    return Array.isArray(parsed) ? (parsed as RejectedOfflineItem[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function appendRejected(items: RejectedOfflineItem[]): void {
+  if (typeof window === "undefined" || !items.length) return;
+  window.localStorage.setItem(
+    MOBILE_OFFLINE_REJECTED_KEY,
+    JSON.stringify([...readRejectedOfflineItems(), ...items])
+  );
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function readLastSyncTime(): string | null {
   if (typeof window === "undefined") return null;
   return window.localStorage.getItem(MOBILE_LAST_SYNC_KEY);
@@ -79,7 +105,9 @@ export function enqueueOfflineAction(
   const queue = readQueue();
   const entry: OfflineQueueItem = {
     ...item,
-    id: `off_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+    // A UUID: for clockings it is also the server-side attempt id, so a retried sync can
+    // never record the same clocking twice.
+    id: newClockAttemptId(),
     createdAt: new Date().toISOString(),
     attempts: 0,
   };
@@ -101,15 +129,20 @@ export async function flushOfflineQueue(
   }
 
   const remaining: OfflineQueueItem[] = [];
+  const rejected: RejectedOfflineItem[] = [];
   let synced = 0;
   let failed = 0;
   const errors: string[] = [];
 
   for (const item of queue) {
     try {
-      const ok = await processOfflineItem(supabase, item);
-      if (ok) {
+      const outcome = await processOfflineItem(supabase, item);
+      if (outcome === true) {
         synced += 1;
+      } else if (outcome && typeof outcome === "object") {
+        failed += 1;
+        errors.push(outcome.rejected);
+        rejected.push({ ...item, rejectedAt: new Date().toISOString(), reason: outcome.rejected });
       } else {
         failed += 1;
         remaining.push({ ...item, attempts: item.attempts + 1 });
@@ -121,7 +154,16 @@ export async function flushOfflineQueue(
     }
   }
 
-  writeQueue(remaining.filter((item) => item.attempts < 5));
+  appendRejected(rejected);
+  // Clockings are never dropped: they stay queued until they sync or are rejected by the
+  // server (then kept in the rejected list). Other item types keep the old 5-attempt limit.
+  const exhausted = remaining.filter(
+    (item) => item.type !== "clock_in" && item.type !== "clock_out" && item.attempts >= 5
+  );
+  appendRejected(
+    exhausted.map((item) => ({ ...item, rejectedAt: new Date().toISOString(), reason: "Gave up after 5 attempts" }))
+  );
+  writeQueue(remaining.filter((item) => !exhausted.includes(item)));
   if (synced > 0) {
     writeLastSyncTime(new Date().toISOString());
   }
@@ -129,10 +171,11 @@ export async function flushOfflineQueue(
   return { synced, failed, errors };
 }
 
+/** true = synced; false = retry later; { rejected } = refused for good. */
 async function processOfflineItem(
   supabase: SupabaseClient,
   item: OfflineQueueItem
-): Promise<boolean> {
+): Promise<boolean | { rejected: string }> {
   const payload = item.payload;
 
   if (item.type === "field_event") {
@@ -169,20 +212,28 @@ async function processOfflineItem(
   }
 
   if (item.type === "clock_in" || item.type === "clock_out") {
-    const { error } = await supabase.from("clock_events").insert({
-      company_id: item.companyId,
-      employee_id: item.employeeId,
-      store_id: payload.storeId || null,
-      event_type: item.type === "clock_in" ? "clock_in" : "clock_out",
-      event_time: payload.eventTime || new Date().toISOString(),
-      source: "mobile_offline",
-      latitude: payload.latitude ?? null,
-      longitude: payload.longitude ?? null,
-      gps_accuracy: payload.gpsAccuracy ?? null,
-      photo_url: payload.photoUrl ?? null,
-      clock_note: payload.notes ?? null,
+    // Items queued before attempt ids existed get one once, persisted with the item.
+    const attemptId = UUID_PATTERN.test(item.id)
+      ? item.id
+      : String(payload.clientEventId || (payload.clientEventId = newClockAttemptId()));
+    const latitude = payload.latitude as number | null | undefined;
+    const longitude = payload.longitude as number | null | undefined;
+    const result = await recordClockEvent(supabase, {
+      employeeId: item.employeeId,
+      attemptId,
+      action: item.type,
+      source: "offline",
+      storeId: (payload.storeId as string) || null,
+      position:
+        typeof latitude === "number" && typeof longitude === "number"
+          ? { latitude, longitude, accuracy: Number(payload.gpsAccuracy ?? 0) }
+          : null,
+      clientTime: (payload.eventTime as string) || item.createdAt,
+      note: (payload.notes as string) || null,
     });
-    return !error;
+    if (result.ok) return true;
+    if (result.code === "network") return false;
+    return { rejected: result.message };
   }
 
   if (item.type === "incident_report") {

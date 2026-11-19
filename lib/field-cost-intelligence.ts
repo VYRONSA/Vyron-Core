@@ -745,26 +745,16 @@ export async function fetchFieldCostRates(
   return { rates, tablesAvailable: true };
 }
 
+/**
+ * Kept for callers, but no longer writes anything: the built-in default rate is used in memory
+ * when a company has none configured (see fetchFieldCostRates), and a hardcoded rate must never
+ * become a stored business record. Companies set their own rate explicitly.
+ */
 export async function ensureDefaultFieldCostRate(
-  supabase: SupabaseClient,
-  companyId: string
+  _supabase: SupabaseClient,
+  _companyId: string
 ): Promise<void> {
-  const { rates, tablesAvailable } = await fetchFieldCostRates(supabase, companyId);
-  if (!tablesAvailable || rates.some((r) => !r.employeeId)) return;
-
-  await supabase.from("field_cost_rates").insert({
-    company_id: companyId,
-    employee_id: null,
-    effective_from: new Date().toISOString().slice(0, 10),
-    labour_rate_per_hour: DEFAULT_FIELD_COST_RATE.labourRatePerHour,
-    travel_rate_per_km: DEFAULT_FIELD_COST_RATE.travelRatePerKm,
-    travel_rate_per_hour: DEFAULT_FIELD_COST_RATE.travelRatePerHour,
-    overtime_multiplier: DEFAULT_FIELD_COST_RATE.overtimeMultiplier,
-    standard_hours_per_day: DEFAULT_FIELD_COST_RATE.standardHoursPerDay,
-    idle_cost_factor: DEFAULT_FIELD_COST_RATE.idleCostFactor,
-    currency: DEFAULT_FIELD_COST_RATE.currency,
-    updated_at: new Date().toISOString(),
-  });
+  return;
 }
 
 async function fetchJobsWithBilling(
