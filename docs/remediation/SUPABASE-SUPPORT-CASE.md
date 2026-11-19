@@ -48,6 +48,27 @@ not crash. Disabling JIT (`jit = off`, as in production) did not change the beha
 
 ## What we observed in production (read-only)
 
+Re-checked 2026-11-19 09:37 UTC (unchanged from the first check that morning):
+
+| Indicator | Value |
+| --- | --- |
+| `pg_postmaster_start_time()` | 2026-10-12 08:13:42 UTC |
+| `pg_stat_checkpointer` / `pg_stat_io` stats_reset | 2026-10-12 08:13:18 UTC |
+| `pg_stat_statements_info.stats_reset` | 2026-10-12 08:13:18 UTC |
+| `pg_stat_database` sessions / fatal / killed / abandoned | 297,727 / 0 / 4 / 45 |
+| Last `auth.users.last_sign_in_at` | 2026-10-11 07:34 UTC |
+
+The Postgres log itself could not be searched from our side (the Supabase CLI has no log access;
+the dashboard Logs Explorer is required). Dashboard query to run:
+
+```sql
+select timestamp, event_message from postgres_logs
+where event_message like '%signal 11%' or event_message like '%all server processes terminated%'
+order by timestamp desc limit 100
+```
+
+Log retention covers only recent days, so please check 2026-09-26 → 2026-10-12 on your side.
+
 - Cumulative statistics (`pg_stat_statements_info`, `pg_stat_checkpointer`, `pg_stat_io`) were last
   reset at `2026-10-12 08:13:18 UTC`, just before the postmaster start (`08:13:42`). On the local
   stack, every crash reset these within seconds, so production shows **no crash recovery since

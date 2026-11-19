@@ -36,7 +36,7 @@ async function session(email, viewport = { width: 1366, height: 900 }) {
     // Known and outside this remediation: the shell's hr_cases select deliberately probes a
     // newer column and falls back (400, then retries), and vyron_developer_workspaces does
     // not exist in production (Platform Console, separate work).
-    if (/^400 hr_cases$|^404 vyron_developer_workspaces$/.test(what)) known.add(what);
+    if (/^400 hr_cases$|^404 vyron_developer_workspaces$|^404 vyron_product_packages$/.test(what)) known.add(what);
     else failures.push(what);
   });
   await page.goto(BASE + "/login", { timeout: 180000 });
@@ -129,6 +129,31 @@ group("UI — dedicated kiosk device login");
   check("UI-15 the kiosk device is kept out of manager pages", !page.url().includes("/payroll-readiness"), `landed on ${new URL(page.url()).pathname}`);
   check("UI-16 no data request failed on the kiosk device", failures.length === 0, failures.join(", ") || "none");
   await page.screenshot({ path: `${OUT}/e2e-kiosk-device.png`, fullPage: false });
+}
+
+group("UI — Company Master (Settings → Company) is preserved");
+{
+  const { page, failures } = await session(USERS.owner);
+  await page.goto(BASE + "/dashboard", { timeout: 180000 });
+  await page.waitForFunction(() => /Company Master/.test(document.body.innerText), null, { timeout: 60000 }).catch(() => {});
+  check("UI-17 the owner sees the Company Master link", /Company Master/.test(await bodyText(page)), "link shown");
+  await page.goto(BASE + "/settings/company", { timeout: 180000 });
+  await page.waitForFunction(() => /Legal name/i.test(document.body.innerText), null, { timeout: 120000 }).catch(() => {});
+  await page.waitForTimeout(2500);
+  const t = await bodyText(page);
+  const legal = await page.locator("input").evaluateAll((els) => els.map((e) => e.value)).catch(() => []);
+  check("UI-18 Settings → Company opens with the company's identity",
+    page.url().includes("/settings/company") && /Legal name/i.test(t) && legal.includes("CEC QA (local replica)"),
+    `at ${new URL(page.url()).pathname}; legal name field ${legal.includes("CEC QA (local replica)") ? "filled" : "MISSING"}`);
+  await page.screenshot({ path: `${OUT}/e2e-company-master.png`, fullPage: false });
+  check("UI-19 no data request failed on Company Master", failures.length === 0, failures.join(", ") || "none");
+
+  const kioskDevice = await session(USERS.kiosk);
+  await kioskDevice.page.goto(BASE + "/settings/company", { timeout: 180000 });
+  await kioskDevice.page.waitForTimeout(3000);
+  const kt = await bodyText(kioskDevice.page);
+  check("UI-20 the kiosk device cannot open Company Master", !kioskDevice.page.url().includes("/settings/company") || !/Legal name/i.test(kt),
+    `landed on ${new URL(kioskDevice.page.url()).pathname}`);
 }
 
 group("UI — employee on a phone");

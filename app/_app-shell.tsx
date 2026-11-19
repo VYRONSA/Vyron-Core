@@ -299,6 +299,7 @@ import { requestCreateClientLoginUser } from "@/lib/create-client-login-user-cli
 import { canAccessRouteForRole, normalizeRbacRole } from "@/lib/server/auth-routing";
 import { TAB_META, TAB_ORDER } from "@/components/road-recovery/RoadRecoveryShell";
 import { useHasModule } from "@/lib/tenant/use-module-access";
+import { useCompanyMasterVisible } from "@/lib/use-company-master";
 import { countLeaveWorkingDays } from "@/lib/leave-days";
 
 type ClientRecommendationRow = {
@@ -2002,6 +2003,7 @@ function Sidebar({
   tenantWorkspacePlan,
   platformOperator = false,
   roadRecoveryEnabled = false,
+  companyMasterVisible = false,
   workspaceName,
   onLogout,
 }: {
@@ -2015,6 +2017,7 @@ function Sidebar({
   userEmail?: string | null;
   platformOperator?: boolean;
   roadRecoveryEnabled?: boolean;
+  companyMasterVisible?: boolean;
   /** Shown in the workspace card at the foot of the sidebar. */
   workspaceName?: string;
   onLogout?: () => void | Promise<void>;
@@ -2078,6 +2081,36 @@ function Sidebar({
           >
             <span className="flex-1">Platform Console</span>
             <span className="text-xs font-bold tracking-wider text-white/70">VYRON</span>
+          </Link>
+        </div>
+      )}
+
+      {/* Company Master (sql/098) is the shared VYRON company identity - the one record
+          CORE, HR and SAFETY all read. Like the Platform Console and Road & Recovery it
+          is a standalone route rather than an `active` screen, so it is linked here for
+          the same reason and in the same way.
+
+          The gate is company-directory visibility, NOT a module or CORE role: a
+          Company Master administrator may hold no company_users membership at all,
+          which is the case sql/098 exists for. It is a display gate only -
+          vyron_get_company() and vyron_update_company() re-authorise every read and
+          write regardless, and neither consults anything decided here.
+
+          canAccessRouteForRole() is ANDed in for one reason, and it is not authority:
+          middleware.ts refuses /settings to a supervisor or an employee, so offering
+          the link to them would produce a bounce to /dashboard rather than a screen.
+          A link that cannot open is worse than no link. */}
+      {(companyMasterVisible || platformOperator)
+        && canAccessRouteForRole(normalizeRbacRole(userRole), "/settings/company") && (
+        <div className="shrink-0 border-b border-white/10 px-4 py-4">
+          <Link
+            href="/settings/company"
+            onClick={() => closeMobile?.()}
+            className="vyron-focus-ring flex w-full items-center gap-3 rounded-xl bg-white/[0.06] px-3 py-3 text-left text-sm font-black text-white ring-1 ring-white/10 transition hover:bg-white/[0.12]"
+          >
+            <Building2 className="h-4 w-4 shrink-0 text-cyan-300" />
+            <span className="flex-1">Company Master</span>
+            <span className="text-xs font-bold tracking-wider text-slate-400">SHARED</span>
           </Link>
         </div>
       )}
@@ -16191,6 +16224,8 @@ export default function Page() {
   const [platformOperatorSession, setPlatformOperatorSession] = useState(false);
   // Display gate only — middleware.ts and requireApiContext() remain authoritative.
   const { enabled: roadRecoveryEnabled } = useHasModule("road_recovery");
+  // Display gate only — the sql/098 RPCs remain authoritative for every read and write.
+  const { visible: companyMasterVisible } = useCompanyMasterVisible();
 
   const normalizedAuthEmail = useMemo(
     () => normalizeVyronEmail(authUserEmail),
@@ -17270,6 +17305,23 @@ export default function Page() {
           onPress: () =>
             setActive(isMasterOperatorSession ? "Client Directory" : "Company Setup"),
         },
+        // Same route, same gate, same reason as the sidebar link above: mobile and
+        // desktop must not disagree about what exists.
+        ...((companyMasterVisible || platformOperatorSession)
+          && canAccessRouteForRole(normalizeRbacRole(layoutUserRole), "/settings/company")
+          ? [
+              {
+                key: "company-master",
+                label: "Company Master",
+                description: "Open the shared VYRON company identity every module reads.",
+                icon: <Building2 className="h-5 w-5" />,
+                onPress: () => {
+                  setMobileMoreOpen(false);
+                  router.push("/settings/company");
+                },
+              },
+            ]
+          : []),
         {
           key: "logout",
           label: "Logout",
@@ -18676,7 +18728,7 @@ return (
             overflow-y-auto never engages, and anything below the fold — Road & Recovery
             included — is clipped instead of scrolled. */}
         <div className="hidden lg:sticky lg:top-0 lg:block lg:h-screen">
-          <Sidebar active={active} setActive={setActive} alertCounts={alertCounts} openGroup={activeSidebarGroup} setOpenGroup={setActiveSidebarGroup} userRole={layoutUserRole} userEmail={normalizedAuthEmail} hasCompanyAccess={hasTenantCompanyAccess} coreSupportMode={isVyronCoreSupportView} tenantWorkspacePlan={tenantWorkspaceSidebarPlan} platformOperator={platformOperatorSession} roadRecoveryEnabled={roadRecoveryEnabled} workspaceName={currentCompanyName || productBrand.workspaceFallback} onLogout={handleLogout} />
+          <Sidebar active={active} setActive={setActive} alertCounts={alertCounts} openGroup={activeSidebarGroup} setOpenGroup={setActiveSidebarGroup} userRole={layoutUserRole} userEmail={normalizedAuthEmail} hasCompanyAccess={hasTenantCompanyAccess} coreSupportMode={isVyronCoreSupportView} tenantWorkspacePlan={tenantWorkspaceSidebarPlan} platformOperator={platformOperatorSession} roadRecoveryEnabled={roadRecoveryEnabled} companyMasterVisible={companyMasterVisible} workspaceName={currentCompanyName || productBrand.workspaceFallback} onLogout={handleLogout} />
         </div>
 
         {/*

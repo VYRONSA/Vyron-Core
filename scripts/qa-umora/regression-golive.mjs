@@ -111,6 +111,38 @@ export async function run({ S, E, emp, pinOf }) {
     check("LV-05 each balance counts only its own leave type (annual 4, sick 2)", balances === "annual_leave=4,sick_leave=2", balances);
   }
 
+  group("Go-live — Company Master under the new security model (098/099 + 107)");
+  {
+    const owner = await login(USERS.owner);
+    const read = await owner.rpc("vyron_get_company", { p_company_id: CEC });
+    check("CM-01 owner reads the company identity (Company Master)", (read.data?.length || 0) === 1 && !read.error,
+      read.error?.message || `rows=${read.data?.length}`);
+    const tradingBefore = read.data?.[0]?.trading_name ?? null;
+    const upd = await owner.rpc("vyron_update_company", { p_company_id: CEC, p_patch: { trading_name: "CEC QA Trading" } });
+    const after = sql(`select trading_name from companies where id='${CEC}'`);
+    check("CM-02 owner updates the company identity", !upd.error && after === "CEC QA Trading", upd.error?.message || after);
+    await owner.rpc("vyron_update_company", { p_company_id: CEC, p_patch: { trading_name: tradingBefore } });
+    const toKiosk = await owner.rpc("vyron_grant_company_master_admin_by_email", { p_company_id: CEC, p_email: USERS.kiosk });
+    const kioskGrants = sql(`select count(*) from vyron_company_master_admins cma join auth.users u on u.id=cma.auth_user_id where u.email='${USERS.kiosk}' and cma.status='active'`);
+    check("CM-03 a kiosk device login cannot be made a Company Master administrator (107)",
+      Boolean(toKiosk.error) && kioskGrants === "0", toKiosk.error?.message || `GRANTED rows=${kioskGrants}`);
+    const toManager = await owner.rpc("vyron_grant_company_master_admin_by_email", { p_company_id: CEC, p_email: USERS.manager });
+    check("CM-04 an ordinary person can still be granted Company Master administration", !toManager.error, toManager.error?.message || "granted");
+    let flip = "ALLOWED";
+    try { sql(`update company_users set role='kiosk' where user_email='${USERS.manager}' and company_id='${CEC}'`); }
+    catch (e) { flip = /cannot be a kiosk/.test(String(e.stderr || e.message)) ? "refused" : String(e.stderr || e.message).slice(0, 120); }
+    const managerRole = sql(`select role from company_users where user_email='${USERS.manager}' and company_id='${CEC}'`);
+    check("CM-05 a Company Master administrator cannot be turned into a kiosk login (107)", flip === "refused" && managerRole === "manager", `${flip} role=${managerRole}`);
+    const managerId = sql(`select id from auth.users where email='${USERS.manager}'`);
+    const revoke = await owner.rpc("vyron_revoke_company_master_admin", { p_company_id: CEC, p_auth_user_id: managerId });
+    check("CM-06 the grant can be revoked again", !revoke.error, revoke.error?.message || "revoked");
+    const kUpd = await kiosk.rpc("vyron_update_company", { p_company_id: CEC, p_patch: { trading_name: "kiosk was here" } });
+    const kGrant = await kiosk.rpc("vyron_grant_company_master_admin_by_email", { p_company_id: CEC, p_email: USERS.employee1 });
+    const unchanged = sql(`select coalesce(trading_name,'') from companies where id='${CEC}'`);
+    check("CM-07 a kiosk login cannot edit the company or grant Company Master authority",
+      Boolean(kUpd.error) && Boolean(kGrant.error) && unchanged !== "kiosk was here", `${kUpd.error?.message} | ${kGrant.error?.message}`);
+  }
+
   group("Go-live — narrow 062 columns (104)");
   {
     const cols = sql(`select string_agg(column_name||':'||data_type, ',' order by column_name) from information_schema.columns where table_name='companies' and column_name in ('user_limit','customer_status')`);

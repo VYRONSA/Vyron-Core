@@ -1,5 +1,5 @@
 -- =====================================================================================
--- Preflight for 100 → 106 (UMORA go-live). READ-ONLY. Run against production immediately
+-- Preflight for 100 → 107 (UMORA go-live). READ-ONLY. Run against production immediately
 -- before the maintenance window. Every 'critical' row must be ok = true; 'warning' rows are
 -- reported for a decision and do not block.
 -- =====================================================================================
@@ -83,6 +83,17 @@ with checks(severity, check_name, ok, detail) as (
   select 'critical', 'leave requests have dates (working-day recount)',
          not exists (select 1 from public.leave_requests where start_date is null or end_date is null),
          (select count(*)::text || ' requests' from public.leave_requests)
+  -- 107: Company Master (098/099, already in production) must be present; no grant holder may be a kiosk login.
+  union all
+  select 'critical', 'Company Master grant table present (098, needed by 107)',
+         to_regclass('public.vyron_company_master_admins') is not null,
+         coalesce((select count(*)::text || ' active grants' from public.vyron_company_master_admins where status = 'active'), 'missing')
+  union all
+  select 'critical', 'no Company Master administrator is a kiosk login (107)',
+         not exists (select 1 from public.vyron_company_master_admins cma join public.company_users cu
+                       on coalesce(cu.user_id, cu.auth_user_id) = cma.auth_user_id
+                      where cma.status = 'active' and cu.deleted_at is null and lower(coalesce(cu.role, '')) = 'kiosk'),
+         'checked'
 )
 select severity, check_name, ok, detail from checks order by severity, ok, check_name;
 
